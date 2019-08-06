@@ -6,11 +6,11 @@ Consecutils: Utilities for data pipelines
 Consecutils uses a syntax similar to [Consecution](https://github.com/robdmc/consecution), which was inspired by Apache Storm Topologies.
 Consecutils basically wraps the functionality of Consecution to provide some utilities out of the box:
         
-        - Reading/Writing to/from CSVs, Excel, or SQL Databases
-        - Nodes for processing row-based iterators (such as a list of dicts) or Pandas DataFrames
-        - Nodes utilizing [Swifter](https://github.com/jmcarpenter2/swifter) or [Dask](https://github.com/dask/dask) for DataFrame transformation
-        - Node and graph parallelization support via concurrent.futures Executors or Dask Client/Delayed/DataFrames
-        - Ability to set default node contexts which can be easily overwritten when calling pipeline.consume()
+- Reading/Writing to/from CSVs, Excel, or SQL Databases
+- Nodes for processing row-based iterators (such as a list of dicts) or Pandas DataFrames
+- Nodes utilizing [Swifter](https://github.com/jmcarpenter2/swifter) or [Dask](https://github.com/dask/dask) for DataFrame transformation
+- Node and graph parallelization support via concurrent.futures Executors or Dask Client/Delayed/DataFrames
+- Ability to set default node contexts which can be easily overwritten when calling pipeline.consume()
 
 ``` {.sourceCode .python}
 >>> from consecutils import *
@@ -37,7 +37,7 @@ Installation
 Currently you must clone the git repo and then install into your python environment as follows:
 
 ``` {.sourceCode .bash}
-$ git clone <TBD>
+$ git clone https://github.com/kmatarese/consecutils
 $ cd consecutils
 $ make ENV=/path/to/venv install # Or "make ENV=/path/to/venv develop" for development
 ```
@@ -64,10 +64,10 @@ How to Contribute
 
 1.  Check for open issues or open a new issue to start a discussion
     around a feature idea or a bug. 
-2.  Fork [the repository](TBD) on
+2.  Fork [the repository](https://github.com/kmatarese/consecutils) on
     GitHub to start making your changes to the **master** branch (or
     branch off of it).
 3.  Write a test which shows that the bug was fixed or that the feature
     works as expected.
 4.  Send a [pull request](https://help.github.com/en/articles/creating-a-pull-request-from-a-fork). Add yourself to
-    [AUTHORS](TBD/blob/master/AUTHORS.rst).
+    [AUTHORS](https://github.com/kmatarese/consecutils/blob/master/AUTHORS.rst).
