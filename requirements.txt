@@ -1,0 +1,8 @@
+black
+consecution
+openpyxl
+pandas==0.24
+pre-commit
+pytest
+sqlalchemy
+xlrd

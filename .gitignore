@@ -1,0 +1,11 @@
+consecutils.egg-info
+build
+*.pyc
+*.out
+dist
+.DS_Store
+.idea/
+tests/dask-worker-space/
+*.lock
+__pycache__
+dask-worker-space
