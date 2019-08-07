@@ -38,7 +38,7 @@ class Node(ConsecutionNode):
         super().__init__(name)
         self.default_context = default_context
         self.reset_context()
-        self.run_args, self.run_kwargs = self.get_run_args()
+        self.run_args, self.run_kwargs = self._get_run_args()
 
     def update_context(self, context):
         self.context.update(context)
@@ -46,7 +46,7 @@ class Node(ConsecutionNode):
     def reset_context(self):
         self.context = self.default_context.copy()
 
-    def get_run_args(self):
+    def _get_run_args(self):
         positionals = OrderedDict()
         keywords = OrderedDict()
         sig = signature(self.run)
@@ -73,7 +73,7 @@ class Node(ConsecutionNode):
 
         return positionals, keywords
 
-    def populate_run_args(self):
+    def _populate_run_args(self):
         _args = []
         for run_arg in self.run_args:
             if run_arg not in self.context:
@@ -99,7 +99,7 @@ class Node(ConsecutionNode):
         return _args, _kwargs
 
     def process(self, item):
-        _args, _kwargs = self.populate_run_args()
+        _args, _kwargs = self._populate_run_args()
         self.run(iterize(item), *_args, **_kwargs)
 
     def _run(self, item, *args, **kwargs):
@@ -175,11 +175,11 @@ class BaseSQLConnectionNode(SkipFalseNode):
         )
         self.check_conn(conn)
 
-    def is_allowed_conn(self, conn):
+    def _is_allowed_conn(self, conn):
         return isinstance(conn, tuple(self.allowed_conn_types))
 
     def check_conn(self, conn):
-        assert self.is_allowed_conn(conn), (
+        assert self._is_allowed_conn(conn), (
             "Connection type %s is not in allowed types: %s"
             % (type(conn), self.allowed_conn_types)
         )

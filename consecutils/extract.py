@@ -1,6 +1,6 @@
 """
 To support email:
-https://stackoverflow.com/questions/51062176/pandas-read-data-from-a-secure-ftp-server-in-python-3
+http://code.activestate.com/recipes/576858-send-html-or-text-email-with-or-without-attachment/
 
 SFTP is already supported by passing a file-like object to pandas:
 https://stackoverflow.com/questions/51062176/pandas-read-data-from-a-secure-ftp-server-in-python-3

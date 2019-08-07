@@ -22,7 +22,10 @@ from consecutils import *
 A simple example that reads a CSV and logs rows to stdout:
 
 ``` {.sourceCode .python}
-pipeline = Consecutor(RowCSVExtractor("extract") | LoggingLoader("load"))
+pipeline = Consecutor(
+    RowCSVExtractor("extract")
+    | LoggingLoader("load")
+)
 pipeline.consume(["filename.csv"])
 ```
 
@@ -34,7 +37,11 @@ pipeline = Consecutor(
     | DataFrameCSVLoader("load", index=False, mode="a")
 )
 pipeline["extract"] = DataFrameCSVExtractor("extract")
-pipeline.consume(["infile.csv"], extract=dict(chunksize=100), load=dict(outfile="outfile.csv"))
+pipeline.consume(
+    ["infile.csv"],
+    extract=dict(chunksize=100),
+    load=dict(outfile="outfile.csv")
+)
 ```
 
 The above example also demonstrates two separate ways to pass context to nodes:
@@ -163,11 +170,11 @@ using Consecutils, so I'll summarize:
 
 Each has its own utility and/or quirks. Method 3 is the most straightforward
 IMO since you return to single process operation after the node is done doing
-whatever it needed to do in parallel. Method 1 may be useful and easy to
-understand in certain cases as well. Method 2 is the most confusing and should
-likely only be used towards the end of pipelines to branch the output in
-parallel. Note that combining the approaches may not work and has not been
-tested.
+whatever it needed to do in parallel, though this is not without cost. Method
+1 may be useful and easy to understand in certain cases as well. Method 2 can
+be confusing and should likely only be used towards the end of pipelines to
+branch the output in parallel. Note that combining the approaches may not work
+and has not been tested.
 
 Creating Nodes
 --------------
