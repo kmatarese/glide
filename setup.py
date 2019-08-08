@@ -33,13 +33,15 @@ with load_file("README.md") as f:
 with load_file("requirements.txt") as f:
     requires = f.read().split("\n")
 
+exec(open("glide/version.py").read())
+
 setup(
     name="glide",
     description="A data processing / ETL pipeline tool",
     long_description=README,
     author="Kurt Matarese",
     maintainer="Kurt Matarese",
-    version="0.1.0",
+    version=__version__,
     license="MIT",
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -47,14 +49,14 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     python_requires=">=3.6",
-    scripts=find_deploy_scripts(
-        "glide", ["\\*.py", "\\*.sh", "\\*.sql"], ["__init__"]
-    ),
+    scripts=find_deploy_scripts("glide", ["\\*.py", "\\*.sh", "\\*.sql"], ["__init__"]),
     packages=find_packages(),
     include_package_data=True,
     install_requires=requires,
-    extras_require={"swifter": ["swifter>=0.289"],
-                    "pymysql": ["pymysql"],
-                    "dev": ["sphinx"],
-                    "dask": ["dask>=2.1.0"]},
+    extras_require={
+        "swifter": ["swifter>=0.289"],
+        "pymysql": ["pymysql"],
+        "dev": ["sphinx"],
+        "dask": ["dask>=2.1.0"],
+    },
 )

@@ -245,11 +245,11 @@ can be filled in from the following inputs in the priority order:
 Documentation
 -------------
 
-Fantastic documentation is...not yet available. But you can get pretty far by
-perusing tests and first reviewing
+[Documentation](https://glide-etl.readthedocs.io/en/latest/) is a work in
+progress. You can supplement this by perusing tests and becoming familiar with
 [Consecution](https://github.com/robdmc/consecution), which is a core
-dependency and has some of the same syntax used in forming pipelines with
-Glide.
+dependency and has some of the same concepts/syntax used in forming pipelines
+with Glide.
 
 TODOs
 -------------
