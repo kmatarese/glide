@@ -7,3 +7,4 @@ pytest
 sqlalchemy
 wheel
 xlrd
+m2r

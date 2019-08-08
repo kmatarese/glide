@@ -55,6 +55,6 @@ setup(
     install_requires=requires,
     extras_require={"swifter": ["swifter>=0.289"],
                     "pymysql": ["pymysql"],
-                    "dev": ["sphinx", "m2r"],
+                    "dev": ["sphinx"],
                     "dask": ["dask>=2.1.0"]},
 )
