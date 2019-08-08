@@ -14,6 +14,20 @@ Glide basically wraps the functionality of Consecution to provide some utilities
 
 > ⚠️ **Warning**: This project is still in an alpha state. Your mileage may vary.
 
+Installation
+------------
+
+Currently you must clone the git repo and then install into your python
+environment as follows:
+
+```shell
+git clone https://github.com/kmatarese/glide
+cd glide
+source /path/to/venv/bin/activate
+pip install -r requirements.txt
+make ENV=/path/to/venv install # Or "make ENV=/path/to/venv develop" for development
+```
+
 Quickstart
 ----------
 
@@ -201,20 +215,6 @@ node inputs. Essentially Pandas objects, list/tuple-like objects, and
 generators all get passed through as is, but something like a string would get
 turned into ["some string"]. The goal is to allow for safe iteration over the
 input if desired.
-
-Installation
-------------
-
-Currently you must clone the git repo and then install into your python
-environment as follows:
-
-```shell
-git clone https://github.com/kmatarese/glide
-cd glide
-source /path/to/venv/bin/activate
-pip install -r requirements.txt
-make ENV=/path/to/venv install # Or "make ENV=/path/to/venv develop" for development
-```
 
 Documentation
 -------------
