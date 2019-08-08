@@ -12,6 +12,8 @@ Glide basically wraps the functionality of Consecution to provide some utilities
 - Node and graph parallelization support via concurrent.futures Executors or Dask Client/Delayed/DataFrames
 - Ability to set default node contexts which can be easily overwritten when calling glider.consume()
 
+> ⚠️ **Warning**: This project is still in an alpha state. Your mileage may vary.
+
 Quickstart
 ----------
 
@@ -29,7 +31,7 @@ glider = Glider(
 glider.consume(["filename.csv"])
 ```
 
-An example of using and replacing placeholders in gliders:
+An example of using and replacing placeholders in glider pipelines:
 
 ```python
 glider = Glider(
@@ -113,7 +115,7 @@ glider = Glider(
 glider.consume([sql], load=dict(table="out_table"))
 ```
 
-Glide also has support for completely parallelizing gliders using a
+Glide also has support for completely parallelizing glider pipelines using a
 ParaGlider instead of a Glider. The following code will create a process
 pool and split processing of the inputs over the pool, with each process
 running the entire glider on part of the consumed data:
@@ -164,7 +166,7 @@ have finished, and then the final logging node will print all of the results.
 At this point you may be confused about the various ways you can attempt parallel processing
 using Glide, so I'll summarize:
 
-- Method 1: Completely parallel gliders via ParaGliders
+- Method 1: Completely parallel glider pipelines via ParaGliders
 - Method 2: Branched parallelism using parallel push nodes such as ProcessPoolPush or ThreadPoolPush
 - Method 3: Parallelization within nodes such as DataFrameProcessPoolTransformer 
 
@@ -172,7 +174,7 @@ Each has its own utility and/or quirks. Method 3 is the most straightforward
 IMO since you return to single process operation after the node is done doing
 whatever it needed to do in parallel, though this is not without cost. Method
 1 may be useful and easy to understand in certain cases as well. Method 2 can
-be confusing and should likely only be used towards the end of gliders to
+be confusing and should likely only be used towards the end of glider pipelines to
 branch the output in parallel. Note that combining the approaches may not work
 and has not been tested.
 
@@ -209,8 +211,8 @@ environment as follows:
 git clone https://github.com/kmatarese/glide
 cd glide
 source /path/to/venv/bin/activate
-make ENV=/path/to/venv install # Or "make ENV=/path/to/venv develop" for development
 pip install -r requirements.txt
+make ENV=/path/to/venv install # Or "make ENV=/path/to/venv develop" for development
 ```
 
 Documentation

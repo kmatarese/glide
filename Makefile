@@ -1,8 +1,7 @@
 ENV := $(HOME)/env/glide
 PACKAGE_NAME := 'glide'
-MAJOR_VERSION := '0.1.0'
-VERSION := $(shell echo `date +%Y%m%d%H%M%S`)
-EGG_OPTIONS := egg_info --tag-build '.$(VERSION)' 
+VERSION := $(shell python setup.py --version)
+EGG_OPTIONS := egg_info
 PIP_CMD := $(ENV)/bin/pip
 SETUP_CMD := $(ENV)/bin/python setup.py
 
@@ -16,7 +15,7 @@ develop:
 
 install:
 	$(SETUP_CMD) bdist_wheel $(EGG_OPTIONS)
-	$(PIP_CMD) install dist/$(PACKAGE_NAME)-$(MAJOR_VERSION).$(VERSION)-py3-none-any.whl
+	$(PIP_CMD) install -U dist/$(PACKAGE_NAME)-$(VERSION)-py3-none-any.whl
 
 uninstall:
 	if ($(PIP_CMD) freeze 2>&1 | grep $(PACKAGE_NAME)); \

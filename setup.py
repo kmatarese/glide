@@ -27,7 +27,7 @@ def load_file(fname):
         f.close()
 
 
-with load_file("README") as f:
+with load_file("README.md") as f:
     README = f.read()
 
 with load_file("requirements.txt") as f:
@@ -48,7 +48,7 @@ setup(
     ],
     python_requires=">=3.6",
     scripts=find_deploy_scripts(
-        "glide", ["\\*.py", "\\*.sh", "\\*.rb", "\\*.sql"], ["__init__"]
+        "glide", ["\\*.py", "\\*.sh", "\\*.sql"], ["__init__"]
     ),
     packages=find_packages(),
     include_package_data=True,
