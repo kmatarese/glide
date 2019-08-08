@@ -208,7 +208,9 @@ environment as follows:
 ```shell
 git clone https://github.com/kmatarese/glide
 cd glide
+source /path/to/venv/bin/activate
 make ENV=/path/to/venv install # Or "make ENV=/path/to/venv develop" for development
+pip install -r requirements.txt
 ```
 
 Documentation
