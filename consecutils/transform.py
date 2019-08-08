@@ -1,3 +1,5 @@
+"""A home for common transform nodes"""
+
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 try:
@@ -20,7 +22,9 @@ from consecutils.utils import set_missing_key
 
 
 class DummyTransformer(Node):
+    """Passthrough transformer"""
     def run(self, item):
+        """Just pushes the item through"""
         self.push(item)
 
 
@@ -28,13 +32,17 @@ class DummyTransformer(Node):
 
 
 class DataFrameApplyMapTransformer(Node):
+    """Apply a transform to a Pandas DataFrame"""
     def run(self, df, func, **kwargs):
+        """Use applymap() on a DataFrame"""
         df = df.applymap(func, **kwargs)
         self.push(df)
 
 
 class SwifterApplyTransformer(Node):
+    """Apply a Swifter transform to a Pandas DataFrame"""
     def run(self, df, func, processes=True, **kwargs):
+        """Use Swifter apply() on a DataFrame"""
         assert swifter, "The swifter package is not installed"
         if processes:
             df.swifter.set_dask_scheduler(scheduler="processes")
@@ -46,7 +54,9 @@ class SwifterApplyTransformer(Node):
 
 
 class DataFrameProcessPoolTransformer(Node):
+    """Apply a transform to a Pandas DataFrame using parallel processes"""
     def run(self, df, func, **kwargs):
+        """Split the DataFrame and call func() in parallel processes, concat results"""
         with ProcessPoolExecutor() as executor:
             df_split = np.array_split(df, executor._max_workers)
             df = pd.concat(executor.map(func, df_split, **kwargs))
@@ -54,7 +64,9 @@ class DataFrameProcessPoolTransformer(Node):
 
 
 class DataFrameThreadPoolTransformer(Node):
+    """Apply a transform to a Pandas DataFrame using parallel threads"""
     def run(self, df, func, **kwargs):
+        """Split the DataFrame and call func() in parallel threads, concat results"""
         with ThreadPoolExecutor() as executor:
             df_split = np.array_split(df, executor._max_workers)
             df = pd.concat(executor.map(func, df_split, **kwargs))
@@ -62,7 +74,9 @@ class DataFrameThreadPoolTransformer(Node):
 
 
 class DataFrameDaskClientTransformer(Node):
+    """Apply a transform to a Pandas DataFrame using dask Client"""
     def run(self, df, func, executor_kwargs=None, **kwargs):
+        """Split the DataFrame and call func() using dask Client, concat results"""
         assert Client, "The dask (Client) package is not installed"
         # https://distributed.dask.org/en/latest/api.html
         dfs = []
@@ -77,9 +91,12 @@ class DataFrameDaskClientTransformer(Node):
 
 
 class DaskDataFrameApplyTransformer(Node):
+    """Apply a transform to a Pandas DataFrame using dask dataframe"""
+
     # NOTE: it may be more efficient to not convert to/from Dask Dataframe in
     # this manner depending on the pipeline
     def run(self, df, func, from_pandas_kwargs=None, **kwargs):
+        """Convert to dask dataframe and use apply()"""
         assert from_pandas, "The dask (dataframe) package is not installed"
         from_pandas_kwargs = from_pandas_kwargs or {}
         set_missing_key(from_pandas_kwargs, "chunksize", 500)
@@ -97,7 +114,10 @@ class DaskDataFrameApplyTransformer(Node):
 
 
 class RowProcessPoolTransformer(Node):
+    """Apply a transform function to a set of rows in parallel processes"""
+
     def run(self, rows, func, **kwargs):
+        """Use a ProcessPoolExecutor to map() func over input rows"""
         result_rows = []
         with ProcessPoolExecutor() as executor:
             set_missing_key(
@@ -108,7 +128,10 @@ class RowProcessPoolTransformer(Node):
 
 
 class RowThreadPoolTransformer(Node):
+    """Apply a transform function to a set of rows in parallel threads"""
+
     def run(self, rows, func, **kwargs):
+        """Use a ThreadPoolExecutor to map() func over input rows"""
         result_rows = []
         with ThreadPoolExecutor() as executor:
             rows = [x for x in executor.map(func, rows, **kwargs)]

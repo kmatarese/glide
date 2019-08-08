@@ -1,3 +1,6 @@
+"""
+Core classes used to power pipelines
+"""
 from collections import OrderedDict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from inspect import signature, Parameter
@@ -23,17 +26,18 @@ from consecutils.sql_utils import (
     is_sqlalchemy_conn,
     get_bulk_replace,
 )
-from consecutils.utils import iterize, set_missing_key, MappingMixin
+from consecutils.utils import st, iterize, set_missing_key, MappingMixin, is_pandas
 
 
 class GlobalState(MappingMixin, ConsecutionGlobalState):
-    # Get this to behave more like a dict
+    """Consecution GlobalState with more dict-like behavior"""
     def __bool__(self):
-        # Hack to get Consecution to use this as default even if technically empty
+        """Hack to get Consecution to use this as default even if technically empty"""
         return True
 
 
 class Node(ConsecutionNode):
+    """Override Consecution's Node class to add necessary functionality"""
     def __init__(self, name, **default_context):
         super().__init__(name)
         self.default_context = default_context
@@ -41,12 +45,15 @@ class Node(ConsecutionNode):
         self.run_args, self.run_kwargs = self._get_run_args()
 
     def update_context(self, context):
+        """Update the context dict for this Node"""
         self.context.update(context)
 
     def reset_context(self):
+        """Reset context dict for this Node to the default"""
         self.context = self.default_context.copy()
 
     def _get_run_args(self):
+        """Get the args and kwargs of this Node's run() method"""
         positionals = OrderedDict()
         keywords = OrderedDict()
         sig = signature(self.run)
@@ -74,6 +81,7 @@ class Node(ConsecutionNode):
         return positionals, keywords
 
     def _populate_run_args(self):
+        """Populate the args to run() based on the current context"""
         _args = []
         for run_arg in self.run_args:
             if run_arg not in self.context:
@@ -99,22 +107,26 @@ class Node(ConsecutionNode):
         return _args, _kwargs
 
     def process(self, item):
+        """Required method used by Consecution to process nodes"""
         _args, _kwargs = self._populate_run_args()
-        self.run(iterize(item), *_args, **_kwargs)
+        self._run(iterize(item), *_args, **_kwargs)
 
     def _run(self, item, *args, **kwargs):
         self.run(item, *args, **kwargs)
 
     def run(self, item, *args, **kwargs):
+        """Subclasses will override this method to implement core node logic """
         raise NotImplementedError
 
 
 class DefaultNode(Node):
+    """A default node that just passes all items through"""
     def run(self, item, **kwargs):
         self.push(item)
 
 
 class PlaceholderNode(DefaultNode):
+    """Used as a placeholder in pipelines. Will pass values through by default"""
     pass
 
 
@@ -123,14 +135,21 @@ class SkipFalseNode(Node):
     object is pushed it will never call run, just push to next node instead"""
 
     def _run(self, item, *args, **kwargs):
-        if not item:
-            self.push(item)
-            return
+        if is_pandas(item):
+            if item.empty:
+                self.push(item)
+                return
+        else:
+            if not item:
+                self.push(item)
+                return
         self.run(item, *args, **kwargs)
 
 
 class DataFramePushMixin:
+    """Shared logic for DataFrame-based nodes"""
     def do_push(self, df, **kwargs):
+        """Push the DataFrame to the next node, obeying chunksize if passed"""
         if kwargs.get("chunksize", None):
             for chunk in df:
                 self.push(chunk)
@@ -139,7 +158,9 @@ class DataFramePushMixin:
 
 
 class SQLCursorPushMixin:
+    """Shared logic for SQL cursor-based nodes"""
     def do_push(self, cursor, chunksize=None):
+        """Fetch data and push to the next node, obeying chunksize if passed"""
         if chunksize:
             while True:
                 chunk = cursor.fetchmany(chunksize)
@@ -152,10 +173,12 @@ class SQLCursorPushMixin:
 
 
 class DataFramePushNode(Node, DataFramePushMixin):
+    """Base class for DataFrame-based nodes"""
     pass
 
 
 class BaseSQLConnectionNode(SkipFalseNode):
+    """Base class for SQL-based nodes, checks for valid connection types on init"""
     allowed_conn_types = None
 
     def __init__(self, *args, **kwargs):
@@ -186,18 +209,22 @@ class BaseSQLConnectionNode(SkipFalseNode):
 
 
 class PandasSQLConnectionNode(BaseSQLConnectionNode, DataFramePushMixin):
+    """Captures the connection types allowed to work with Pandas to_sql/from_sql"""
     allowed_conn_types = SQLALCHEMY_CONN_TYPES + [sqlite3.Connection]
 
 
 class SQLAlchemyConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
+    """Captures the connection types allowed to work with SQLAlchemy"""
     allowed_conn_types = SQLALCHEMY_CONN_TYPES
 
 
 class SQLiteConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
+    """Captures the connection types allowed to work with SQLite"""
     allowed_conn_types = [sqlite3.Connection]
 
 
 class SQLDBAPIConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
+    """Checks that a valid DBAPI connection is passed"""
     allowed_conn_types = [object]
 
     def check_conn(self, conn):
@@ -211,6 +238,7 @@ class SQLConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
     allowed_conn_types = [object]
 
     def check_conn(self, conn):
+        """Make sure the object is a valid SQL connection"""
         assert hasattr(conn, "cursor") or is_sqlalchemy_conn(
             conn
         ), "Connection must have a cursor() method or be a SQLAlchemy connection"
@@ -230,7 +258,7 @@ class SQLConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
         return cursor
 
     def sql_executemany(self, conn, cursor, sql, rows):
-        """Executes the sql statement and returns an object that can fetch results"""
+        """Bulk executes the sql statement and returns an object that can fetch results"""
         if is_sqlalchemy_conn(conn):
             qr = conn.execute(sql, rows)
             return qr
@@ -238,6 +266,7 @@ class SQLConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
         return cursor
 
     def get_bulk_replace(self, conn, table, rows):
+        """Get a bulk replace SQL statement"""
         if is_sqlalchemy_conn(conn):
             return get_bulk_replace(table, rows[0].keys(), dicts=False)
         if isinstance(conn, sqlite3.Connection):
@@ -251,25 +280,37 @@ class SQLConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
 
 
 class Reducer(Node):
+    """Waits until end() to call push(), effectively waiting for all nodes before
+    it to finish before continuing the pipeline"""
+
     def begin(self):
+        """Setup a place for results to be collected"""
         self.results = []
 
     def run(self, item, **kwargs):
+        """Collect results from previous nodes"""
         self.results.append(item)
 
     def end(self):
+        """Do the push once all results are in"""
         self.push(self.results)
 
 
 class ThreadReducer(Reducer):
+    """A plain-old Reducer with a name that makes it clear it works with threads"""
     pass
 
 
 class FuturesPushNode(DefaultNode):
+    """A node that either splits or duplicates its input to pass to multiple
+    downstream nodes in parallel according to the executor_class that supports
+    the futures interface.
+    """
     executor_class = ProcessPoolExecutor
     as_completed_func = as_completed
 
     def _push(self, item):
+        """Override Consecution's push such that we can push in parallel"""
         if self._logging == "output":
             self._write_log(item)
 
@@ -290,14 +331,17 @@ class FuturesPushNode(DefaultNode):
 
 
 class ProcessPoolPush(FuturesPushNode):
+    """A multi-process FuturesPushNode"""
     pass
 
 
 class ThreadPoolPush(FuturesPushNode):
+    """A multi-threaded FuturesPushNode"""
     executor_class = ThreadPoolExecutor
 
 
 class DaskClientPush(FuturesPushNode):
+    """Use a dask Client to do a parallel push"""
     executor_class = Client
     as_completed_func = dask_as_completed
 
@@ -307,6 +351,7 @@ class DaskClientPush(FuturesPushNode):
 
 
 class DaskDelayedPush(DefaultNode):
+    """Use dask delayed to do a parallel push"""
     def _push(self, item):
         assert delayed, "Please install dask (delayed) to use DaskDelayedPush"
 
@@ -329,51 +374,67 @@ class DaskDelayedPush(DefaultNode):
 
 
 def update_node_contexts(pipeline, node_contexts):
+    """Helper function for updating node contexts in a pipeline"""
     for k, v in node_contexts.items():
         assert k in pipeline._node_lookup, "Invalid node: %s" % k
         pipeline[k].update_context(v)
 
 
 def reset_node_contexts(pipeline, node_contexts):
+    """Helper function for resetting node contexts in a pipeline"""
     for k in node_contexts:
         assert k in pipeline._node_lookup, "Invalid node: %s" % k
         pipeline[k].reset_context()
 
 
 def consume(pipeline, data, **node_contexts):
+    """Handles node contexts before/after calling pipeline.consume()"""
     update_node_contexts(pipeline, node_contexts)
     pipeline.consume(data)
     reset_node_contexts(pipeline, node_contexts)
 
 
 class Consecutor:
+    """Main class for forming and executing pipelines. It thinly wraps
+    Consecution's Pipeline, but does not subclass it due to a bug in pickle
+    that hits an infinite recursion when using multiprocessing with a
+    super().func reference.
+    """
+
     def __init__(self, *args, **kwargs):
-        # NOTE: We can't subclass Pipeline due to a bug in pickle that screws
-        # up the super().func reference when using multiprocessing, causing
-        # infinite recursion
+        """Initialize the pipeline"""
         set_missing_key(
             kwargs, "global_state", GlobalState()
         )  # Ensure our version is default
         self.pipeline = Pipeline(*args, **kwargs)
 
     def __getitem__(self, name):
+        """Passthrough to Consecution Pipeline"""
         return self.pipeline[name]
 
     def __setitem__(self, name_to_replace, replacement_node):
+        """Passthrough to Consecution Pipeline"""
         self.pipeline[name_to_replace] = replacement_node
 
     def __str__(self):
+        """Passthrough to Consecution Pipeline"""
         return self.pipeline.__str__()
 
     def consume(self, data, **node_contexts):
+        """Setup node contexts and consume data with the pipeline"""
         consume(self.pipeline, data, **node_contexts)
 
     def plot(self, *args, **kwargs):
+        """Passthrough to Consecution Pipeline"""
         self.pipeline.plot(*args, **kwargs)
 
 
 class DaskParacutor(Consecutor):
+    """A parallel Consecutor that uses a dask Client to execute parallel calls to
+    consume()"""
+
     def consume(self, data, **node_contexts):
+        """Setup node contexts and consume data with the pipeline"""
         assert Client, "Please install dask (Client) to use DaskParacutor"
 
         with Client() as client:  # Local multi-processor for now
@@ -388,7 +449,11 @@ class DaskParacutor(Consecutor):
 
 
 class ProcessPoolParacutor(Consecutor):
+    """A parallel Consecutor that uses a ProcessPoolExecutor to execute parallel calls to
+    consume()"""
+
     def consume(self, data, **node_contexts):
+        """Setup node contexts and consume data with the pipeline"""
         with ProcessPoolExecutor() as executor:
             splits = np.array_split(data, min(len(data), executor._max_workers))
             futures = []
@@ -401,7 +466,11 @@ class ProcessPoolParacutor(Consecutor):
 
 
 class ThreadPoolParacutor(Consecutor):
+    """A parallel Consecutor that uses a ThreadPoolExecutor to execute parallel calls to
+    consume()"""
+
     def consume(self, data, **node_contexts):
+        """Setup node contexts and consume data with the pipeline"""
         with ThreadPoolExecutor() as executor:
             splits = np.array_split(data, min(len(data), executor._max_workers))
             futures = []

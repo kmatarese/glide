@@ -1,4 +1,5 @@
-"""
+"""A home for common data extraction nodes
+
 To support email:
 http://code.activestate.com/recipes/576858-send-html-or-text-email-with-or-without-attachment/
 
@@ -29,28 +30,36 @@ from consecutils.sql_utils import build_table_select
 
 
 class DataFrameCSVExtractor(DataFramePushNode):
+    """Extract data from a CSV using Pandas"""
     def run(self, files, **kwargs):
+        """Extract data for each input file and push as a DataFrame"""
         for f in files:
             df = pd.read_csv(f, **kwargs)
             self.do_push(df, **kwargs)
 
 
 class DataFrameExcelExtractor(DataFramePushNode):
+    """Extract data from an Excel file using Pandas"""
     def run(self, files, **kwargs):
+        """Extract data for each input file and push as a DataFrame"""
         for f in files:
             df = pd.read_excel(f, **kwargs)
             self.do_push(df, **kwargs)
 
 
 class DataFrameSQLExtractor(PandasSQLConnectionNode):
+    """Extract data from a SQL db using Pandas"""
     def run(self, queries, conn, **kwargs):
+        """Extract data for each input query and push as a DataFrame"""
         for sql in queries:
             df = pd.read_sql(sql, conn, **kwargs)
             self.do_push(df, **kwargs)
 
 
 class DataFrameSQLTableExtractor(PandasSQLConnectionNode):
+    """Extract data from a SQL table using Pandas"""
     def run(self, tables, conn, where=None, limit=None, **kwargs):
+        """Extract data for each input table and push as a DataFrame"""
         for table in tables:
             sql = build_table_select(table, where=where, limit=limit)
             df = pd.read_sql(sql, conn, **kwargs)
@@ -61,7 +70,9 @@ class DataFrameSQLTableExtractor(PandasSQLConnectionNode):
 
 
 class RowCSVExtractor(Node):
+    """Extract data from a CSV using DictReader"""
     def run(self, files, chunksize=None, nrows=None, **kwargs):
+        """Extract data for each input file and push dict rows"""
         for f in files:
             close = False
             if isinstance(f, str):
@@ -87,7 +98,9 @@ class RowCSVExtractor(Node):
 
 
 class RowSQLiteExtractor(SQLiteConnectionNode):
+    """Extract data from a SQLite connection"""
     def run(self, queries, conn, cursor=None, chunksize=None, **kwargs):
+        """Extract data for each input query and push fetched rows"""
         if not cursor:
             cursor = conn.cursor()
         for sql in queries:
@@ -96,7 +109,9 @@ class RowSQLiteExtractor(SQLiteConnectionNode):
 
 
 class RowSQLDBAPIExtractor(SQLDBAPIConnectionNode):
+    """Extract data from a DBAPI connection"""
     def run(self, queries, conn, cursor=None, chunksize=None, **kwargs):
+        """Extract data for each input query and push fetched rows"""
         if not cursor:
             cursor = conn.cursor()
         for sql in queries:
@@ -105,13 +120,16 @@ class RowSQLDBAPIExtractor(SQLDBAPIConnectionNode):
 
 
 class RowSQLAlchemyExtractor(SQLAlchemyConnectionNode):
+    """Extract data from a SQLAlchemy connection"""
     def run(self, queries, conn, chunksize=None, **kwargs):
+        """Extract data for each input query and push fetched rows"""
         for sql in queries:
             qr = conn.execute(sql, **kwargs)
             self.do_push(qr, chunksize=chunksize)
 
 
 class RowSQLiteTableExtractor(SQLiteConnectionNode):
+    """Extract data from SQLite tables"""
     def run(
         self,
         tables,
@@ -122,6 +140,7 @@ class RowSQLiteTableExtractor(SQLiteConnectionNode):
         chunksize=None,
         **kwargs
     ):
+        """Extract data for each input table and push fetched rows"""
         if not cursor:
             cursor = conn.cursor()
         for table in tables:
@@ -131,6 +150,7 @@ class RowSQLiteTableExtractor(SQLiteConnectionNode):
 
 
 class RowSQLDBAPITableExtractor(SQLDBAPIConnectionNode):
+    """Extract data from tables in a DBAPI connected"""
     def run(
         self,
         tables,
@@ -141,6 +161,7 @@ class RowSQLDBAPITableExtractor(SQLDBAPIConnectionNode):
         chunksize=None,
         **kwargs
     ):
+        """Extract data for each input table and push fetched rows"""
         if not cursor:
             cursor = conn.cursor()
         for table in tables:
@@ -150,7 +171,9 @@ class RowSQLDBAPITableExtractor(SQLDBAPIConnectionNode):
 
 
 class RowSQLAlchemyTableExtractor(SQLAlchemyConnectionNode):
+    """Extract data from tables in a SQLAlchemy connection"""
     def run(self, tables, conn, where=None, limit=None, chunksize=None, **kwargs):
+        """Extract data for each input table and push fetched rows"""
         for table in tables:
             sql = build_table_select(table, where=where, limit=limit)
             qr = conn.execute(sql, **kwargs)
@@ -161,6 +184,7 @@ class RowSQLExtractor(SQLConnectionNode):
     """Generic SQL Extractor"""
 
     def run(self, queries, conn, cursor=None, chunksize=None, **kwargs):
+        """Extract data for each input query and push fetched rows"""
         if not cursor:
             cursor = self.get_sql_executor(conn)
         for sql in queries:
@@ -181,6 +205,7 @@ class RowSQLTableExtractor(SQLConnectionNode):
         chunksize=None,
         **kwargs
     ):
+        """Extract data for each input table and push fetched rows"""
         if not cursor:
             cursor = self.get_sql_executor(conn)
         for table in tables:

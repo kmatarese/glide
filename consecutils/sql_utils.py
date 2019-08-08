@@ -1,3 +1,5 @@
+"""SQL utilities"""
+
 import random
 import time
 
@@ -24,14 +26,18 @@ def get_temp_table_name():
 
 
 class TemporaryTable(SQLTable):
+    """Override the default Pandas table creation to make it a temp table"""
     def _execute_create(self):
+        """Inject TEMPORARY keyword into create statement"""
         self.table = self.table.tometadata(self.pd_sql.meta)
         self.table._prefixes.append("TEMPORARY")
         self.table.create()
 
 
 class SQLiteTemporaryTable(SQLiteTable):
+    """Override the default Pandas SQLite table creation to make it a temp table"""
     def _execute_create(self):
+        """Inject TEMP keyword into create statement"""
         with self.pd_sql.run_transaction() as conn:
             for stmt in self.table:
                 if "CREATE TABLE" in stmt:
@@ -40,6 +46,9 @@ class SQLiteTemporaryTable(SQLiteTable):
 
 
 def get_temp_table(conn, data, create=False, **kwargs):
+    """Reuse Pandas logic for creating a temp table. The definition will be formed
+    based on the first row of data passed
+    """
     table_name = get_temp_table_name()
     pandas_engine = pandasSQL_builder(conn, schema=kwargs.get("schema", None))
     if isinstance(conn, sqlite3.Connection):
@@ -67,6 +76,7 @@ def get_temp_table(conn, data, create=False, **kwargs):
 def get_bulk_statement(
     table_name, column_names, dicts=True, value_string="%s", type="REPLACE"
 ):
+    """Get a SQL statement suitable for use with bulk execute functions"""
     assert type.lower() in ("replace", "insert", "insert ignore"), (
         "Invalid statement type: %s" % type
     )
@@ -97,6 +107,7 @@ def get_bulk_replace(table_name, column_names, **kwargs):
 
 
 def build_table_select(table, where=None, limit=None):
+    """Simple helper to build a SQL query to select from a table"""
     sql = "SELECT * FROM %s" % table
 
     if where:

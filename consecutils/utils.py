@@ -1,3 +1,5 @@
+"""Common utilities"""
+
 from collections.abc import MutableMapping
 import inspect
 import os
@@ -18,6 +20,8 @@ def rmfile(fname):
 
 
 def read_chunks(reader, chunksize, limit=None):
+    """Given an iterator/generator, read/yield chunks of chunksize up to
+    (optional) limit"""
     chunk = []
     for i, line in enumerate(reader):
         if limit and i >= limit:
@@ -30,12 +34,11 @@ def read_chunks(reader, chunksize, limit=None):
 
 
 def set_missing_key(d, k, v):
-    # Sets a key in a dict, only if its missing
+    """Sets a key in a dict, but only if it's missing"""
     if k not in d:
         d[k] = v
 
 
-# https://stackoverflow.com/questions/16804234/python-wrap-and-object-into-a-list-if-not-is-an-iterable
 def isstr(o):
     try:
         basestring
@@ -49,6 +52,7 @@ def is_pandas(o):
 
 
 def iterize(o):
+    """Wrap an object in a list unless it already is a non-string iteratable"""
     if is_pandas(o):
         return o
 
@@ -65,6 +69,7 @@ def iterize(o):
 
 
 class MappingMixin(MutableMapping):
+    """Mixin to make an object behave more like a dict"""
     def __setitem__(self, key, value):
         self.__dict__[key] = value
 

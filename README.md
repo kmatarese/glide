@@ -15,13 +15,13 @@ Consecutils basically wraps the functionality of Consecution to provide some uti
 Quickstart
 ----------
 
-``` {.sourceCode .python}
+```python
 from consecutils import *
 ```
 
 A simple example that reads a CSV and logs rows to stdout:
 
-``` {.sourceCode .python}
+```python
 pipeline = Consecutor(
     RowCSVExtractor("extract")
     | LoggingLoader("load")
@@ -31,7 +31,7 @@ pipeline.consume(["filename.csv"])
 
 An example of using and replacing placeholders in pipelines:
 
-``` {.sourceCode .python}
+```python
 pipeline = Consecutor(
     PlaceholderNode("extract")
     | DataFrameCSVLoader("load", index=False, mode="a")
@@ -59,7 +59,7 @@ Back to examples...
 
 An example applying a transformation to a DataFrame.
 
-``` {.sourceCode .python}
+```python
 def lower(s):
     return s.lower() if type(s) == str else s
 
@@ -79,7 +79,7 @@ pipeline.consume(
 
 Or have the pipeline split the DataFrame and do it in parallel:
 
-``` {.sourceCode .python}
+```python
 def df_lower(df):
     df = df.applymap(lower)
     return df
@@ -102,7 +102,7 @@ install those extensions.
 
 A pipeline can also have shared/global context that can be used to populate node arguments:
 
-``` {.sourceCode .python}
+```python
 conn = get_my_sqlalchemy_conn()
 sql = "select * from in_table limit 10"
 pipeline = Consecutor(
@@ -118,7 +118,7 @@ Paracutor instead of a Consecutor. The following code will create a process
 pool and split processing of the inputs over the pool, with each process
 running the entire pipeline on part of the consumed data:
 
-``` {.sourceCode .python}
+```python
 pipeline = ProcessPoolParacutor(
     RowCSVExtractor('extract') |
     LoggingLoader('load')
@@ -129,7 +129,7 @@ pipeline.consume(["file1.csv", "file2.csv"], extract=dict(nrows=50))
 If you don't want to execute the entire pipeline in parallel, you can also branch into
 parallel execution utilizing a parallel push node as in the following example:
 
-``` {.sourceCode .python}
+```python
 pipeline = Consecutor(
     RowCSVExtractor("extract", nrows=60)
     | ProcessPoolPush("push", split=True)
@@ -146,7 +146,7 @@ way to reduce/join the pipeline back into the original process and resume
 single-process operation on the multiprocessed results. However, that can be
 achieved with threads:
 
-``` {.sourceCode .python}
+```python
 pipeline = Consecutor(
     RowCSVExtractor("extract", nrows=60)
     | ThreadPoolPush("push", split=True)
@@ -186,7 +186,7 @@ that takes at least one positional argument for the data being pushed to it.
 
 A simple example would be:
 
-``` {.sourceCode .python}
+```python
 class ExampleTransformer(Node):
     def run(self, item):
         # Do something to item here
@@ -205,10 +205,10 @@ Installation
 Currently you must clone the git repo and then install into your python
 environment as follows:
 
-``` {.sourceCode .bash}
-$ git clone https://github.com/kmatarese/consecutils
-$ cd consecutils
-$ make ENV=/path/to/venv install # Or "make ENV=/path/to/venv develop" for development
+```shell
+git clone https://github.com/kmatarese/consecutils
+cd consecutils
+make ENV=/path/to/venv install # Or "make ENV=/path/to/venv develop" for development
 ```
 
 Documentation
