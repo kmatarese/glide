@@ -99,8 +99,8 @@ glider.consume(
 )
 ```
 
-Note: there are transformer nodes for using Swifter and Dask as well if you
-install those extensions.
+> **Note:** there are transformer nodes for using Swifter and Dask as well if
+you install those extensions.
 
 A glider can also have shared/global context that can be used to populate node arguments:
 
@@ -175,8 +175,9 @@ IMO since you return to single process operation after the node is done doing
 whatever it needed to do in parallel, though this is not without cost. Method
 1 may be useful and easy to understand in certain cases as well. Method 2 can
 be confusing and should likely only be used towards the end of glider pipelines to
-branch the output in parallel. Note that combining the approaches may not work
-and has not been tested.
+branch the output in parallel. 
+
+> **Note:** combining the approaches may not work and has not been tested.
 
 Creating Nodes
 --------------
@@ -249,7 +250,7 @@ How to Contribute
 In order to run tests you will need to set a GLIDE_CONFIG_FILE environment variable
 that points to a .ini file containing information shown in tests/sample_config.ini.
 
-**Note:** As of mid 2019, Consecution does not appear to be under active
+> **Note:** As of mid 2019, Consecution does not appear to be under active
 development. The features Glide relies on (basically some syntactic sugar and
 graph creation/traversal) seem stable but could also be rewritten if this
 dependency becomes a limitation.
