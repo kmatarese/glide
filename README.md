@@ -28,8 +28,8 @@ pip install -r requirements.txt
 make ENV=/path/to/venv install # Or "make ENV=/path/to/venv develop" for development
 ```
 
-Quickstart
-----------
+Examples
+--------
 
 ```python
 from glide import *
