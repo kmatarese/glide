@@ -17,8 +17,8 @@ try:
 except ImportError:
     swifter = None
 
-from consecutils.core import Node
-from consecutils.utils import set_missing_key
+from glide.core import Node
+from glide.utils import set_missing_key
 
 
 class DummyTransformer(Node):

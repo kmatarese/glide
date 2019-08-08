@@ -34,12 +34,12 @@ with load_file("requirements.txt") as f:
     requires = f.read().split("\n")
 
 setup(
-    name="consecutils",
-    description="Wrapper and utils for consecution",
+    name="glide",
+    description="A data processing / ETL pipeline tool",
     long_description=README,
     author="Kurt Matarese",
     maintainer="Kurt Matarese",
-    version="0.1",
+    version="0.1.0",
     license="MIT",
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -48,10 +48,12 @@ setup(
     ],
     python_requires=">=3.6",
     scripts=find_deploy_scripts(
-        "consecutils", ["\\*.py", "\\*.sh", "\\*.rb", "\\*.sql"], ["__init__"]
+        "glide", ["\\*.py", "\\*.sh", "\\*.rb", "\\*.sql"], ["__init__"]
     ),
     packages=find_packages(),
     include_package_data=True,
     install_requires=requires,
-    extras_require={"swifter": ["swifter>=0.289"], "dask": ["dask>=2.1.0"]},
+    extras_require={"swifter": ["swifter>=0.289"],
+                    "pymysql": ["pymysql"],
+                    "dask": ["dask>=2.1.0"]},
 )

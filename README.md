@@ -1,43 +1,43 @@
-Consecutils: Utilities for data pipelines
+Glide: A data processing / ETL pipeline tool
 =========================================
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-Consecutils uses a syntax similar to [Consecution](https://github.com/robdmc/consecution), which was inspired by Apache Storm Topologies.
-Consecutils basically wraps the functionality of Consecution to provide some utilities out of the box:
+Glide uses a syntax similar to [Consecution](https://github.com/robdmc/consecution), which was inspired by Apache Storm Topologies.
+Glide basically wraps the functionality of Consecution to provide some utilities out of the box:
         
 - Reading/Writing to/from CSVs, Excel, or SQL Databases
 - Nodes for processing row-based iterators (such as a list of dicts) or Pandas DataFrames
 - Nodes utilizing [Swifter](https://github.com/jmcarpenter2/swifter) or [Dask](https://github.com/dask/dask) for DataFrame transformation
 - Node and graph parallelization support via concurrent.futures Executors or Dask Client/Delayed/DataFrames
-- Ability to set default node contexts which can be easily overwritten when calling pipeline.consume()
+- Ability to set default node contexts which can be easily overwritten when calling glider.consume()
 
 Quickstart
 ----------
 
 ```python
-from consecutils import *
+from glide import *
 ```
 
 A simple example that reads a CSV and logs rows to stdout:
 
 ```python
-pipeline = Consecutor(
+glider = Glider(
     RowCSVExtractor("extract")
     | LoggingLoader("load")
 )
-pipeline.consume(["filename.csv"])
+glider.consume(["filename.csv"])
 ```
 
-An example of using and replacing placeholders in pipelines:
+An example of using and replacing placeholders in gliders:
 
 ```python
-pipeline = Consecutor(
+glider = Glider(
     PlaceholderNode("extract")
     | DataFrameCSVLoader("load", index=False, mode="a")
 )
-pipeline["extract"] = DataFrameCSVExtractor("extract")
-pipeline.consume(
+glider["extract"] = DataFrameCSVExtractor("extract")
+glider.consume(
     ["infile.csv"],
     extract=dict(chunksize=100),
     load=dict(outfile="outfile.csv")
@@ -63,13 +63,13 @@ An example applying a transformation to a DataFrame.
 def lower(s):
     return s.lower() if type(s) == str else s
 
-pipeline = (
+glider = (
     DataFrameCSVExtractor("extract")
     | DataFrameApplyMapTransformer("transform")
     | DataFrameCSVLoader("load", index=False, mode="a")
 )
 
-pipeline.consume(
+glider.consume(
     ["infile.csv"],
     extract=dict(chunksize=100),
     transform=dict(func=lower),
@@ -77,20 +77,20 @@ pipeline.consume(
 )
 ```
 
-Or have the pipeline split the DataFrame and do it in parallel:
+Or have the glider split the DataFrame and do it in parallel:
 
 ```python
 def df_lower(df):
     df = df.applymap(lower)
     return df
 
-pipeline = (
+glider = (
     DataFrameCSVExtractor("extract")
     | DataFrameProcessPoolTransformer("transform")
     | DataFrameCSVLoader("load", index=False, mode="a")
 )
 
-pipeline.consume(
+glider.consume(
     ["infile.csv"],
     transform=dict(func=df_lower),
     load=dict(outfile="outfile.csv"),
@@ -100,61 +100,61 @@ pipeline.consume(
 Note: there are transformer nodes for using Swifter and Dask as well if you
 install those extensions.
 
-A pipeline can also have shared/global context that can be used to populate node arguments:
+A glider can also have shared/global context that can be used to populate node arguments:
 
 ```python
 conn = get_my_sqlalchemy_conn()
 sql = "select * from in_table limit 10"
-pipeline = Consecutor(
+glider = Glider(
     DataFrameSQLExtractor("extract")
     | DataFrameSQLLoader("load", if_exists="replace", index=False),
     global_state=dict(conn=conn) # conn will automagically be passed to any nodes that require it
 )
-pipeline.consume([sql], load=dict(table="out_table"))
+glider.consume([sql], load=dict(table="out_table"))
 ```
 
-Consecutils also has support for completely parallelizing pipelines using a
-Paracutor instead of a Consecutor. The following code will create a process
+Glide also has support for completely parallelizing gliders using a
+ParaGlider instead of a Glider. The following code will create a process
 pool and split processing of the inputs over the pool, with each process
-running the entire pipeline on part of the consumed data:
+running the entire glider on part of the consumed data:
 
 ```python
-pipeline = ProcessPoolParacutor(
+glider = ProcessPoolParaGlider(
     RowCSVExtractor('extract') |
     LoggingLoader('load')
 )
-pipeline.consume(["file1.csv", "file2.csv"], extract=dict(nrows=50))
+glider.consume(["file1.csv", "file2.csv"], extract=dict(nrows=50))
 ```
 
-If you don't want to execute the entire pipeline in parallel, you can also branch into
+If you don't want to execute the entire glider in parallel, you can also branch into
 parallel execution utilizing a parallel push node as in the following example:
 
 ```python
-pipeline = Consecutor(
+glider = Glider(
     RowCSVExtractor("extract", nrows=60)
     | ProcessPoolPush("push", split=True)
     | [LoggingLoader("load1"), LoggingLoader("load2"), LoggingLoader("load3")]
 )
-pipeline.consume(["infile.csv"])
+glider.consume(["infile.csv"])
 ```
 
 The above example will extract 60 rows from a CSV and then push equal slices
 to the logging nodes in parallel processes. Using split=False (default) would
 have passed the entire 60 rows to each logging node in parallel
 processes. Note that once you branch off into processes there is currently no
-way to reduce/join the pipeline back into the original process and resume
+way to reduce/join the glider back into the original process and resume
 single-process operation on the multiprocessed results. However, that can be
 achieved with threads:
 
 ```python
-pipeline = Consecutor(
+glider = Glider(
     RowCSVExtractor("extract", nrows=60)
     | ThreadPoolPush("push", split=True)
     | [LoggingLoader("load1"), LoggingLoader("load2"), LoggingLoader("load3")]
     | ThreadReducer("reducer")
     | LoggingLoader("loadall")
 )
-pipeline.consume(["infile.csv"])
+glider.consume(["infile.csv"])
 ```
 
 The above code will split the data and push to the first 3 logging nodes in
@@ -162,9 +162,9 @@ multiple threads. The ThreadReducer won't push until all of the previous nodes
 have finished, and then the final logging node will print all of the results.
 
 At this point you may be confused about the various ways you can attempt parallel processing
-using Consecutils, so I'll summarize:
+using Glide, so I'll summarize:
 
-- Method 1: Completely parallel pipelines via Paracutors
+- Method 1: Completely parallel gliders via ParaGliders
 - Method 2: Branched parallelism using parallel push nodes such as ProcessPoolPush or ThreadPoolPush
 - Method 3: Parallelization within nodes such as DataFrameProcessPoolTransformer 
 
@@ -172,15 +172,15 @@ Each has its own utility and/or quirks. Method 3 is the most straightforward
 IMO since you return to single process operation after the node is done doing
 whatever it needed to do in parallel, though this is not without cost. Method
 1 may be useful and easy to understand in certain cases as well. Method 2 can
-be confusing and should likely only be used towards the end of pipelines to
+be confusing and should likely only be used towards the end of gliders to
 branch the output in parallel. Note that combining the approaches may not work
 and has not been tested.
 
 Creating Nodes
 --------------
 
-There are some small differences between Consecutils and Consecution. Namely,
-you must inherit from the Consecutils Node class (vs. the Consecution Node
+There are some small differences between Glide and Consecution. Namely,
+you must inherit from the Glide Node class (vs. the Consecution Node
 class), and you must define a run() method (vs. process() for Consecution)
 that takes at least one positional argument for the data being pushed to it.
 
@@ -193,7 +193,7 @@ class ExampleTransformer(Node):
         self.push(item)
 ```
 
-Note that for ease of development Consecutils will automatically "listify"
+Note that for ease of development Glide will automatically "listify"
 node inputs. Essentially Pandas objects, list/tuple-like objects, and
 generators all get passed through as is, but something like a string would get
 turned into ["some string"]. The goal is to allow for safe iteration over the
@@ -206,8 +206,8 @@ Currently you must clone the git repo and then install into your python
 environment as follows:
 
 ```shell
-git clone https://github.com/kmatarese/consecutils
-cd consecutils
+git clone https://github.com/kmatarese/glide
+cd glide
 make ENV=/path/to/venv install # Or "make ENV=/path/to/venv develop" for development
 ```
 
@@ -218,7 +218,7 @@ Fantastic documentation is...not yet available. But you can get pretty far by
 perusing tests and first reviewing
 [Consecution](https://github.com/robdmc/consecution), which is a core
 dependency and has some of the same syntax used in forming pipelines with
-Consecutils.
+Glide.
 
 TODOs
 -------------
@@ -234,15 +234,18 @@ How to Contribute
 
 1.  Check for open issues or open a new issue to start a discussion
     around a feature idea or a bug. 
-2.  Fork [the repository](https://github.com/kmatarese/consecutils) on
+2.  Fork [the repository](https://github.com/kmatarese/glide) on
     GitHub to start making your changes to the **master** branch (or
     branch off of it).
 3.  Write a test which shows that the bug was fixed or that the feature
     works as expected.
 4.  Send a [pull request](https://help.github.com/en/articles/creating-a-pull-request-from-a-fork). Add yourself to
-    [AUTHORS](https://github.com/kmatarese/consecutils/blob/master/AUTHORS.rst).
+    [AUTHORS](https://github.com/kmatarese/glide/blob/master/AUTHORS.rst).
+
+In order to run tests you will need to set a GLIDE_CONFIG_FILE environment variable
+that points to a .ini file containing information shown in tests/sample_config.ini.
 
 **Note:** As of mid 2019, Consecution does not appear to be under active
-development. The features Consecutils relies on (basically some syntactic
-sugar and graph creation/traversal) seem stable but could also be rewritten
-if this dependency becomes a limitation.
+development. The features Glide relies on (basically some syntactic sugar and
+graph creation/traversal) seem stable but could also be rewritten if this
+dependency becomes a limitation.

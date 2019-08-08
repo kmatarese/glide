@@ -1,4 +1,4 @@
-Consecutils is written and maintained by Kurt Matarese. Contributors welcome!
+Glide is written and maintained by Kurt Matarese. Contributors welcome!
 
 Core Contributors
 ```````````````````````

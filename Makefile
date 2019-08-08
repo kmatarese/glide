@@ -1,6 +1,6 @@
-ENV := /opt/devel3
-PACKAGE_NAME := 'consecutils'
-MAJOR_VERSION := '0.1'
+ENV := $(HOME)/env/glide
+PACKAGE_NAME := 'glide'
+MAJOR_VERSION := '0.1.0'
 VERSION := $(shell echo `date +%Y%m%d%H%M%S`)
 EGG_OPTIONS := egg_info --tag-build '.$(VERSION)' 
 PIP_CMD := $(ENV)/bin/pip

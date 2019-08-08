@@ -9,17 +9,17 @@ except ImportError:
     pymysql = None
 from sqlalchemy import create_engine
 
-from consecutils import *
-from consecutils.utils import rmfile
+from glide import *
+from glide.utils import rmfile
 
 TEST_DATA_NAME = "dma_zip"
 
-assert "CONSECUTILS_CONFIG_FILE" in os.environ, (
-    "Please specify the location of a consecutils config file using the environment "
-    "variable CONSECUTILS_CONFIG_FILE"
+assert "GLIDE_CONFIG_FILE" in os.environ, (
+    "Please specify the location of a glide config file using the environment "
+    "variable GLIDE_CONFIG_FILE"
 )
 config = configparser.ConfigParser()
-config.read(os.environ["CONSECUTILS_CONFIG_FILE"])
+config.read(os.environ["GLIDE_CONFIG_FILE"])
 test_config = config["TEST"]
 
 
@@ -75,13 +75,13 @@ def get_pymysql_conn():
     return conn
 
 
-def sqlite_pipeline(rootdir, nodes, reset_output=False):
+def sqlite_glider(rootdir, nodes, reset_output=False):
     table, in_db_file, out_db_file = get_db_filenames(rootdir)
     if reset_output:
         rmfile(out_db_file)
         copyfile(in_db_file, out_db_file)
-    pipeline = Consecutor(nodes)
-    return pipeline, "`%s`" % table.strip("`")
+    glider = Glider(nodes)
+    return glider, "`%s`" % table.strip("`")
 
 
 def sqlalchemy_setup_old(rootdir, truncate=False):
@@ -120,10 +120,10 @@ def dbapi_setup(rootdir, conn, truncate=False):
     return in_table, out_table, cursor
 
 
-def file_pipeline(rootdir, extension, nodes):
+def file_glider(rootdir, extension, nodes):
     infile, outfile = get_filenames(rootdir, extension)
-    pipeline = Consecutor(nodes)
-    return pipeline, infile, outfile
+    glider = Glider(nodes)
+    return glider, infile, outfile
 
 
 def get_current_dir():

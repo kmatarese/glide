@@ -14,7 +14,7 @@ import csv
 
 import pandas as pd
 
-from consecutils.core import (
+from glide.core import (
     Node,
     DataFramePushNode,
     SQLConnectionNode,
@@ -23,8 +23,8 @@ from consecutils.core import (
     SQLDBAPIConnectionNode,
     SQLiteConnectionNode,
 )
-from consecutils.utils import read_chunks
-from consecutils.sql_utils import build_table_select
+from glide.utils import read_chunks
+from glide.sql_utils import build_table_select
 
 # -------- Pandas Extractors
 

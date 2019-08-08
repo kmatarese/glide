@@ -21,12 +21,12 @@ from consecution import (
     GlobalState as ConsecutionGlobalState,
     Node as ConsecutionNode,
 )
-from consecutils.sql_utils import (
+from glide.sql_utils import (
     SQLALCHEMY_CONN_TYPES,
     is_sqlalchemy_conn,
     get_bulk_replace,
 )
-from consecutils.utils import st, iterize, set_missing_key, MappingMixin, is_pandas
+from glide.utils import st, iterize, set_missing_key, MappingMixin, is_pandas
 
 
 class GlobalState(MappingMixin, ConsecutionGlobalState):
@@ -394,7 +394,7 @@ def consume(pipeline, data, **node_contexts):
     reset_node_contexts(pipeline, node_contexts)
 
 
-class Consecutor:
+class Glider:
     """Main class for forming and executing pipelines. It thinly wraps
     Consecution's Pipeline, but does not subclass it due to a bug in pickle
     that hits an infinite recursion when using multiprocessing with a
@@ -429,13 +429,13 @@ class Consecutor:
         self.pipeline.plot(*args, **kwargs)
 
 
-class DaskParacutor(Consecutor):
-    """A parallel Consecutor that uses a dask Client to execute parallel calls to
+class DaskParaGlider(Glider):
+    """A parallel Glider that uses a dask Client to execute parallel calls to
     consume()"""
 
     def consume(self, data, **node_contexts):
         """Setup node contexts and consume data with the pipeline"""
-        assert Client, "Please install dask (Client) to use DaskParacutor"
+        assert Client, "Please install dask (Client) to use DaskParaGlider"
 
         with Client() as client:  # Local multi-processor for now
             splits = np.array_split(data, min(len(data), len(client.ncores())))
@@ -448,8 +448,8 @@ class DaskParacutor(Consecutor):
                 result = future.result()
 
 
-class ProcessPoolParacutor(Consecutor):
-    """A parallel Consecutor that uses a ProcessPoolExecutor to execute parallel calls to
+class ProcessPoolParaGlider(Glider):
+    """A parallel Glider that uses a ProcessPoolExecutor to execute parallel calls to
     consume()"""
 
     def consume(self, data, **node_contexts):
@@ -465,8 +465,8 @@ class ProcessPoolParacutor(Consecutor):
                 result = future.result()
 
 
-class ThreadPoolParacutor(Consecutor):
-    """A parallel Consecutor that uses a ThreadPoolExecutor to execute parallel calls to
+class ThreadPoolParaGlider(Glider):
+    """A parallel Glider that uses a ThreadPoolExecutor to execute parallel calls to
     consume()"""
 
     def consume(self, data, **node_contexts):

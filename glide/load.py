@@ -5,7 +5,7 @@ import sqlite3
 
 import pandas as pd
 
-from consecutils.core import (
+from glide.core import (
     Node,
     SQLConnectionNode,
     PandasSQLConnectionNode,
@@ -13,8 +13,8 @@ from consecutils.core import (
     SQLDBAPIConnectionNode,
     SQLiteConnectionNode,
 )
-from consecutils.utils import st, pp
-from consecutils.sql_utils import (
+from glide.utils import st, pp
+from glide.sql_utils import (
     TemporaryTable,
     SQLiteTemporaryTable,
     get_bulk_replace,
