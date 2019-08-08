@@ -11,11 +11,4 @@ Welcome to Glide's documentation!
    :caption: Contents:
 
    Quickstart <quickstart.rst>
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   modules
