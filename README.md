@@ -45,7 +45,8 @@ glider = Glider(
 glider.consume(["filename.csv"])
 ```
 
-An example of using and replacing placeholders in glider pipelines:
+An example of using and replacing placeholders in glider pipelines, which may
+be useful if you want to drop replacement nodes into a templated pipeline:
 
 ```python
 glider = Glider(
@@ -67,9 +68,11 @@ for the node any time it is used/reused.
 2. Passing kwargs to consume that are node_name->node_context pairs. This context
 lasts only for the the consume() call. 
 
-Many of the provided nodes pass their context to well-documented functions, such as
-DataFrame.to_csv in the case of DataFrameCSVLoader. Review the documentation/code
-for each node for more detail on how args are processed and which are required. 
+Further details can be found in the node creation docs. Many of the provided
+nodes pass their context to well-documented functions, such as
+DataFrame.to_csv in the case of DataFrameCSVLoader. Review the
+documentation/code for each node for more detail on how args are processed and
+which are required.
 
 Back to examples...
 
@@ -79,7 +82,7 @@ An example applying a transformation to a DataFrame.
 def lower(s):
     return s.lower() if type(s) == str else s
 
-glider = (
+glider = Glider(
     DataFrameCSVExtractor("extract")
     | DataFrameApplyMapTransformer("transform")
     | DataFrameCSVLoader("load", index=False, mode="a")
@@ -100,7 +103,7 @@ def df_lower(df):
     df = df.applymap(lower)
     return df
 
-glider = (
+glider = Glider(
     DataFrameCSVExtractor("extract")
     | DataFrameProcessPoolTransformer("transform")
     | DataFrameCSVLoader("load", index=False, mode="a")
@@ -130,9 +133,9 @@ glider.consume([sql], load=dict(table="out_table"))
 ```
 
 Glide also has support for completely parallelizing glider pipelines using a
-ParaGlider instead of a Glider. The following code will create a process
+ParaGlider (HA!) instead of a Glider. The following code will create a process
 pool and split processing of the inputs over the pool, with each process
-running the entire glider on part of the consumed data:
+running the entire glider pipeline on part of the consumed data:
 
 ```python
 glider = ProcessPoolParaGlider(
@@ -142,8 +145,9 @@ glider = ProcessPoolParaGlider(
 glider.consume(["file1.csv", "file2.csv"], extract=dict(nrows=50))
 ```
 
-If you don't want to execute the entire glider in parallel, you can also branch into
-parallel execution utilizing a parallel push node as in the following example:
+If you don't want to execute the entire glider pipeline in parallel, you can
+also branch into parallel execution utilizing a parallel push node as in the
+following example:
 
 ```python
 glider = Glider(
@@ -158,9 +162,9 @@ The above example will extract 60 rows from a CSV and then push equal slices
 to the logging nodes in parallel processes. Using split=False (default) would
 have passed the entire 60 rows to each logging node in parallel
 processes. Note that once you branch off into processes there is currently no
-way to reduce/join the glider back into the original process and resume
-single-process operation on the multiprocessed results. However, that can be
-achieved with threads:
+way to reduce/join the glider pipeline back into the original process and
+resume single-process operation on the multiprocessed results. However, that
+can be achieved with threads if necessary:
 
 ```python
 glider = Glider(
@@ -178,18 +182,20 @@ multiple threads. The ThreadReducer won't push until all of the previous nodes
 have finished, and then the final logging node will print all of the results.
 
 At this point you may be confused about the various ways you can attempt parallel processing
-using Glide, so I'll summarize:
+using Glide, so lets summarize:
 
-- Method 1: Completely parallel glider pipelines via ParaGliders
-- Method 2: Branched parallelism using parallel push nodes such as ProcessPoolPush or ThreadPoolPush
-- Method 3: Parallelization within nodes such as DataFrameProcessPoolTransformer 
+- Method 1: Parallelization within nodes such as DataFrameProcessPoolTransformer 
+- Method 2: Completely parallel glider pipelines via ParaGliders
+- Method 3: Branched parallelism using parallel push nodes such as ProcessPoolPush or ThreadPoolPush
 
-Each has its own utility and/or quirks. Method 3 is the most straightforward
-IMO since you return to single process operation after the node is done doing
-whatever it needed to do in parallel, though this is not without cost. Method
-1 may be useful and easy to understand in certain cases as well. Method 2 can
-be confusing and should likely only be used towards the end of glider pipelines to
-branch the output in parallel. 
+Each has its own utility and/or quirks. Method 1 is perhaps the most
+straightforward since you return to single process operation after the node is
+done doing whatever it needed to do in parallel, though the shuffling of data
+to/from subprocesses is not without cost. Method 2 may be useful and easy to
+understand in certain cases as well. Method 3 can lead to more
+complex/confusing flows and should likely only be used towards the end of
+glider pipelines to branch the output in parallel, such as if writing to
+several databases in parallel.
 
 > **Note:** combining the approaches may not work and has not been tested.
 
@@ -214,7 +220,27 @@ Note that for ease of development Glide will automatically "listify"
 node inputs. Essentially Pandas objects, list/tuple-like objects, and
 generators all get passed through as is, but something like a string would get
 turned into ["some string"]. The goal is to allow for safe iteration over the
-input if desired.
+input in generic nodes that may be asked to repeat their logic for each item
+in the list.
+
+Earlier we mentioned node context. This comes into play when run() is called
+on the node, as the required and optional parts of the context are inferred from
+the positional and keyword args of run(). Take for example:
+
+```python
+class ExampleTransformer(Node):
+    def run(self, item, conn, chunksize=None, **kwargs):
+        # Do something to item here
+        self.push(item)
+```
+
+All nodes expect their first positional arg to be the data going through the pipeline. This
+node also requires a 'conn' argument, and has an optional 'chunksize' argument. These values
+can be filled in from the following inputs in the priority order:
+
+1. Context args passed to consume for the node
+2. Default context set on the node at init time
+3. Global pipeline state passed via global_state. This only works for positional args currently.
 
 Documentation
 -------------
