@@ -8,9 +8,9 @@ try:
 except ImportError:
     pymysql = None
 from sqlalchemy import create_engine
+from toolbox import rmfile
 
 from glide import *
-from glide.utils import rmfile
 
 TEST_DATA_NAME = "dma_zip"
 
@@ -41,7 +41,7 @@ def row_lower(row):
 def get_filenames(rootdir, extension):
     infile = "%s/%s.%s" % (rootdir, TEST_DATA_NAME, extension)
     outfile = "%s/%s.%s" % (test_config["OutputDirectory"], TEST_DATA_NAME, extension)
-    rmfile(outfile)
+    rmfile(outfile, ignore_missing=True)
     return infile, outfile
 
 
@@ -78,7 +78,7 @@ def get_pymysql_conn():
 def sqlite_glider(rootdir, nodes, reset_output=False):
     table, in_db_file, out_db_file = get_db_filenames(rootdir)
     if reset_output:
-        rmfile(out_db_file)
+        rmfile(out_db_file, ignore_missing=True)
         copyfile(in_db_file, out_db_file)
     glider = Glider(nodes)
     return glider, "`%s`" % table.strip("`")

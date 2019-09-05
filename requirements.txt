@@ -5,6 +5,7 @@ pandas==0.24
 pre-commit
 pytest
 sqlalchemy
+git+git://github.com/totalhack/toolbox.git#egg=toolbox
 wheel
 xlrd
 m2r

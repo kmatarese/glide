@@ -1,7 +1,4 @@
-glide
-=====
-
 .. toctree::
    :maxdepth: 4
 
-   glide
+   Glide <glide>
