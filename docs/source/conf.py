@@ -61,7 +61,7 @@ html_theme_options = {
     "github_banner": True,
     "show_related": False,
     "note_bg": "#FFF59C",
-    "logo": "img/glider_image.png",
+    "logo": "img/glider_image.jpg",
 }
 
 html_sidebars = {
