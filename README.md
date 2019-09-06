@@ -1,7 +1,10 @@
 Glide: A data processing / ETL pipeline tool
 =========================================
 
+[![Generic badge](https://img.shields.io/badge/Status-Alpha-yellow.svg)](https://shields.io/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Documentation Status](https://readthedocs.org/projects/glide-etl/badge/?version=latest)](https://glide-etl.readthedocs.io/en/latest/?badge=latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 Glide uses a syntax similar to [Consecution](https://github.com/robdmc/consecution), which was inspired by Apache Storm Topologies.
 Glide basically wraps the functionality of Consecution to provide some utilities out of the box:
@@ -250,15 +253,6 @@ progress. You can supplement this by perusing tests and becoming familiar with
 [Consecution](https://github.com/robdmc/consecution), which is a core
 dependency and has some of the same concepts/syntax used in forming pipelines
 with Glide.
-
-TODOs
--------------
-- More documentation
-- More tests
-- Pip/Conda support
-- Email extractors/loaders
-- URL extractors/loaders
-- CI
 
 How to Contribute
 -----------------

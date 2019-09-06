@@ -62,6 +62,7 @@ html_theme_options = {
     "show_related": False,
     "note_bg": "#FFF59C",
     "logo": "img/glider_image.jpg",
+    "logo_name": True,
 }
 
 html_sidebars = {

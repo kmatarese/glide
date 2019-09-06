@@ -1,5 +1,6 @@
 glide.egg-info
 build
+.coverage*
 *.pyc
 *.out
 dist

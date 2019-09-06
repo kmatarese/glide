@@ -4,6 +4,7 @@ openpyxl
 pandas==0.24
 pre-commit
 pytest
+pytest-cov
 sqlalchemy
 git+git://github.com/totalhack/toolbox.git#egg=toolbox
 wheel
