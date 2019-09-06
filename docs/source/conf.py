@@ -61,6 +61,17 @@ html_theme_options = {
     "github_banner": True,
     "show_related": False,
     "note_bg": "#FFF59C",
+    "logo": "img/glider_image.png",
+}
+
+html_sidebars = {
+    "**": [
+        "about.html",
+        "navigation.html",
+        "relations.html",
+        "searchbox.html",
+        "donate.html",
+    ]
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
