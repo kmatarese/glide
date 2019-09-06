@@ -28,6 +28,14 @@ glide.load module
    :undoc-members:
    :show-inheritance:
 
+glide.pipelines module
+----------------------
+
+.. automodule:: glide.pipelines
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 glide.sql\_utils module
 -----------------------
 
