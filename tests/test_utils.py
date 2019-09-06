@@ -1,4 +1,5 @@
 import configparser
+import logging
 import os
 import pytest
 from shutil import copyfile
@@ -11,6 +12,8 @@ from sqlalchemy import create_engine
 from toolbox import rmfile
 
 from glide import *
+
+logging.getLogger().setLevel(logging.DEBUG)
 
 TEST_DATA_NAME = "dma_zip"
 

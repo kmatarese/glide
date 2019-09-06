@@ -8,14 +8,14 @@ def test_csv_row_extract_and_load(rootdir):
     nodes = RowCSVExtractor("extract") | RowCSVLoader("load")
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     with open(outfile, "w") as f:
-        glider.consume([infile], load=dict(outfile=f))
+        glider.consume([infile], load=dict(f=f))
 
 
 def test_csv_chunked_row_extract_and_load(rootdir):
     nodes = RowCSVExtractor("extract") | RowCSVLoader("load")
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     with open(outfile, "w") as f:
-        glider.consume([infile], extract=dict(chunksize=100), load=dict(outfile=f))
+        glider.consume([infile], extract=dict(chunksize=100), load=dict(f=f))
 
 
 def test_csv_row_process_pool_lowercase(rootdir):
@@ -26,7 +26,7 @@ def test_csv_row_process_pool_lowercase(rootdir):
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     with open(outfile, "w") as f:
-        glider.consume([infile], transform=dict(func=row_lower), load=dict(outfile=f))
+        glider.consume([infile], transform=dict(func=row_lower), load=dict(f=f))
 
 
 def test_csv_row_thread_pool_lowercase(rootdir):
@@ -37,7 +37,7 @@ def test_csv_row_thread_pool_lowercase(rootdir):
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     with open(outfile, "w") as f:
-        glider.consume([infile], transform=dict(func=row_lower), load=dict(outfile=f))
+        glider.consume([infile], transform=dict(func=row_lower), load=dict(f=f))
 
 
 # -------- SQL-based gliders
@@ -85,9 +85,7 @@ def test_pymysql_row_extract_and_load(rootdir, pymysql_conn):
 def test_sqlalchemy_row_extract_and_load(rootdir, sqlalchemy_conn):
     in_table, out_table = sqlalchemy_setup(rootdir, sqlalchemy_conn, truncate=True)
     sql = "select * from %s limit 10" % in_table
-    glider = Glider(
-        RowSQLAlchemyExtractor("extract") | RowSQLAlchemyLoader("load")
-    )
+    glider = Glider(RowSQLAlchemyExtractor("extract") | RowSQLAlchemyLoader("load"))
     glider.consume(
         [sql],
         extract=dict(conn=sqlalchemy_conn),

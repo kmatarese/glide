@@ -33,6 +33,13 @@ with load_file("README.md") as f:
 with load_file("requirements.txt") as f:
     requires = f.read().split("\n")
 
+# Split git requirements to fill in dependency_links
+git_requires = [x for x in requires if "git" in x]
+non_git_requires = [x for x in requires if "git" not in x]
+for repo in git_requires:
+    # Append git egg references
+    non_git_requires.append(repo.split("egg=")[-1])
+
 exec(open("glide/version.py").read())
 
 setup(
@@ -52,7 +59,8 @@ setup(
     scripts=find_deploy_scripts("glide", ["\\*.py", "\\*.sh", "\\*.sql"], ["__init__"]),
     packages=find_packages(),
     include_package_data=True,
-    install_requires=requires,
+    install_requires=non_git_requires,
+    dependency_links=git_requires,
     extras_require={
         "swifter": ["swifter>=0.289"],
         "pymysql": ["pymysql"],

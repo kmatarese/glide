@@ -10,7 +10,7 @@ def test_placeholder_node(rootdir):
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     glider["extract"] = DataFrameCSVExtractor("extract")
-    glider.consume([infile], extract=dict(chunksize=100), load=dict(outfile=outfile))
+    glider.consume([infile], extract=dict(chunksize=100), load=dict(f=outfile))
 
 
 def test_csv_extract_and_load(rootdir):
@@ -18,7 +18,7 @@ def test_csv_extract_and_load(rootdir):
         "load", index=False, mode="a"
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
-    glider.consume([infile], extract=dict(chunksize=100), load=dict(outfile=outfile))
+    glider.consume([infile], extract=dict(chunksize=100), load=dict(f=outfile))
 
 
 def test_excel_extract_and_load(rootdir):
@@ -26,7 +26,7 @@ def test_excel_extract_and_load(rootdir):
         "load", index=False
     )
     glider, infile, outfile = file_glider(rootdir, "xlsx", nodes)
-    glider.consume([infile], load=dict(outfile=outfile))
+    glider.consume([infile], load=dict(f=outfile))
 
 
 def test_csv_chunked_lowercase(rootdir):
@@ -40,7 +40,7 @@ def test_csv_chunked_lowercase(rootdir):
         [infile],
         extract=dict(chunksize=100),
         transform=dict(func=lower),
-        load=dict(outfile=outfile),
+        load=dict(f=outfile),
     )
 
 
@@ -55,7 +55,7 @@ def test_csv_chunked_swifter_lowercase(rootdir):
         [infile],
         extract=dict(chunksize=500),
         transform=dict(func=lower),
-        load=dict(outfile=outfile),
+        load=dict(f=outfile),
     )
 
 
@@ -70,7 +70,7 @@ def test_csv_chunked_swifter_threads_lowercase(rootdir):
         [infile],
         extract=dict(chunksize=500),
         transform=dict(func=lower, processes=False),
-        load=dict(outfile=outfile),
+        load=dict(f=outfile),
     )
 
 
@@ -81,9 +81,7 @@ def test_csv_process_pool_lowercase(rootdir):
         | DataFrameCSVLoader("load", index=False, mode="a")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
-    glider.consume(
-        [infile], transform=dict(func=df_lower), load=dict(outfile=outfile)
-    )
+    glider.consume([infile], transform=dict(func=df_lower), load=dict(f=outfile))
 
 
 def test_csv_thread_pool_lowercase(rootdir):
@@ -93,9 +91,7 @@ def test_csv_thread_pool_lowercase(rootdir):
         | DataFrameCSVLoader("load", index=False, mode="a")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
-    glider.consume(
-        [infile], transform=dict(func=df_lower), load=dict(outfile=outfile)
-    )
+    glider.consume([infile], transform=dict(func=df_lower), load=dict(f=outfile))
 
 
 def test_csv_dask_client_lowercase(rootdir):
@@ -105,9 +101,7 @@ def test_csv_dask_client_lowercase(rootdir):
         | DataFrameCSVLoader("load", index=False, mode="a")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
-    glider.consume(
-        [infile], transform=dict(func=df_lower), load=dict(outfile=outfile)
-    )
+    glider.consume([infile], transform=dict(func=df_lower), load=dict(f=outfile))
 
 
 def test_csv_dask_client_threads_lowercase(rootdir):
@@ -120,7 +114,7 @@ def test_csv_dask_client_threads_lowercase(rootdir):
     glider.consume(
         [infile],
         transform=dict(func=df_lower, executor_kwargs=dict(processes=False)),
-        load=dict(outfile=outfile),
+        load=dict(f=outfile),
     )
 
 
@@ -131,7 +125,7 @@ def test_csv_dask_dataframe_lowercase(rootdir):
         | DataFrameCSVLoader("load", index=False, mode="a")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
-    glider.consume([infile], transform=dict(func=lower), load=dict(outfile=outfile))
+    glider.consume([infile], transform=dict(func=lower), load=dict(f=outfile))
 
 
 # -------- SQL-based gliders
