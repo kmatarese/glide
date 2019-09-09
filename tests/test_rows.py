@@ -4,6 +4,14 @@ from glide import *
 # -------- File-based gliders
 
 
+def test_csv_url_row_extract_and_load(rootdir):
+    nodes = RowCSVExtractor("extract") | RowCSVLoader("load")
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    infile = "file://" + infile
+    with open(outfile, "w") as f:
+        glider.consume([infile], load=dict(f=f))
+
+
 def test_csv_row_extract_and_load(rootdir):
     nodes = RowCSVExtractor("extract") | RowCSVLoader("load")
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)

@@ -21,16 +21,13 @@ from consecution import (
     GlobalState as ConsecutionGlobalState,
     Node as ConsecutionNode,
 )
-from glide.sql_utils import (
-    SQLALCHEMY_CONN_TYPES,
-    is_sqlalchemy_conn,
-    get_bulk_replace,
-)
+from glide.sql_utils import SQLALCHEMY_CONN_TYPES, is_sqlalchemy_conn, get_bulk_replace
 from glide.utils import st, iterize, set_missing_key, MappingMixin, is_pandas
 
 
 class GlobalState(MappingMixin, ConsecutionGlobalState):
     """Consecution GlobalState with more dict-like behavior"""
+
     def __bool__(self):
         """Hack to get Consecution to use this as default even if technically empty"""
         return True
@@ -38,6 +35,7 @@ class GlobalState(MappingMixin, ConsecutionGlobalState):
 
 class Node(ConsecutionNode):
     """Override Consecution's Node class to add necessary functionality"""
+
     def __init__(self, name, **default_context):
         super().__init__(name)
         self.default_context = default_context
@@ -109,7 +107,7 @@ class Node(ConsecutionNode):
     def process(self, item):
         """Required method used by Consecution to process nodes"""
         _args, _kwargs = self._populate_run_args()
-        self._run(iterize(item), *_args, **_kwargs)
+        self._run(item, *_args, **_kwargs)
 
     def _run(self, item, *args, **kwargs):
         self.run(item, *args, **kwargs)
@@ -121,12 +119,14 @@ class Node(ConsecutionNode):
 
 class DefaultNode(Node):
     """A default node that just passes all items through"""
+
     def run(self, item, **kwargs):
         self.push(item)
 
 
 class PlaceholderNode(DefaultNode):
     """Used as a placeholder in pipelines. Will pass values through by default"""
+
     pass
 
 
@@ -148,6 +148,7 @@ class SkipFalseNode(Node):
 
 class DataFramePushMixin:
     """Shared logic for DataFrame-based nodes"""
+
     def do_push(self, df, **kwargs):
         """Push the DataFrame to the next node, obeying chunksize if passed"""
         if kwargs.get("chunksize", None):
@@ -159,6 +160,7 @@ class DataFramePushMixin:
 
 class SQLCursorPushMixin:
     """Shared logic for SQL cursor-based nodes"""
+
     def do_push(self, cursor, chunksize=None):
         """Fetch data and push to the next node, obeying chunksize if passed"""
         if chunksize:
@@ -174,11 +176,13 @@ class SQLCursorPushMixin:
 
 class DataFramePushNode(Node, DataFramePushMixin):
     """Base class for DataFrame-based nodes"""
+
     pass
 
 
 class BaseSQLConnectionNode(SkipFalseNode):
     """Base class for SQL-based nodes, checks for valid connection types on init"""
+
     allowed_conn_types = None
 
     def __init__(self, *args, **kwargs):
@@ -210,21 +214,25 @@ class BaseSQLConnectionNode(SkipFalseNode):
 
 class PandasSQLConnectionNode(BaseSQLConnectionNode, DataFramePushMixin):
     """Captures the connection types allowed to work with Pandas to_sql/from_sql"""
+
     allowed_conn_types = SQLALCHEMY_CONN_TYPES + [sqlite3.Connection]
 
 
 class SQLAlchemyConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
     """Captures the connection types allowed to work with SQLAlchemy"""
+
     allowed_conn_types = SQLALCHEMY_CONN_TYPES
 
 
 class SQLiteConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
     """Captures the connection types allowed to work with SQLite"""
+
     allowed_conn_types = [sqlite3.Connection]
 
 
 class SQLDBAPIConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
     """Checks that a valid DBAPI connection is passed"""
+
     allowed_conn_types = [object]
 
     def check_conn(self, conn):
@@ -298,6 +306,7 @@ class Reducer(Node):
 
 class ThreadReducer(Reducer):
     """A plain-old Reducer with a name that makes it clear it works with threads"""
+
     pass
 
 
@@ -306,6 +315,7 @@ class FuturesPushNode(DefaultNode):
     downstream nodes in parallel according to the executor_class that supports
     the futures interface.
     """
+
     executor_class = ProcessPoolExecutor
     as_completed_func = as_completed
 
@@ -332,16 +342,19 @@ class FuturesPushNode(DefaultNode):
 
 class ProcessPoolPush(FuturesPushNode):
     """A multi-process FuturesPushNode"""
+
     pass
 
 
 class ThreadPoolPush(FuturesPushNode):
     """A multi-threaded FuturesPushNode"""
+
     executor_class = ThreadPoolExecutor
 
 
 class DaskClientPush(FuturesPushNode):
     """Use a dask Client to do a parallel push"""
+
     executor_class = Client
     as_completed_func = dask_as_completed
 
@@ -352,6 +365,7 @@ class DaskClientPush(FuturesPushNode):
 
 class DaskDelayedPush(DefaultNode):
     """Use dask delayed to do a parallel push"""
+
     def _push(self, item):
         assert delayed, "Please install dask (delayed) to use DaskDelayedPush"
 
@@ -390,7 +404,7 @@ def reset_node_contexts(pipeline, node_contexts):
 def consume(pipeline, data, **node_contexts):
     """Handles node contexts before/after calling pipeline.consume()"""
     update_node_contexts(pipeline, node_contexts)
-    pipeline.consume(data)
+    pipeline.consume(iterize(data))
     reset_node_contexts(pipeline, node_contexts)
 
 
@@ -442,7 +456,7 @@ class DaskParaGlider(Glider):
             futures = []
             for split in splits:
                 futures.append(
-                    client.submit(consume, self.pipeline, splits, **node_contexts)
+                    client.submit(consume, self.pipeline, split, **node_contexts)
                 )
             for future in dask_as_completed(futures):
                 result = future.result()

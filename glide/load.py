@@ -1,9 +1,11 @@
 """A home for common data load nodes"""
 
+from copy import deepcopy
 import csv
 import sqlite3
 
 import pandas as pd
+import requests
 from toolbox import st, pp, dbg
 
 from glide.core import (
@@ -200,3 +202,50 @@ class RowSQLTempLoader(SQLConnectionNode):
             cursor = self.get_sql_executor(conn)
         self.sql_executemany(conn, cursor, sql, rows)
         self.push([table.name])
+
+
+# -------- Other Loaders
+
+
+class URLLoader(Node):
+    """Load data to URL with requests"""
+
+    def run(
+        self,
+        data,
+        url,
+        data_param="data",
+        session=None,
+        raise_for_status=True,
+        **kwargs
+    ):
+        """Load data to URL using requests and push response.content. The url maybe be
+        a string (POST that url) or a dictionary of args to requests.request:
+
+        http://2.python-requests.org/en/master/api/?highlight=get#requests.request
+        """
+        requestor = requests
+        if session:
+            requestor = session
+
+        if isinstance(url, str):
+            assert not (
+                "data" in kwargs or "json" in kwargs
+            ), "Overriding data/json params is not allowed"
+            kwargs[data_param] = data
+            resp = requestor.post(url, **kwargs)
+        elif isinstance(url, dict):
+            kwargs_copy = deepcopy(kwargs)
+            kwargs_copy.update(url)
+            assert not (
+                "data" in kwargs_copy or "json" in kwargs_copy
+            ), "Overriding data/json params is not allowed"
+            kwargs_copy[data_param] = data
+            resp = requestor.request(**kwargs_copy)
+        else:
+            assert False, "Input url must be a str or dict type, got %s" % type(url)
+
+        if raise_for_status:
+            resp.raise_for_status()
+
+        self.push(data)
