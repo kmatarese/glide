@@ -65,6 +65,6 @@ setup(
         "swifter": ["swifter>=0.289"],
         "pymysql": ["pymysql"],
         "dev": ["sphinx"],
-        "dask": ["dask>=2.1.0"],
+        "dask": ["dask[complete]>=2.1.0"],
     },
 )
