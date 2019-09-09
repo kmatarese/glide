@@ -1,5 +1,6 @@
 from .test_utils import *
 from glide import *
+from glide.extensions import *
 
 
 def test_dask_delayed_push_node(rootdir):

@@ -5,14 +5,6 @@ from collections import OrderedDict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from inspect import signature, Parameter
 
-try:
-    from dask import compute, delayed
-    from dask.distributed import Client, as_completed as dask_as_completed
-except ImportError:
-    compute = None
-    delayed = None
-    Client = None
-    dask_as_completed = None
 import numpy as np
 import sqlite3
 
@@ -352,41 +344,6 @@ class ThreadPoolPush(FuturesPushNode):
     executor_class = ThreadPoolExecutor
 
 
-class DaskClientPush(FuturesPushNode):
-    """Use a dask Client to do a parallel push"""
-
-    executor_class = Client
-    as_completed_func = dask_as_completed
-
-    def run(self, *args, **kwargs):
-        assert Client, "Please install dask (Client) to use DaskClientPush"
-        super().run(*args, **kwargs)
-
-
-class DaskDelayedPush(DefaultNode):
-    """Use dask delayed to do a parallel push"""
-
-    def _push(self, item):
-        assert delayed, "Please install dask (delayed) to use DaskDelayedPush"
-
-        if self._logging == "output":
-            self._write_log(item)
-
-        assert not "executor_kwargs" in self.context, (
-            "%s does not currently support executor_kwargs" % self.__class__
-        )
-
-        lazy = []
-        if self.context.get("split", False):
-            splits = np.array_split(item, len(self._downstream_nodes))
-            for i, downstream in enumerate(self._downstream_nodes):
-                lazy.append(delayed(downstream._process)(split[i]))
-        else:
-            for downstream in self._downstream_nodes:
-                lazy.append(delayed(downstream._process)(item))
-        result = compute(lazy)
-
-
 def update_node_contexts(pipeline, node_contexts):
     """Helper function for updating node contexts in a pipeline"""
     for k, v in node_contexts.items():
@@ -441,25 +398,6 @@ class Glider:
     def plot(self, *args, **kwargs):
         """Passthrough to Consecution Pipeline"""
         self.pipeline.plot(*args, **kwargs)
-
-
-class DaskParaGlider(Glider):
-    """A parallel Glider that uses a dask Client to execute parallel calls to
-    consume()"""
-
-    def consume(self, data, **node_contexts):
-        """Setup node contexts and consume data with the pipeline"""
-        assert Client, "Please install dask (Client) to use DaskParaGlider"
-
-        with Client() as client:  # Local multi-processor for now
-            splits = np.array_split(data, min(len(data), len(client.ncores())))
-            futures = []
-            for split in splits:
-                futures.append(
-                    client.submit(consume, self.pipeline, split, **node_contexts)
-                )
-            for future in dask_as_completed(futures):
-                result = future.result()
 
 
 class ProcessPoolParaGlider(Glider):

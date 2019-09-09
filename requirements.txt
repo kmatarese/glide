@@ -3,8 +3,8 @@ consecution
 openpyxl
 pandas==0.24
 pre-commit
+pymysql
 pytest
-pytest-cov
 requests
 sqlalchemy
 git+git://github.com/totalhack/toolbox.git#egg=toolbox

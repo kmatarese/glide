@@ -1,5 +1,6 @@
 from .test_utils import *
 from glide import *
+from glide.extensions import *
 
 
 def test_csv_dask_paraglider(rootdir):

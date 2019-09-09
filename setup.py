@@ -63,7 +63,6 @@ setup(
     dependency_links=git_requires,
     extras_require={
         "swifter": ["swifter>=0.289"],
-        "pymysql": ["pymysql"],
         "dev": ["sphinx"],
         "dask": ["dask[complete]>=2.1.0"],
     },

@@ -1,5 +1,6 @@
 from .test_utils import *
 from glide import *
+from glide.extensions import *
 
 # -------- File-based gliders
 
