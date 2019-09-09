@@ -177,7 +177,7 @@ glider.consume(
 )
 ```
 
-### Example: Parallel Pipelines va ParaGlider
+### Example: Parallel Pipelines via ParaGlider
 
 Glide also has support for completely parallelizing pipelines using a
 ParaGlider (who said ETL isn't fun?!?) instead of a Glider. The following code
