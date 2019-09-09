@@ -293,29 +293,29 @@ pipeline. This node also requires a 'conn' argument, and has an optional
 in priority order, with earlier methods overriding those further down the
 list:
 
-1. Context args passed to consume for the node:
-    ```python
-    conn = get_my_db_conn()
-    glider.consume(
-        data,
-        my_node=dict(conn=conn, chunksize=100)
-    )
-    ```
-2. Default context set on the node at init time:
-    ```python
-    conn = get_my_db_conn()
-    glider = Glider(
-        MyNode("my_node", conn=conn, chunksize=100)
-    )
-    ```
-3. Global pipeline state passed via global_state. This only works for positional args currently:
-    ```python
-    conn = get_my_db_conn()
-    glider = Glider(
-        MyNode("my_node"),
-        global_state=dict(conn=conn)
-    )
-    ```
+1\. Context args passed to consume for the node:
+```python
+conn = get_my_db_conn()
+glider.consume(
+    data,
+    my_node=dict(conn=conn, chunksize=100)
+)
+```
+2\. Default context set on the node at init time:
+```python
+conn = get_my_db_conn()
+glider = Glider(
+    MyNode("my_node", conn=conn, chunksize=100)
+)
+```
+3\. Global pipeline state passed via global_state. This only works for positional args currently:
+```python
+conn = get_my_db_conn()
+glider = Glider(
+    MyNode("my_node"),
+    global_state=dict(conn=conn)
+)
+```
 
 Documentation
 -------------
