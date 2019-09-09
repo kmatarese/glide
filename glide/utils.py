@@ -22,7 +22,6 @@ def iterize(o):
     """Automatically wrap certain objects that you would not normally process item by item"""
     if (
         is_pandas(o)
-        or isgenerator(o)
         or is_str(o)
         or is_file_obj(o)
         or isinstance(o, dict)
