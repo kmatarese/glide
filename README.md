@@ -42,7 +42,9 @@ make ENV=/path/to/venv install # Or "make ENV=/path/to/venv develop" for develop
 Examples
 --------
 
-The following examples serve as a quickstart to illustrate some core features and built-in nodes. More complete documentation is in progress and can be viewed [here](https://glide-etl.readthedocs.io/en/latest/index.html).
+The following examples serve as a quickstart to illustrate some core features
+and built-in nodes. More complete documentation is in progress and can be
+viewed [here](https://glide-etl.readthedocs.io/en/latest/index.html).
 
 ```python
 from glide import *
@@ -57,6 +59,8 @@ strings, file objects, dicts, and callables are automatically wrapped in a
 list to prevent them from being broken up since iteration is often inefficient
 or nonsensical in those cases.
 
+### Example: Read a CSV
+
 Here is a simple example that reads a CSV and logs rows to stdout:
 
 ```python
@@ -66,6 +70,8 @@ glider = Glider(
 )
 glider.consume(["/path/to/file.csv"])
 ```
+
+### Example: Placeholder Nodes
 
 You can also easily drop replacement nodes into a templated pipeline. In this
 case we use a PlaceholderNode for the extract node and then replace that with
@@ -78,11 +84,13 @@ glider = Glider(
 )
 glider["extract"] = DataFrameCSVExtractor("extract")
 glider.consume(
-    ["infile.csv"],
+    ["/path/to/infile.csv"],
     extract=dict(chunksize=100),
-    load=dict(outfile="outfile.csv")
+    load=dict(outfile="/path/to/outfile.csv")
 )
 ```
+
+### Node Context
 
 The above example also demonstrates two separate ways to pass context to nodes:
         
@@ -91,13 +99,13 @@ for the node any time it is used/reused.
 2. Passing kwargs to consume that are node_name->node_context pairs. This context
 lasts only for the the consume() call. 
 
-Further details can be found in the node creation documentation. Many of the
-provided nodes pass their context to well-documented functions, such as
-DataFrame.to_csv in the case of DataFrameCSVLoader. Review the
-documentation/code for each node for more detail on how args are processed and
-which are required.
+> **Note:** Further details can be found in the node creation
+documentation. Many of the provided nodes pass their context to
+well-documented functions, such as DataFrame.to_csv in the case of
+DataFrameCSVLoader. Review the documentation/code for each node for more
+detail on how args are processed and which are required.
 
-Back to examples...
+### Example: DataFrame Transformation
 
 Here is an example applying a transformation to a DataFrame read from a CSV,
 in this case lowercasing all strings before loading into an output CSV:
@@ -118,6 +126,8 @@ glider.consume(
     load=dict(outfile="/path/to/outfile.csv"),
 )
 ```
+
+### Example: DataFrame Transformation (Parallel)
 
 Let's do the same thing with the data split in parallel processes using a
 ProcessPoolExecutor at the transformation step. Note that we instead use a
@@ -147,6 +157,8 @@ glider.consume(
 > **Note:** there are transformer nodes for using Swifter and Dask as well if
 you install those extensions.
 
+### Example: Global State
+
 A Glider can also have a shared context that can be used to populate node
 arguments via its optional global_state arg:
 
@@ -165,6 +177,8 @@ glider.consume(
 )
 ```
 
+### Example: Parallel Pipelines va ParaGlider
+
 Glide also has support for completely parallelizing pipelines using a
 ParaGlider (who said ETL isn't fun?!?) instead of a Glider. The following code
 will create a process pool and split processing of the inputs over the pool,
@@ -180,6 +194,8 @@ glider.consume(
     extract=dict(nrows=50)
 )
 ```
+
+### Example: Parallel Branching
 
 If you don't want to execute the entire glider pipeline in parallel, you can
 also branch into parallel execution utilizing a parallel push node as in the
@@ -200,7 +216,9 @@ have passed the entire 60 rows to each logging node in parallel
 processes. Note that once you branch off into processes there is currently no
 way to reduce/join the pipeline back into the original process and resume
 single-process operation on the multiprocessed results. However, that can be
-achieved with threads if necessary:
+achieved with threads if necessary as shown in the next example.
+
+### Example: Thread Reducers
 
 ```python
 glider = Glider(
@@ -216,6 +234,8 @@ glider.consume(["/path/to/infile.csv"])
 The above code will split the data and push to the first 3 logging nodes in
 multiple threads. The ThreadReducer won't push until all of the previous nodes
 have finished, and then the final logging node will print all of the results.
+
+### Summary of Parallel Processing
 
 At this point it's worth summarizing the various ways you can attempt parallel processing
 using Glide:
@@ -234,7 +254,8 @@ pipelines to branch the output in parallel, such as if writing to several
 databases in parallel.
 
 > **Note:** combining the approaches may not work and has not been tested.
-> **Also Note:** Standard limitations apply regarding what types of data can be serialized and passed to a parallel process.
+
+> **Also Note:** standard limitations apply regarding what types of data can be serialized and passed to a parallel process.
 
 Creating Nodes
 --------------
@@ -266,11 +287,15 @@ class MyNode(Node):
         self.push(item)
 ```
 
-All nodes expect their first positional arg to be the data going through the pipeline. This
-node also requires a 'conn' argument, and has an optional 'chunksize' argument. These values
-can be filled in from the following inputs in the priority order:
+All nodes expect their first positional arg to be the data going through the
+pipeline. This node also requires a 'conn' argument, and has an optional
+'chunksize' argument. These values can be filled in from the following inputs
+in priority order, with earlier methods overriding those further down the
+list:
 
 1. Context args passed to consume for the node:
+
+<!-- language: lang-python -->
 
         conn = get_my_db_conn()
         glider.consume(
@@ -278,21 +303,24 @@ can be filled in from the following inputs in the priority order:
             my_node=dict(conn=conn, chunksize=100)
         )
 
-2. Default context set on the node at init time
+2. Default context set on the node at init time:
+
+<!-- language: lang-python -->
 
         conn = get_my_db_conn()
         glider = Glider(
             MyNode("my_node", conn=conn, chunksize=100)
         )
 
-3. Global pipeline state passed via global_state. This only works for positional args currently.
+3. Global pipeline state passed via global_state. This only works for positional args currently:
+
+<!-- language: lang-python -->
 
         conn = get_my_db_conn()
         glider = Glider(
             MyNode("my_node"),
             global_state=dict(conn=conn)
         )
-
 
 Documentation
 -------------
