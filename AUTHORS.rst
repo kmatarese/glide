@@ -6,4 +6,4 @@ Core Contributors
 
 Patches and Suggestions
 ```````````````````````
-Contribute!
+Please see the How to Contribute section of the README.
