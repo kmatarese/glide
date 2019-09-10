@@ -7,6 +7,7 @@ from inspect import signature, Parameter
 
 import numpy as np
 import sqlite3
+from toolbox import Script, Arg, st, dbg
 
 from consecution import (
     Pipeline,
@@ -15,6 +16,8 @@ from consecution import (
 )
 from glide.sql_utils import SQLALCHEMY_CONN_TYPES, is_sqlalchemy_conn, get_bulk_replace
 from glide.utils import st, iterize, set_missing_key, MappingMixin, is_pandas
+
+SCRIPT_DATA_ARG = "data"
 
 
 class GlobalState(MappingMixin, ConsecutionGlobalState):
@@ -276,6 +279,9 @@ class SQLConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
             return get_bulk_replace(
                 table, rows[0].keys(), dicts=False, value_string="?"
             )
+        assert not isinstance(
+            rows[0], tuple
+        ), "Dict rows expected, got tuple. Please use a dict cursor."
         return get_bulk_replace(table, rows[0].keys())
 
 
@@ -391,6 +397,14 @@ class Glider:
         """Passthrough to Consecution Pipeline"""
         return self.pipeline.__str__()
 
+    @property
+    def global_state(self):
+        return self.pipeline.global_state
+
+    @global_state.setter
+    def global_state(self, value):
+        self.pipeline.global_state = value
+
     def consume(self, data, **node_contexts):
         """Setup node contexts and consume data with the pipeline"""
         consume(self.pipeline, data, **node_contexts)
@@ -398,6 +412,221 @@ class Glider:
     def plot(self, *args, **kwargs):
         """Passthrough to Consecution Pipeline"""
         self.pipeline.plot(*args, **kwargs)
+
+    def get_node_lookup(self):
+        return self.pipeline._node_lookup
+
+    def cli(self, *script_args, blacklist=None, parents=None, inject=None, clean=None):
+        decorator = GliderScript(
+            self,
+            *script_args,
+            blacklist=blacklist,
+            parents=parents,
+            inject=inject,
+            clean=clean
+        )
+        return decorator
+
+
+class GliderScript(Script):
+    def __init__(
+        self,
+        glider,
+        *script_args,
+        blacklist=None,
+        parents=None,
+        inject=None,
+        clean=None
+    ):
+        self.glider = glider
+        self.blacklist = set(blacklist or [])
+
+        self.parents = parents or []
+        assert isinstance(self.parents, list), (
+            "parents must be a *list* of climax.parents: %s" % parents
+        )
+
+        self.inject = inject or {}
+        if inject:
+            assert isinstance(
+                self.inject, dict
+            ), "inject must be a dict of argname->func mappings"
+            for injected_arg in inject:
+                dbg("Adding injected_arg %s to blacklist" % injected_arg)
+                self.blacklist.add(injected_arg)
+
+        self.clean = clean or {}
+        if clean:
+            assert isinstance(
+                self.clean, dict
+            ), "clean must be a dict of argname->func mappings"
+
+        script_args = self._get_script_args(script_args)
+        return super().__init__(*script_args)
+
+    def __call__(self, func, *args, **kwargs):
+        func = self._node_arg_converter(func, *args, **kwargs)
+        return super().__call__(func, *args, **kwargs)
+
+    def get_injected_kwargs(self):
+        if not self.inject:
+            return {}
+        result = {}
+        for key, func in self.inject.items():
+            dbg("Injecting %s via %s" % (key, func))
+            result[key] = func()
+        return result
+
+    def clean_up(self, **kwargs):
+        if not self.clean:
+            return
+
+        errors = []
+        for key, func in self.clean.items():
+            try:
+                if key not in kwargs:
+                    errors.append("Could not clean up %s, no arg found" % key)
+                dbg("Calling clean_up function %s for %s=%s" % (func, key, kwargs[key]))
+                func(kwargs[key])
+            except:
+                pass
+        if errors:
+            raise Exception("Errors during clean_up: %s" % errors)
+
+    def blacklisted(self, node_name, arg_name):
+        if arg_name in self.blacklist:
+            return True
+        if self._get_script_arg_name(node_name, arg_name) in self.blacklist:
+            return True
+        return False
+
+    def _get_script_arg_name(self, node_name, arg_name):
+        return "%s_%s" % (node_name, arg_name)
+
+    def _get_script_arg(self, node, arg_name, required=False, default=None):
+        if self.blacklisted(node.name, arg_name):
+            return
+
+        if arg_name in self.inject:
+            required = False
+            default = None
+        elif arg_name in node.context:
+            required = False
+            default = node.context[arg_name]
+        elif arg_name in self.glider.global_state:
+            required = False
+            default = self.glider.global_state[arg_name]
+
+        arg_type = str
+        if default:
+            arg_type = type(default)
+
+        arg_name = "--" + self._get_script_arg_name(node.name, arg_name)
+        dbg(
+            "Script arg: %s required:%s, type:%s, default:%s"
+            % (arg_name, required, arg_type, default)
+        )
+        if arg_type == bool:
+            action = "store_true"
+            if default:
+                action = "store_false"
+            script_arg = Arg(
+                arg_name, required=required, action=action, default=default
+            )
+        else:
+            script_arg = Arg(
+                arg_name, required=required, type=arg_type, default=default
+            )
+        return script_arg
+
+    def _get_script_args(self, custom_script_args=None):
+        node_lookup = self.glider.get_node_lookup()
+        custom_script_args = custom_script_args or []
+        script_args = OrderedDict()
+
+        if not self.blacklisted("", SCRIPT_DATA_ARG):
+            script_args[SCRIPT_DATA_ARG] = Arg(SCRIPT_DATA_ARG, nargs="+")
+
+        for node in node_lookup.values():
+            for arg_name, _ in node.run_args.items():
+                script_arg = self._get_script_arg(node, arg_name, required=True)
+                if not script_arg:
+                    continue
+                script_args[script_arg.name] = script_arg
+
+            for kwarg_name, kwarg_default in node.run_kwargs.items():
+                script_arg = self._get_script_arg(
+                    node, kwarg_name, required=False, default=kwarg_default
+                )
+                if not script_arg:
+                    continue
+                script_args[script_arg.name] = script_arg
+
+        for custom_arg in custom_script_args:
+            assert not self.blacklisted("", custom_arg.name), (
+                "Blacklisted arg '%s' passed as a custom arg" % custom_arg.name
+            )
+            if custom_arg.name in script_args:
+                dbg("Overriding '%s' with custom arg" % custom_arg.name)
+            script_args[custom_arg.name] = custom_arg
+
+        return script_args.values()
+
+    def _node_arg_converter(self, func, *args, **kwargs):
+        """Wrap the wrapped function so we can convert from CLI keyword args to node
+        contexts"""
+
+        def inner(data, *args, **kwargs):
+            nonlocal self
+            kwargs = self._convert_kwargs(kwargs)
+            return func(data, *args, **kwargs)
+
+        return inner
+
+    def _get_injected_node_contexts(self, kwargs):
+        node_contexts = {}
+        node_lookup = self.glider.get_node_lookup()
+        for node in node_lookup.values():
+            for arg_name, _ in node.run_args.items():
+                if arg_name in self.inject:
+                    node_contexts.setdefault(node.name, {})[arg_name] = kwargs[arg_name]
+            for kwarg_name, kwarg_default in node.run_kwargs.items():
+                if kwarg_name in self.inject:
+                    node_contexts.setdefault(node.name, {})[arg_name] = kwargs[
+                        kwarg_name
+                    ]
+        return node_contexts
+
+    def _convert_kwargs(self, kwargs):
+        nodes = self.glider.get_node_lookup()
+        node_contexts = {}
+        unused = set()
+
+        for key, value in kwargs.items():
+            key_parts = key.split("_")
+            node_name = key_parts[0]
+            if node_name not in nodes:
+                unused.add(key)
+                continue
+            assert (
+                len(key_parts) > 1
+            ), "Invalid keyword arg %s, can not be a node name" % (key)
+            arg_name = "_".join(key_parts[1:])
+            node_contexts.setdefault(node_name, {})[arg_name] = value
+
+        injected_node_contexts = self._get_injected_node_contexts(kwargs)
+        for node_name, injected_args in injected_node_contexts.items():
+            dbg("Injecting args for node %s: %s" % (node_name, injected_args))
+            if node_name in node_contexts:
+                node_contexts[node_name].update(injected_args)
+            else:
+                node_contexts[node_name] = injected_args
+
+        final_kwargs = node_contexts
+        for key in unused:
+            final_kwargs[key] = kwargs[key]
+
+        return final_kwargs
 
 
 class ProcessPoolParaGlider(Glider):

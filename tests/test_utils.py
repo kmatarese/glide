@@ -68,13 +68,20 @@ def get_sqlalchemy_mysql_engine():
 
 
 def get_pymysql_conn():
-    assert pymysql, "PyMySQL package is not install"
+    assert pymysql, "PyMySQL package is not installed"
     host = test_config["MySQLHost"]
     port = int(test_config["MySQLPort"])
     user = test_config["MySQLUser"]
     password = test_config["MySQLPassword"]
     schema = test_config["MySQLTestSchema"]
-    conn = pymysql.connect(host=host, port=port, db=schema, user=user, passwd=password)
+    conn = pymysql.connect(
+        host=host,
+        port=port,
+        db=schema,
+        user=user,
+        passwd=password,
+        cursorclass=pymysql.cursors.DictCursor,
+    )
     return conn
 
 

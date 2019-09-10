@@ -127,7 +127,7 @@ class RowCSVLoader(Node):
 class RowSQLiteLoader(SQLiteConnectionNode):
     """Load date with a SQLite connection"""
 
-    def run(self, rows, conn, table, cursor=None, **kwargs):
+    def run(self, rows, conn, table, cursor=None, commit=True, **kwargs):
         """Form SQL statement and use bulk execute to write rows to table"""
         dbg("Loading %d rows to %s" % (len(rows), table))
         assert isinstance(rows[0], sqlite3.Row), "Only sqlite3.Row rows are supported"
@@ -135,19 +135,23 @@ class RowSQLiteLoader(SQLiteConnectionNode):
         if not cursor:
             cursor = conn.cursor()
         cursor.executemany(sql, rows)
+        if commit:
+            conn.commit()
         self.push(rows)
 
 
 class RowSQLDBAPILoader(SQLDBAPIConnectionNode):
     """Load data with a DBAPI-based connection"""
 
-    def run(self, rows, conn, table, cursor=None, **kwargs):
+    def run(self, rows, conn, table, cursor=None, commit=True, **kwargs):
         """Form SQL statement and use bulk execute to write rows to table"""
         dbg("Loading %d rows to %s" % (len(rows), table))
         sql = get_bulk_replace(table, rows[0].keys())
         if not cursor:
             cursor = conn.cursor()
         cursor.executemany(sql, rows)
+        if commit and hasattr(conn, "commit"):
+            conn.commit()
         self.push(rows)
 
 
@@ -165,7 +169,7 @@ class RowSQLAlchemyLoader(SQLAlchemyConnectionNode):
 class RowSQLiteTempLoader(SQLiteConnectionNode):
     """Load data into a temp table with a SQLite connection"""
 
-    def run(self, rows, conn, cursor=None, schema=None, **kwargs):
+    def run(self, rows, conn, cursor=None, schema=None, commit=True, **kwargs):
         """Create and bulk load a temp table"""
         assert isinstance(rows[0], sqlite3.Row), "Only sqlite3.Row rows are supported"
         table = get_temp_table(conn, rows, create=True, schema=schema)
@@ -175,32 +179,38 @@ class RowSQLiteTempLoader(SQLiteConnectionNode):
         if not cursor:
             cursor = conn.cursor()
         cursor.executemany(sql, rows)
+        if commit:
+            conn.commit()
         self.push([table.name])
 
 
 class RowSQLLoader(SQLConnectionNode):
     """Generic SQL loader"""
 
-    def run(self, rows, conn, table, cursor=None, **kwargs):
+    def run(self, rows, conn, table, cursor=None, commit=True, **kwargs):
         """Form SQL statement and use bulk execute to write rows to table"""
         dbg("Loading %d rows to %s" % (len(rows), table))
         sql = self.get_bulk_replace(conn, table, rows)
         if not cursor:
             cursor = self.get_sql_executor(conn)
         self.sql_executemany(conn, cursor, sql, rows)
+        if commit and hasattr(conn, "commit"):
+            conn.commit()
         self.push(rows)
 
 
 class RowSQLTempLoader(SQLConnectionNode):
     """Generic SQL temp table loader"""
 
-    def run(self, rows, conn, cursor=None, schema=None, **kwargs):
+    def run(self, rows, conn, cursor=None, schema=None, commit=True, **kwargs):
         """Create and bulk load a temp table"""
         table = get_temp_table(conn, rows, create=True, schema=schema)
         sql = self.get_bulk_replace(conn, table.name, rows)
         if not cursor:
             cursor = self.get_sql_executor(conn)
         self.sql_executemany(conn, cursor, sql, rows)
+        if commit and hasattr(conn, "commit"):
+            conn.commit()
         self.push([table.name])
 
 
