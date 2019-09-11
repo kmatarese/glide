@@ -143,24 +143,13 @@ def test_sqlite_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     )
 
 
-# def test_sqlite_temp_load(rootdir, sqlite_in_conn):
-#     nodes = (DataFrameSQLExtractor('extract') |
-#              DataFrameSQLTempLoader('tmp_loader') |
-#              LoggingLoader('load'))
-#     glider, table = sqlite_glider(rootdir, nodes)
-#     sql = 'select * from %s limit 10' % table
-#     glider.consume([sql],
-#                      extract=dict(conn=sqlite_in_conn),
-#                      tmp_loader=dict(conn=sqlite_in_conn))
-
-
 def test_sqlalchemy_temp_load(rootdir, sqlalchemy_conn):
     in_table, out_table = sqlalchemy_setup(rootdir, sqlalchemy_conn)
     sql = "select * from %s limit 10" % in_table
     glider = Glider(
         DataFrameSQLExtractor("extract")
         | DataFrameSQLTempLoader("tmp_loader")
-        | LoggingLoader("load")
+        | Logger("load")
     )
     glider.consume(
         [sql], extract=dict(conn=sqlalchemy_conn), tmp_loader=dict(conn=sqlalchemy_conn)
@@ -183,7 +172,5 @@ def test_sqlalchemy_extract_and_load(rootdir, sqlalchemy_conn):
 
 def test_sqlalchemy_table_extract(rootdir, sqlalchemy_conn):
     in_table, _ = sqlalchemy_setup(rootdir, sqlalchemy_conn)
-    glider = Glider(
-        DataFrameSQLTableExtractor("extract", limit=100) | LoggingLoader("load")
-    )
+    glider = Glider(DataFrameSQLTableExtractor("extract", limit=100) | Logger("load"))
     glider.consume([in_table], extract=dict(conn=sqlalchemy_conn))

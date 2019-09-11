@@ -4,9 +4,9 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 import numpy as np
 import pandas as pd
+from toolbox import set_missing_key
 
 from glide.core import Node
-from glide.utils import set_missing_key
 
 
 class DummyTransformer(Node):

@@ -1,4 +1,3 @@
-from argparse import Namespace
 from unittest.mock import patch
 
 import climax
@@ -14,6 +13,7 @@ gs_glider = Glider(
     RowSQLExtractor("extract") | RowSQLLoader("load"),
     global_state=dict(conn=get_pymysql_conn()),
 )
+
 glider = Glider(RowSQLExtractor("extract") | RowSQLLoader("load"))
 
 
@@ -44,7 +44,7 @@ def get_conn():
 
 @gs_glider.cli()
 def _test_base_cli(data, **node_contexts):
-    glider.consume(data, **node_contexts)
+    gs_glider.consume(data, **node_contexts)
 
 
 def test_base_cli():
@@ -52,15 +52,16 @@ def test_base_cli():
         _test_base_cli()
 
 
-@climax.parent()
-@climax.argument("--dry_run", action="store_true")
+@Parent()
+@Arg("--dry_run", action="store_true")
 def parent_cli():
     pass
 
 
 @gs_glider.cli(parents=[parent_cli])
 def _test_parent_cli(data, dry_run, **node_contexts):
-    glider.consume(data, **node_contexts)
+    assert dry_run
+    gs_glider.consume(data, **node_contexts)
 
 
 def test_parent_cli():
@@ -70,7 +71,7 @@ def test_parent_cli():
 
 @gs_glider.cli(Arg("--load_table", required=False, default=LOAD_TABLE))
 def _test_arg_override(data, **node_contexts):
-    glider.consume(data, **node_contexts)
+    gs_glider.consume(data, **node_contexts)
 
 
 def test_arg_override():

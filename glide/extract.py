@@ -18,7 +18,7 @@ from io import BytesIO
 import pandas as pd
 from pandas.io.common import get_filepath_or_buffer
 import requests
-from toolbox import st
+from toolbox import st, read_chunks
 
 from glide.core import (
     Node,
@@ -29,7 +29,6 @@ from glide.core import (
     SQLDBAPIConnectionNode,
     SQLiteConnectionNode,
 )
-from glide.utils import read_chunks
 from glide.sql_utils import build_table_select
 
 # -------- Pandas Extractors

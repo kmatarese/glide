@@ -5,9 +5,10 @@ from collections import OrderedDict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from inspect import signature, Parameter
 
+import climax
 import numpy as np
 import sqlite3
-from toolbox import Script, Arg, st, dbg
+from toolbox import st, dbg, Script, Arg, MappingMixin, set_missing_key
 
 from consecution import (
     Pipeline,
@@ -15,9 +16,12 @@ from consecution import (
     Node as ConsecutionNode,
 )
 from glide.sql_utils import SQLALCHEMY_CONN_TYPES, is_sqlalchemy_conn, get_bulk_replace
-from glide.utils import st, iterize, set_missing_key, MappingMixin, is_pandas
+from glide.utils import iterize, is_pandas
 
 SCRIPT_DATA_ARG = "data"
+
+# TODO: move to toolbox
+Parent = climax.parent
 
 
 class GlobalState(MappingMixin, ConsecutionGlobalState):
@@ -410,13 +414,15 @@ class Glider:
         consume(self.pipeline, data, **node_contexts)
 
     def plot(self, *args, **kwargs):
-        """Passthrough to Consecution Pipeline"""
+        """Passthrough to Consecution Pipeline.plot"""
         self.pipeline.plot(*args, **kwargs)
 
     def get_node_lookup(self):
+        """Passthrough to Consecution Pipeline._node_lookup"""
         return self.pipeline._node_lookup
 
     def cli(self, *script_args, blacklist=None, parents=None, inject=None, clean=None):
+        """Generate a decorator for this Glider that can be used to expose a CLI"""
         decorator = GliderScript(
             self,
             *script_args,
@@ -428,7 +434,43 @@ class Glider:
         return decorator
 
 
+class ProcessPoolParaGlider(Glider):
+    """A parallel Glider that uses a ProcessPoolExecutor to execute parallel calls to
+    consume()"""
+
+    def consume(self, data, **node_contexts):
+        """Setup node contexts and consume data with the pipeline"""
+        with ProcessPoolExecutor() as executor:
+            splits = np.array_split(data, min(len(data), executor._max_workers))
+            futures = []
+            for split in splits:
+                futures.append(
+                    executor.submit(consume, self.pipeline, split, **node_contexts)
+                )
+            for future in as_completed(futures):
+                result = future.result()
+
+
+class ThreadPoolParaGlider(Glider):
+    """A parallel Glider that uses a ThreadPoolExecutor to execute parallel calls to
+    consume()"""
+
+    def consume(self, data, **node_contexts):
+        """Setup node contexts and consume data with the pipeline"""
+        with ThreadPoolExecutor() as executor:
+            splits = np.array_split(data, min(len(data), executor._max_workers))
+            futures = []
+            for split in splits:
+                futures.append(
+                    executor.submit(consume, self.pipeline, split, **node_contexts)
+                )
+            for future in as_completed(futures):
+                result = future.result()
+
+
 class GliderScript(Script):
+    """A decorator that can be used to create a CLI from a Glider pipeline"""
+
     def __init__(
         self,
         glider,
@@ -438,6 +480,7 @@ class GliderScript(Script):
         inject=None,
         clean=None
     ):
+        """Generate the script args for the given Glider and return a decorator"""
         self.glider = glider
         self.blacklist = set(blacklist or [])
 
@@ -469,6 +512,7 @@ class GliderScript(Script):
         return super().__call__(func, *args, **kwargs)
 
     def get_injected_kwargs(self):
+        """Override Script method to return populated kwargs from inject arg"""
         if not self.inject:
             return {}
         result = {}
@@ -478,6 +522,7 @@ class GliderScript(Script):
         return result
 
     def clean_up(self, **kwargs):
+        """Override Script method to do any required clean up"""
         if not self.clean:
             return
 
@@ -494,6 +539,7 @@ class GliderScript(Script):
             raise Exception("Errors during clean_up: %s" % errors)
 
     def blacklisted(self, node_name, arg_name):
+        """Determine if an argument has been blacklisted from the CLI"""
         if arg_name in self.blacklist:
             return True
         if self._get_script_arg_name(node_name, arg_name) in self.blacklist:
@@ -504,6 +550,7 @@ class GliderScript(Script):
         return "%s_%s" % (node_name, arg_name)
 
     def _get_script_arg(self, node, arg_name, required=False, default=None):
+        """Generate a toolbox Arg"""
         if self.blacklisted(node.name, arg_name):
             return
 
@@ -540,6 +587,7 @@ class GliderScript(Script):
         return script_arg
 
     def _get_script_args(self, custom_script_args=None):
+        """Generate all toolbox Args for this Glider"""
         node_lookup = self.glider.get_node_lookup()
         custom_script_args = custom_script_args or []
         script_args = OrderedDict()
@@ -584,6 +632,7 @@ class GliderScript(Script):
         return inner
 
     def _get_injected_node_contexts(self, kwargs):
+        """Populate node contexts based on injected args"""
         node_contexts = {}
         node_lookup = self.glider.get_node_lookup()
         for node in node_lookup.values():
@@ -598,6 +647,7 @@ class GliderScript(Script):
         return node_contexts
 
     def _convert_kwargs(self, kwargs):
+        """Convert flat kwargs to node contexts and remaining kwargs"""
         nodes = self.glider.get_node_lookup()
         node_contexts = {}
         unused = set()
@@ -627,37 +677,3 @@ class GliderScript(Script):
             final_kwargs[key] = kwargs[key]
 
         return final_kwargs
-
-
-class ProcessPoolParaGlider(Glider):
-    """A parallel Glider that uses a ProcessPoolExecutor to execute parallel calls to
-    consume()"""
-
-    def consume(self, data, **node_contexts):
-        """Setup node contexts and consume data with the pipeline"""
-        with ProcessPoolExecutor() as executor:
-            splits = np.array_split(data, min(len(data), executor._max_workers))
-            futures = []
-            for split in splits:
-                futures.append(
-                    executor.submit(consume, self.pipeline, split, **node_contexts)
-                )
-            for future in as_completed(futures):
-                result = future.result()
-
-
-class ThreadPoolParaGlider(Glider):
-    """A parallel Glider that uses a ThreadPoolExecutor to execute parallel calls to
-    consume()"""
-
-    def consume(self, data, **node_contexts):
-        """Setup node contexts and consume data with the pipeline"""
-        with ThreadPoolExecutor() as executor:
-            splits = np.array_split(data, min(len(data), executor._max_workers))
-            futures = []
-            for split in splits:
-                futures.append(
-                    executor.submit(consume, self.pipeline, split, **node_contexts)
-                )
-            for future in as_completed(futures):
-                result = future.result()

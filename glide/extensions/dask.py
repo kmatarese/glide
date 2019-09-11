@@ -10,9 +10,9 @@ except ImportError:
     delayed = None
     Client = None
     dask_as_completed = None
+from toolbox import st, set_missing_key
 
 from glide.core import Node, DefaultNode, FuturesPushNode, Glider, consume
-from glide.utils import st, set_missing_key
 
 
 class DaskClientPush(FuturesPushNode):

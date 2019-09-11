@@ -44,7 +44,7 @@ exec(open("glide/version.py").read())
 
 setup(
     name="glide",
-    description="A data processing / ETL pipeline tool",
+    description="Easy ETL",
     long_description=README,
     author="Kurt Matarese",
     maintainer="Kurt Matarese",

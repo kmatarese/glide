@@ -25,7 +25,7 @@ from glide.sql_utils import (
 )
 
 
-class LoggingLoader(Node):
+class Logger(Node):
     """Simple logging node"""
 
     def run(self, item):
