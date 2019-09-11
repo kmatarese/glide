@@ -113,7 +113,7 @@ The above example also demonstrates two separate ways to pass context to nodes:
 1. Passing kwargs when instantiating the node. This becomes a default context
 for the node any time it is used/reused.
 2. Passing kwargs to `consume` that are node_name->node_context pairs. This context
-lasts only for the the `consume` call. 
+lasts only for the `consume` call. 
 
 > **Note:** Further details can be found in the node creation documentation.
 
