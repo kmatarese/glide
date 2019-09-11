@@ -164,7 +164,7 @@ transformation on the DataFrame, and then load it to another CSV.
 
 ```python
 glider = Glider(
-    PlaceholderNode("extract"),
+    PlaceholderNode("extract")
     | MyTransformer("transform")
     | DataFrameCSVLoader("load", index=False, mode="a")
 )
@@ -208,8 +208,8 @@ data:
 
 ```python
 glider = ProcessPoolParaGlider(
-    RowCSVExtractor('extract') |
-    Logger('load')
+    RowCSVExtractor('extract')
+    | Logger('load')
 )
 glider.consume(
     ["/path/to/infile1.csv", "/path/to/infile2.csv"],
@@ -334,7 +334,7 @@ glider = Glider(
     MyNode("my_node", conn=conn, chunksize=100)
 )
 ```
-3\. Global pipeline state passed via `global_state`. This only works for positional args currently:
+3\. Global pipeline state passed via `global_state`. This only works for populating positional args currently:
 ```python
 conn = get_my_db_conn()
 glider = Glider(
@@ -415,7 +415,7 @@ arguments show up on the command line. You can blacklist the arg from ever getti
 into the CLI as follows:
 
 ```python
-@glider.cli(blacklist=['conn'])
+@glider.cli(blacklist=["conn"])
 def main(data, **node_contexts):
     glider.consume(data, **node_contexts)
 ```
@@ -426,7 +426,7 @@ and load nodes in this example), you could be more explicit and prefix the
 node name:
 
 ```python
-@glider.cli(blacklist=['load_conn'])
+@glider.cli(blacklist=["load_conn"])
 def main(data, **node_contexts):
     glider.consume(data, **node_contexts)
 ```
@@ -518,10 +518,11 @@ the `load_table` arg and gave it a default as well, we can now simply run:
 python my_script.py
 ```
 
-Note that injected args are also passed to the wrapped function. The `clean`
-decorator argument takes a dictionary that maps argument names to callables
-that accept the argument value to perform some clean up. In this case, it
-closes the database connection after the wrapped method is complete.
+Note that injected args are also passed to the wrapped function. 
+
+The `clean` decorator argument takes a dictionary that maps argument names to
+callables that accept the argument value to perform some clean up. In this
+case, it closes the database connection after the wrapped method is complete.
 
 Documentation
 -------------
