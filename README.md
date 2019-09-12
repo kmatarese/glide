@@ -18,12 +18,27 @@ Like those libraries, Glide is:
 
 Glide also has: 
 
-- An expanding suite of built-in nodes and pipelines that cover common use cases, such as extracting and loading data from/to SQL/CSVs/Excel/URLs
+- An expanding suite of built-in nodes and pipelines that extract, transform, and load data from/to any combination of:
+  - SQL databases (SQLite, DBAPI, and SQLAlchemy support)
+  - HTTP URLs
+  - Local or remote CSVs
+  - Local or remote Excel files
 - Built-in nodes for Pandas DataFrame-based pipelines, including optional support for DataFrame transformation via [Dask](https://dask.org/) or [Swifter](https://github.com/jmcarpenter2/swifter)
 - A variety of node and DAG parallel processing strategies via concurrent.futures Executors or optional [Dask](https://dask.org/) support
 - A simple decorator to generate a command line interface from a pipeline in ~one line of code
 - The ability to control node contexts via defaults and/or simple runtime overrides
 
+Table of Contents
+-----------------
+
+[Installation](#installation)
+[Examples](#examples) 
+[Creating Nodes](#creatingnodes)
+[CLI Generation](#cligeneration)
+[Documentation](#documentation)
+[How to Contribute](#howtocontribute)
+
+<a name="installation"/>
 Installation
 ------------
 
@@ -40,6 +55,7 @@ pip install -r requirements.txt
 make ENV=/path/to/venv install # Or "make ENV=/path/to/venv develop" for development
 ```
 
+<a name="examples"/>
 Examples
 --------
 
@@ -283,6 +299,7 @@ databases in parallel as a final step.
 > **Also Note:** standard limitations apply regarding what types of data can
 be serialized and passed to a parallel process.
 
+<a name="creatingnodes"/>
 Creating Nodes
 --------------
 
@@ -343,6 +360,7 @@ glider = Glider(
 )
 ```
 
+<a name="cligeneration"/>
 CLI Generation
 --------------
 
@@ -531,6 +549,7 @@ The `clean` decorator argument takes a dictionary that maps argument names to
 callables that accept the argument value to perform some clean up. In this
 case, it closes the database connection after the wrapped method is complete.
 
+<a name="documentation"/>
 Documentation
 -------------
 
@@ -538,6 +557,7 @@ Documentation
 progress. Most of the built-in nodes and pipelines are fairly self-explanatory
 so you can supplement your knowledge by perusing the tests directory.
 
+<a name="howtocontribute"/>
 How to Contribute
 -----------------
 
