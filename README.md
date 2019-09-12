@@ -381,14 +381,20 @@ database connection object on the command line for a second and see how you
 would run this script:
 
 ```bash
-python my_script.py "select * from input_table limit 10" --extract_conn foo --load_conn bar --load_table output_table 
+$ python my_script.py "select * from input_table limit 10" \
+--extract_conn foo \
+--load_conn bar \
+--load_table output_table 
 ```
 
 To pass multiple inputs to `data` you would simply do use space-separated
 positional arguments:
 
 ```bash
-python my_script.py "sql query 1" "sql query 2" --extract_conn foo --load_conn bar --load_table output_table 
+$ python my_script.py "sql query 1" "sql query 2" \
+--extract_conn foo \
+--load_conn bar \
+--load_table output_table 
 ```
 
 One way to populate the `conn` arguments of pipeline nodes is to define it in
@@ -405,7 +411,8 @@ glider = Glider(
 ```
 
 ```bash
-python my_script.py "select * from input_table limit 10" --load_table output_table 
+$ python my_script.py "select * from input_table limit 10" \
+--load_table output_table 
 ```
 
 ### Blacklisting Args
@@ -452,7 +459,7 @@ And now, assuming you had used the `Glider` with `conn` passed in the
 `global_state`, you could simple do:
 
 ```bash
-python my_script.py "select * from input_table limit 10"
+$ python my_script.py "select * from input_table limit 10"
 ```
 
 You can override the `data` positional argument in this way too if you want to
@@ -515,7 +522,7 @@ automatically blacklists those args from the command line as well. Since we adde
 the `load_table` arg and gave it a default as well, we can now simply run:
 
 ```bash
-python my_script.py
+$ python my_script.py
 ```
 
 Note that injected args are also passed to the wrapped function. 
