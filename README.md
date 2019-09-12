@@ -31,14 +31,14 @@ Glide also has:
 Table of Contents
 -----------------
 
-[Installation](#installation)
-[Examples](#examples) 
-[Creating Nodes](#creatingnodes)
-[CLI Generation](#cligeneration)
-[Documentation](#documentation)
-[How to Contribute](#howtocontribute)
+- [Installation](#installation)
+- [Examples](#examples) 
+- [Creating Nodes](#creatingnodes)
+- [CLI Generation](#cligeneration)
+- [Documentation](#documentation)
+- [How to Contribute](#howtocontribute)
 
-<a name="installation"/>
+<a name="installation"/a>
 Installation
 ------------
 
@@ -55,7 +55,7 @@ pip install -r requirements.txt
 make ENV=/path/to/venv install # Or "make ENV=/path/to/venv develop" for development
 ```
 
-<a name="examples"/>
+<a name="examples"/a>
 Examples
 --------
 
@@ -299,7 +299,7 @@ databases in parallel as a final step.
 > **Also Note:** standard limitations apply regarding what types of data can
 be serialized and passed to a parallel process.
 
-<a name="creatingnodes"/>
+<a name="creatingnodes"/a>
 Creating Nodes
 --------------
 
@@ -360,7 +360,7 @@ glider = Glider(
 )
 ```
 
-<a name="cligeneration"/>
+<a name="cligeneration"/a>
 CLI Generation
 --------------
 
@@ -549,7 +549,7 @@ The `clean` decorator argument takes a dictionary that maps argument names to
 callables that accept the argument value to perform some clean up. In this
 case, it closes the database connection after the wrapped method is complete.
 
-<a name="documentation"/>
+<a name="documentation"/a>
 Documentation
 -------------
 
@@ -557,7 +557,7 @@ Documentation
 progress. Most of the built-in nodes and pipelines are fairly self-explanatory
 so you can supplement your knowledge by perusing the tests directory.
 
-<a name="howtocontribute"/>
+<a name="howtocontribute"/a>
 How to Contribute
 -----------------
 
