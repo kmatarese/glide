@@ -40,6 +40,13 @@ for repo in git_requires:
     # Append git egg references
     non_git_requires.append(repo.split("egg=")[-1])
 
+extras_require = {
+    "swifter": ["swifter>=0.289"],
+    "dev": ["black", "pre-commit", "pytest", "sphinx", "wheel"],
+    "dask": ["dask[complete]>=2.1.0"],
+}
+extras_require["complete"] = sorted(set(sum(extras_require.values(), [])))
+
 exec(open("glide/version.py").read())
 
 setup(
@@ -61,9 +68,5 @@ setup(
     include_package_data=True,
     install_requires=non_git_requires,
     dependency_links=git_requires,
-    extras_require={
-        "swifter": ["swifter>=0.289"],
-        "dev": ["sphinx"],
-        "dask": ["dask[complete]>=2.1.0"],
-    },
+    extras_require=extras_require,
 )

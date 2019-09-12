@@ -20,7 +20,7 @@ Glide also has:
 
 - An expanding suite of built-in nodes and pipelines that extract, transform, and load data from/to any combination of:
   - SQL databases (SQLite, DBAPI, and SQLAlchemy support)
-  - HTTP URLs
+  - URLs
   - Local or remote CSVs
   - Local or remote Excel files
 - Built-in nodes for Pandas DataFrame-based pipelines, including optional support for DataFrame transformation via [Dask](https://dask.org/) or [Swifter](https://github.com/jmcarpenter2/swifter)
@@ -35,6 +35,7 @@ Table of Contents
 - [Examples](#examples) 
 - [Creating Nodes](#creatingnodes)
 - [CLI Generation](#cligeneration)
+- [Extensions](#extensions)
 - [Documentation](#documentation)
 - [How to Contribute](#howtocontribute)
 
@@ -48,11 +49,10 @@ Until this gets added to PyPi, you must clone the git repo and then install into
 environment as follows:
 
 ```shell
-git clone https://github.com/kmatarese/glide
-cd glide
-source /path/to/venv/bin/activate
-pip install -r requirements.txt
-make ENV=/path/to/venv install # Or "make ENV=/path/to/venv develop" for development
+$ git clone https://github.com/kmatarese/glide
+$ cd glide
+$ source /path/to/venv/bin/activate
+$ pip install . # pip install .[complete] to include extensions and dev packages
 ```
 
 <a name="examples"></a>
@@ -398,7 +398,7 @@ populate the `data` argument. Let's ignore the fact that you can't pass a real
 database connection object on the command line for a second and see how you
 would run this script:
 
-```bash
+```shell
 $ python my_script.py "select * from input_table limit 10" \
 --extract_conn foo \
 --load_conn bar \
@@ -408,7 +408,7 @@ $ python my_script.py "select * from input_table limit 10" \
 To pass multiple inputs to `data` you would simply do use space-separated
 positional arguments:
 
-```bash
+```shell
 $ python my_script.py "sql query 1" "sql query 2" \
 --extract_conn foo \
 --load_conn bar \
@@ -428,7 +428,7 @@ glider = Glider(
 )
 ```
 
-```bash
+```shell
 $ python my_script.py "select * from input_table limit 10" \
 --load_table output_table 
 ```
@@ -476,7 +476,7 @@ def main(data, **node_contexts):
 And now, assuming you had used the `Glider` with `conn` passed in the
 `global_state`, you could simple do:
 
-```bash
+```shell
 $ python my_script.py "select * from input_table limit 10"
 ```
 
@@ -539,7 +539,7 @@ arg and a `conn` arg and neither are necessary for the command line. This
 automatically blacklists those args from the command line as well. Since we added
 the `load_table` arg and gave it a default as well, we can now simply run:
 
-```bash
+```shell
 $ python my_script.py
 ```
 
@@ -548,6 +548,47 @@ Note that injected args are also passed to the wrapped function.
 The `clean` decorator argument takes a dictionary that maps argument names to
 callables that accept the argument value to perform some clean up. In this
 case, it closes the database connection after the wrapped method is complete.
+
+<a name="extensions"></a>
+Extensions
+----------
+
+### Installing Extensions
+
+To install all extensions and their associated nodes execute the following
+from the Glide root directory:
+
+```shell
+$ pip install .[complete]
+```
+
+To just install a specific extension, such as dask:
+
+```shell
+$ pip install .[dask]
+```
+
+To access installed extensions import from the `glide.extensions` submodules as necessary.
+
+### Adding Extensions
+
+New extensions are welcome! To add an extension:
+
+1. Review the examples of other extensions in `glide.extensions`
+2. Add tests for your extensions and don't forget to add support in `setup.py`
+3. Review and follow the steps in [How to Contribute](#howtocontribute)
+
+Here are some current ideas for extensions/endpoints in case you need inspiration:
+
+- Email
+- NoSQL databases
+- Google Analytics
+- Google Ads
+- Facebook Ads
+- HTML Tables
+- Salesforce
+
+You get the idea.
 
 <a name="documentation"></a>
 Documentation

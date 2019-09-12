@@ -1,13 +1,9 @@
-black
 consecution
+m2r
 openpyxl
 pandas==0.24
-pre-commit
 pymysql
-pytest
 requests
 sqlalchemy
 git+git://github.com/totalhack/toolbox.git#egg=toolbox
-wheel
 xlrd
-m2r
