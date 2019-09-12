@@ -1,6 +1,5 @@
 from unittest.mock import patch
 
-import climax
 import pytest
 
 from .test_utils import get_pymysql_conn

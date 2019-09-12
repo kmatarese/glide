@@ -135,10 +135,10 @@ def test_csv_dask_dataframe_lowercase(rootdir):
 def test_sqlite_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     nodes = DataFrameSQLExtractor("extract") | DataFrameSQLLoader("load")
     glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
-    sql = "select * from %s limit 10" % table
+    sql = "select * from %s where Zip_Code < :zip" % table
     glider.consume(
         [sql],
-        extract=dict(conn=sqlite_in_conn),
+        extract=dict(conn=sqlite_in_conn, params=dict(zip="01000")),
         load=dict(table=table, conn=sqlite_out_conn),
     )
 

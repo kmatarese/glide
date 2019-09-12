@@ -8,7 +8,7 @@ from inspect import signature, Parameter
 import climax
 import numpy as np
 import sqlite3
-from toolbox import st, dbg, Script, Arg, MappingMixin, set_missing_key
+from toolbox import st, dbg, Script, Arg, Parent, MappingMixin, set_missing_key
 
 from consecution import (
     Pipeline,
@@ -19,9 +19,6 @@ from glide.sql_utils import SQLALCHEMY_CONN_TYPES, is_sqlalchemy_conn, get_bulk_
 from glide.utils import iterize, is_pandas
 
 SCRIPT_DATA_ARG = "data"
-
-# TODO: move to toolbox
-Parent = climax.parent
 
 
 class GlobalState(MappingMixin, ConsecutionGlobalState):
@@ -256,12 +253,13 @@ class SQLConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
             return conn
         return conn.cursor()
 
-    def sql_execute(self, conn, cursor, sql, **kwargs):
+    def sql_execute(self, conn, cursor, sql, params=None, **kwargs):
         """Executes the sql statement and returns an object that can fetch results"""
+        params = params or ()
         if is_sqlalchemy_conn(conn):
-            qr = conn.execute(sql, **kwargs)
+            qr = conn.execute(sql, *params, **kwargs)
             return qr
-        qr = cursor.execute(sql, **kwargs)
+        qr = cursor.execute(sql, params, **kwargs)
         return cursor
 
     def sql_executemany(self, conn, cursor, sql, rows):

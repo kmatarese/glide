@@ -121,31 +121,34 @@ class RowCSVExtractor(Node):
 class RowSQLiteExtractor(SQLiteConnectionNode):
     """Extract data from a SQLite connection"""
 
-    def run(self, sql, conn, cursor=None, chunksize=None, **kwargs):
+    def run(self, sql, conn, cursor=None, params=None, chunksize=None):
         """Extract data for input query and push fetched rows"""
         if not cursor:
             cursor = conn.cursor()
-        qr = cursor.execute(sql, **kwargs)
+        params = params or ()
+        qr = cursor.execute(sql, params)
         self.do_push(cursor, chunksize=chunksize)
 
 
 class RowSQLDBAPIExtractor(SQLDBAPIConnectionNode):
     """Extract data from a DBAPI connection"""
 
-    def run(self, sql, conn, cursor=None, chunksize=None, **kwargs):
+    def run(self, sql, conn, cursor=None, params=None, chunksize=None, **kwargs):
         """Extract data for input query and push fetched rows"""
         if not cursor:
             cursor = conn.cursor()
-        qr = cursor.execute(sql, **kwargs)
+        params = params or ()
+        qr = cursor.execute(sql, params, **kwargs)
         self.do_push(cursor, chunksize=chunksize)
 
 
 class RowSQLAlchemyExtractor(SQLAlchemyConnectionNode):
     """Extract data from a SQLAlchemy connection"""
 
-    def run(self, sql, conn, chunksize=None, **kwargs):
-        """Extract data for each input query and push fetched rows"""
-        qr = conn.execute(sql, **kwargs)
+    def run(self, sql, conn, params=None, chunksize=None, **kwargs):
+        """Extract data for input query and push fetched rows"""
+        params = params or ()
+        qr = conn.execute(sql, *params, **kwargs)
         self.do_push(qr, chunksize=chunksize)
 
 
@@ -153,13 +156,21 @@ class RowSQLiteTableExtractor(SQLiteConnectionNode):
     """Extract data from SQLite tables"""
 
     def run(
-        self, table, conn, cursor=None, where=None, limit=None, chunksize=None, **kwargs
+        self,
+        table,
+        conn,
+        cursor=None,
+        where=None,
+        limit=None,
+        params=None,
+        chunksize=None,
     ):
-        """Extract data for each input table and push fetched rows"""
+        """Extract data for input table and push fetched rows"""
         if not cursor:
             cursor = conn.cursor()
         sql = build_table_select(table, where=where, limit=limit)
-        qr = cursor.execute(sql, **kwargs)
+        params = params or ()
+        qr = cursor.execute(sql, params)
         self.do_push(cursor, chunksize=chunksize)
 
 
@@ -167,48 +178,80 @@ class RowSQLDBAPITableExtractor(SQLDBAPIConnectionNode):
     """Extract data from tables in a DBAPI connected"""
 
     def run(
-        self, table, conn, cursor=None, where=None, limit=None, chunksize=None, **kwargs
+        self,
+        table,
+        conn,
+        cursor=None,
+        where=None,
+        limit=None,
+        params=None,
+        chunksize=None,
+        **kwargs
     ):
-        """Extract data for each input table and push fetched rows"""
+        """Extract data for input table and push fetched rows"""
         if not cursor:
             cursor = conn.cursor()
         sql = build_table_select(table, where=where, limit=limit)
-        qr = cursor.execute(sql, **kwargs)
+        params = params or ()
+        qr = cursor.execute(sql, params, **kwargs)
         self.do_push(cursor, chunksize=chunksize)
 
 
 class RowSQLAlchemyTableExtractor(SQLAlchemyConnectionNode):
     """Extract data from tables in a SQLAlchemy connection"""
 
-    def run(self, table, conn, where=None, limit=None, chunksize=None, **kwargs):
-        """Extract data for each input table and push fetched rows"""
+    def run(
+        self, table, conn, where=None, limit=None, params=None, chunksize=None, **kwargs
+    ):
+        """Extract data for input table and push fetched rows"""
         sql = build_table_select(table, where=where, limit=limit)
-        qr = conn.execute(sql, **kwargs)
+        params = params or ()
+        qr = conn.execute(sql, *params, **kwargs)
         self.do_push(qr, chunksize=chunksize)
 
 
 class RowSQLExtractor(SQLConnectionNode):
     """Generic SQL Extractor"""
 
-    def run(self, sql, conn, cursor=None, chunksize=None, **kwargs):
-        """Extract data for each input query and push fetched rows"""
+    def run(self, sql, conn, cursor=None, params=None, chunksize=None, **kwargs):
+        """Extract data for input query and push fetched rows"""
         if not cursor:
             cursor = self.get_sql_executor(conn)
-        fetcher = self.sql_execute(conn, cursor, sql, **kwargs)
+        params = params or ()
+        fetcher = self.sql_execute(conn, cursor, sql, params=params, **kwargs)
         self.do_push(fetcher, chunksize=chunksize)
+
+
+class RowSQLParamExtractor(RowSQLExtractor):
+    """Generic SQL Extractor that expects SQL params as data instead of a query"""
+
+    def run(self, params, sql, conn, cursor=None, chunksize=None, **kwargs):
+        """Extract data for input params and push fetched rows"""
+        super().run(
+            sql, conn, cursor=cursor, params=params, chunksize=chunksize, **kwargs
+        )
 
 
 class RowSQLTableExtractor(SQLConnectionNode):
     """Generic SQL Table Extractor"""
 
     def run(
-        self, table, conn, cursor=None, where=None, limit=None, chunksize=None, **kwargs
+        self,
+        table,
+        conn,
+        cursor=None,
+        where=None,
+        limit=None,
+        params=None,
+        chunksize=None,
+        **kwargs
     ):
-        """Extract data for each input table and push fetched rows"""
+        """Extract data for input table and push fetched rows"""
         if not cursor:
             cursor = self.get_sql_executor(conn)
         sql = build_table_select(table, where=where, limit=limit)
-        fetcher = self.sql_execute(conn, cursor, sql, **kwargs)
+        params = params or ()
+        fetcher = self.sql_execute(conn, cursor, sql, params=params, **kwargs)
         self.do_push(fetcher, chunksize=chunksize)
 
 
