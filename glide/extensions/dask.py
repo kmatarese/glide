@@ -55,7 +55,16 @@ class DaskParaGlider(Glider):
     consume()"""
 
     def consume(self, data, **node_contexts):
-        """Setup node contexts and consume data with the pipeline"""
+        """Setup node contexts and consume data with the pipeline
+
+        Parameters
+        ----------
+        data
+            Iterable of data to consume
+        **node_contexts
+            Keyword arguments that are node_name->param_dict
+
+        """
         assert Client, "Please install dask (Client) to use DaskParaGlider"
 
         with Client() as client:  # Local multi-processor for now
@@ -73,7 +82,20 @@ class DataFrameDaskClientTransformer(Node):
     """Apply a transform to a Pandas DataFrame using dask Client"""
 
     def run(self, df, func, executor_kwargs=None, **kwargs):
-        """Split the DataFrame and call func() using dask Client, concat results"""
+        """Split the DataFrame and call func() using dask Client, concat results
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            The pandas DataFrame to split and apply func to
+        func : callable
+            A callable that will be passed to Dask Client.map
+        executor_kwargs : optional
+            Keyword arguments to pass to Client
+        **kwargs
+            Keyword arguments passed to Client.map
+
+        """
         assert Client, "The dask (Client) package is not installed"
         # https://distributed.dask.org/en/latest/api.html
         dfs = []
@@ -90,10 +112,24 @@ class DataFrameDaskClientTransformer(Node):
 class DaskDataFrameApplyTransformer(Node):
     """Apply a transform to a Pandas DataFrame using dask dataframe"""
 
-    # NOTE: it may be more efficient to not convert to/from Dask Dataframe in
-    # this manner depending on the pipeline
     def run(self, df, func, from_pandas_kwargs=None, **kwargs):
-        """Convert to dask dataframe and use apply()"""
+        """Convert to dask dataframe and use apply()
+
+        NOTE: it may be more efficient to not convert to/from Dask Dataframe
+        in this manner depending on the pipeline
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            The pandas DataFrame to apply func to
+        func : callable
+            A callable that will be passed to Dask DataFrame.apply
+        from_pandas_kwargs : optional
+            Keyword arguments to pass to dask.dataframe.from_pandas
+        **kwargs
+            Keyword arguments passed to Dask DataFrame.apply
+
+        """
         assert from_pandas, "The dask (dataframe) package is not installed"
         from_pandas_kwargs = from_pandas_kwargs or {}
         set_missing_key(from_pandas_kwargs, "chunksize", 500)

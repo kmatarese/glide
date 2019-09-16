@@ -30,16 +30,39 @@ class GlobalState(MappingMixin, ConsecutionGlobalState):
 
 
 class Node(ConsecutionNode):
-    """Override Consecution's Node class to add necessary functionality"""
+    """Override Consecution's Node class to add necessary functionality
+
+    Parameters
+    ----------
+    name : str
+        The name of the Node.
+    **default_context
+        Keyword args that establish the default_context of the Node.
+
+    Attributes
+    ----------
+    name : str
+        The name of the Node.
+    default_context : dict
+        A dictionary to establish default context for the node that can be
+        used to populate run() arguments.
+    context : dict
+        The current context of the Node
+    run_args : dict
+        An OrderedDict of positional args to run()
+    run_kwargs : dict
+        An OrderedDict of keyword args and defaults to run()
+    """
 
     def __init__(self, name, **default_context):
         super().__init__(name)
-        self.default_context = default_context
+        self.default_context = default_context or {}
         self.reset_context()
         self.run_args, self.run_kwargs = self._get_run_args()
 
     def update_context(self, context):
         """Update the context dict for this Node"""
+
         self.context.update(context)
 
     def reset_context(self):
@@ -48,6 +71,7 @@ class Node(ConsecutionNode):
 
     def _get_run_args(self):
         """Get the args and kwargs of this Node's run() method"""
+
         positionals = OrderedDict()
         keywords = OrderedDict()
         sig = signature(self.run)
@@ -109,7 +133,7 @@ class Node(ConsecutionNode):
         self.run(item, *args, **kwargs)
 
     def run(self, item, *args, **kwargs):
-        """Subclasses will override this method to implement core node logic """
+        """Subclasses will override this method to implement core node logic"""
         raise NotImplementedError
 
 
@@ -145,9 +169,20 @@ class SkipFalseNode(Node):
 class DataFramePushMixin:
     """Shared logic for DataFrame-based nodes"""
 
-    def do_push(self, df, **kwargs):
-        """Push the DataFrame to the next node, obeying chunksize if passed"""
-        if kwargs.get("chunksize", None):
+    def do_push(self, df, chunksize=None):
+        """Push the DataFrame to the next node, obeying chunksize if passed
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            DataFrame to push, or chunks of a DataFrame if the chunksize
+            argument is passed and truthy.
+        chunksize : int, optional
+            If truthy the df argument is expected to be chunks of a DataFrame
+            that will be pushed individually.
+        """
+
+        if chunksize:
             for chunk in df:
                 self.push(chunk)
         else:
@@ -158,7 +193,15 @@ class SQLCursorPushMixin:
     """Shared logic for SQL cursor-based nodes"""
 
     def do_push(self, cursor, chunksize=None):
-        """Fetch data and push to the next node, obeying chunksize if passed"""
+        """Fetch data and push to the next node, obeying chunksize if passed
+
+        Parameters
+        ----------
+        cursor
+            A cursor-like object with fetchmany and fetchall methods
+        chunksize : int, optional
+            If truthy the data will be fetched and pushed in chunks
+        """
         if chunksize:
             while True:
                 chunk = cursor.fetchmany(chunksize)
@@ -177,7 +220,13 @@ class DataFramePushNode(Node, DataFramePushMixin):
 
 
 class BaseSQLConnectionNode(SkipFalseNode):
-    """Base class for SQL-based nodes, checks for valid connection types on init"""
+    """Base class for SQL-based nodes, checks for valid connection types on init
+
+    Attributes
+    ----------
+    allowed_conn_types : list or tuple
+        A list or tuple of connection types that are allowed
+    """
 
     allowed_conn_types = None
 
@@ -254,7 +303,26 @@ class SQLConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
         return conn.cursor()
 
     def sql_execute(self, conn, cursor, sql, params=None, **kwargs):
-        """Executes the sql statement and returns an object that can fetch results"""
+        """Executes the sql statement and returns an object that can fetch results
+
+        Parameters
+        ----------
+        conn
+            A SQL database connection object
+        cursor
+            A SQL database cursor
+        sql : str
+            A sql query to execute
+        params : tuple, optional
+            A tuple of params to pass to the execute method of the conn or cursor
+        **kwargs
+            kwargs passed through to execute()
+
+        Returns
+        -------
+        cursor
+            cursor object that has executed but not fetched a query.
+        """
         params = params or ()
         if is_sqlalchemy_conn(conn):
             qr = conn.execute(sql, *params, **kwargs)
@@ -263,7 +331,24 @@ class SQLConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
         return cursor
 
     def sql_executemany(self, conn, cursor, sql, rows):
-        """Bulk executes the sql statement and returns an object that can fetch results"""
+        """Bulk executes the sql statement and returns an object that can fetch results
+
+        Parameters
+        ----------
+        conn
+            A SQL database connection object
+        cursor
+            A SQL database cursor
+        sql : str
+            A sql query to execute
+        rows
+            Rows of data to bulk execute
+
+        Returns
+        -------
+        cursor
+            cursor object that has executed but not fetched a query.
+        """
         if is_sqlalchemy_conn(conn):
             qr = conn.execute(sql, rows)
             return qr
@@ -271,6 +356,23 @@ class SQLConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
         return cursor
 
     def get_bulk_replace(self, conn, table, rows):
+        """Get a bulk replace SQL statement
+
+        Parameters
+        ----------
+        conn
+            A SQL database connection object
+        table : str
+            name of a SQL table
+        rows
+            An iterable of dict rows. The first row is used to determine
+            column names.
+
+        Returns
+        -------
+        A SQL bulk replace query
+        """
+
         """Get a bulk replace SQL statement"""
         if is_sqlalchemy_conn(conn):
             return get_bulk_replace(table, rows[0].keys(), dicts=False)
@@ -314,6 +416,20 @@ class FuturesPushNode(DefaultNode):
     """A node that either splits or duplicates its input to pass to multiple
     downstream nodes in parallel according to the executor_class that supports
     the futures interface.
+
+    Parameters
+    ----------
+    See Node documentation for parameters
+
+    Attributes
+    ----------
+    executor_class
+        An Executor that will be used to parallelize the push
+    as_completed_func
+        A callable used to get the Futures results as completed
+
+    See Node documentation for additional attributes
+
     """
 
     executor_class = ProcessPoolExecutor
@@ -378,10 +494,21 @@ class Glider:
     Consecution's Pipeline, but does not subclass it due to a bug in pickle
     that hits an infinite recursion when using multiprocessing with a
     super().func reference.
+
+    Parameters
+    ----------
+    *args
+        Arguments passed through to Consecution's Pipeline class.
+    **kwargs
+        Keyword arguments passed through to Consecution's Pipeline class.
+
+    Attributes
+    ----------
+    pipeline
+        A Consecution Pipeline
     """
 
     def __init__(self, *args, **kwargs):
-        """Initialize the pipeline"""
         set_missing_key(
             kwargs, "global_state", GlobalState()
         )  # Ensure our version is default
@@ -408,6 +535,16 @@ class Glider:
         self.pipeline.global_state = value
 
     def consume(self, data, **node_contexts):
+        """Setup node contexts and consume data with the pipeline
+
+        Parameters
+        ----------
+        data
+            Iterable of data to consume
+        **node_contexts
+            Keyword arguments that are node_name->param_dict
+        """
+
         """Setup node contexts and consume data with the pipeline"""
         consume(self.pipeline, data, **node_contexts)
 
@@ -420,7 +557,29 @@ class Glider:
         return self.pipeline._node_lookup
 
     def cli(self, *script_args, blacklist=None, parents=None, inject=None, clean=None):
-        """Generate a decorator for this Glider that can be used to expose a CLI"""
+        """Generate a decorator for this Glider that can be used to expose a CLI
+
+        Parameters
+        ----------
+        *script_args
+            Arguments to be added to the script CLI
+        blacklist : list, optional
+            List of arguments to filter from appearing in the CLI
+        parents : list, optional
+            List of parent CLIs to inherit from
+        inject : dict, optional
+            A dictionary of arg names to callables that inject a value for
+            that arg. Those args will be passed to nodes that can accept them.
+        clean : dict, optional
+            A dictionary of arg names to callables that will be used to perform
+            clean up when the CLI script is complete.
+
+        Returns
+        -------
+        decorator : GliderScript
+            A decorator that can be used to turn a function into a CLI "main"
+            function.
+        """
         decorator = GliderScript(
             self,
             *script_args,
@@ -437,7 +596,16 @@ class ProcessPoolParaGlider(Glider):
     consume()"""
 
     def consume(self, data, **node_contexts):
-        """Setup node contexts and consume data with the pipeline"""
+        """Setup node contexts and consume data with the pipeline
+
+        Parameters
+        ----------
+        data
+            Iterable of data to consume
+        **node_contexts
+            Keyword arguments that are node_name->param_dict
+
+        """
         with ProcessPoolExecutor() as executor:
             splits = np.array_split(data, min(len(data), executor._max_workers))
             futures = []
@@ -454,7 +622,16 @@ class ThreadPoolParaGlider(Glider):
     consume()"""
 
     def consume(self, data, **node_contexts):
-        """Setup node contexts and consume data with the pipeline"""
+        """Setup node contexts and consume data with the pipeline
+
+        Parameters
+        ----------
+        data
+            Iterable of data to consume
+        **node_contexts
+            Keyword arguments that are node_name->param_dict
+
+        """
         with ThreadPoolExecutor() as executor:
             splits = np.array_split(data, min(len(data), executor._max_workers))
             futures = []
@@ -467,7 +644,29 @@ class ThreadPoolParaGlider(Glider):
 
 
 class GliderScript(Script):
-    """A decorator that can be used to create a CLI from a Glider pipeline"""
+    """A decorator that can be used to create a CLI from a Glider pipeline
+
+    Parameters
+    ----------
+    glider : Glider
+        A Glider pipeline to be used to auto-generate the CLI
+    *script_args
+        Arguments to be added to the script CLI
+    blacklist : list, optional
+        List of arguments to filter from appearing in the CLI
+    parents : list, optional
+        List of parent CLIs to inherit from
+    inject : dict, optional
+        A dictionary of arg names to callables that inject a value for
+        that arg. Those args will be passed to nodes that can accept them.
+    clean : dict, optional
+        A dictionary of arg names to callables that will be used to perform
+        clean up when the CLI script is complete.
+
+    Attributes
+    ----------
+    See Parameters.
+    """
 
     def __init__(
         self,

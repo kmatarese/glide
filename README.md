@@ -36,7 +36,7 @@ Table of Contents
 - [Creating Nodes](#creatingnodes)
 - [CLI Generation](#cligeneration)
 - [Extensions](#extensions)
-- [Documentation](#documentation)
+- [Docs](#documentation)
 - [How to Contribute](#howtocontribute)
 
 <a name="installation"></a>
@@ -138,7 +138,7 @@ well-documented functions, such as `DataFrame.to_csv` in the case of
 `DataFrameCSVLoader`. Review the documentation/code for each node for more
 detail on how args are processed and which are required.
 
-### Example: DataFrame Transformation (Parallel)
+### Example: Parallel DataFrame Transformation
 
 Let's do the same thing with the data split in parallel processes using a
 `ProcessPoolExecutor` at the transformation step. Note that we instead use a

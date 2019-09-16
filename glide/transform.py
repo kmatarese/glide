@@ -24,7 +24,18 @@ class DataFrameApplyMapTransformer(Node):
     """Apply a transform to a Pandas DataFrame"""
 
     def run(self, df, func, **kwargs):
-        """Use applymap() on a DataFrame"""
+        """Use applymap() on a DataFrame
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            The pandas DataFrame to apply func to
+        func : callable
+            A callable that will be passed to df.applymap
+        **kwargs
+            Keyword arguments passed to applymap
+
+        """
         df = df.applymap(func, **kwargs)
         self.push(df)
 
@@ -33,7 +44,19 @@ class DataFrameProcessPoolTransformer(Node):
     """Apply a transform to a Pandas DataFrame using parallel processes"""
 
     def run(self, df, func, **kwargs):
-        """Split the DataFrame and call func() in parallel processes, concat results"""
+        """Split the DataFrame and call func() in parallel processes, concat results
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            The pandas DataFrame to split and apply func to in parallel
+        func : callable
+            A callable that will be passed a split of the df to operate on in
+            a parallel process
+        **kwargs
+            Keyword arguments passed to executor.map
+
+        """
         with ProcessPoolExecutor() as executor:
             df_split = np.array_split(df, executor._max_workers)
             df = pd.concat(executor.map(func, df_split, **kwargs))
@@ -44,7 +67,19 @@ class DataFrameThreadPoolTransformer(Node):
     """Apply a transform to a Pandas DataFrame using parallel threads"""
 
     def run(self, df, func, **kwargs):
-        """Split the DataFrame and call func() in parallel threads, concat results"""
+        """Split the DataFrame and call func() in parallel threads, concat results
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            The pandas DataFrame to split and apply func to in parallel
+        func : callable
+            A callable that will be passed a split of the df to operate on in
+            a parallel threads
+        **kwargs
+            Keyword arguments passed to executor.map
+
+        """
         with ThreadPoolExecutor() as executor:
             df_split = np.array_split(df, executor._max_workers)
             df = pd.concat(executor.map(func, df_split, **kwargs))
@@ -58,7 +93,19 @@ class RowProcessPoolTransformer(Node):
     """Apply a transform function to a set of rows in parallel processes"""
 
     def run(self, rows, func, **kwargs):
-        """Use a ProcessPoolExecutor to map() func over input rows"""
+        """Use a ProcessPoolExecutor to map() func over input rows
+
+        Parameters
+        ----------
+        rows
+            An iteratable of rows to process
+        func : callable
+            A callable that will be passed rows to operate on in parallel
+            processes
+        **kwargs
+            Keyword arguments passed to executor.map
+
+        """
         result_rows = []
         with ProcessPoolExecutor() as executor:
             set_missing_key(
@@ -72,7 +119,19 @@ class RowThreadPoolTransformer(Node):
     """Apply a transform function to a set of rows in parallel threads"""
 
     def run(self, rows, func, **kwargs):
-        """Use a ThreadPoolExecutor to map() func over input rows"""
+        """Use a ThreadPoolExecutor to map() func over input rows
+
+        Parameters
+        ----------
+        rows
+            An iteratable of rows to process
+        func : callable
+            A callable that will be passed rows to operate on in parallel
+            threads
+        **kwargs
+            Keyword arguments passed to executor.map
+
+        """
         result_rows = []
         with ThreadPoolExecutor() as executor:
             rows = [x for x in executor.map(func, rows, **kwargs)]

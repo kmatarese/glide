@@ -25,12 +25,35 @@ class GliderTemplate:
     that it will will create when __call__'d.
 
     NOTE: this currently does not support lists of lists for node levels.
+
+    Parameters
+    ----------
+    node_levels*
+        An iterable of functools.partial nodes
+
+    Attributes
+    ----------
+    node_levels
+        An iterable of functools.partial nodes
+
     """
 
     def __init__(self, *node_levels):
         self.node_levels = node_levels
 
     def __call__(self, glider=Glider):
+        """Create a Glide pipeline from the partial nodes
+
+        Parameters
+        ----------
+        glider
+            The glider class to use to build the pipeline
+
+        Returns
+        -------
+        A Glide pipeline
+
+        """
         nodes = self.create_nodes()
         return glider(nodes)
 

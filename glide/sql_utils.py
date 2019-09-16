@@ -27,6 +27,7 @@ def get_temp_table_name():
 
 class TemporaryTable(SQLTable):
     """Override the default Pandas table creation to make it a temp table"""
+
     def _execute_create(self):
         """Inject TEMPORARY keyword into create statement"""
         self.table = self.table.tometadata(self.pd_sql.meta)
@@ -36,6 +37,7 @@ class TemporaryTable(SQLTable):
 
 class SQLiteTemporaryTable(SQLiteTable):
     """Override the default Pandas SQLite table creation to make it a temp table"""
+
     def _execute_create(self):
         """Inject TEMP keyword into create statement"""
         with self.pd_sql.run_transaction() as conn:
@@ -46,9 +48,9 @@ class SQLiteTemporaryTable(SQLiteTable):
 
 
 def get_temp_table(conn, data, create=False, **kwargs):
-    """Reuse Pandas logic for creating a temp table. The definition will be formed
-    based on the first row of data passed
-    """
+    """Reuse Pandas logic for creating a temp table. The definition will be
+    formed based on the first row of data passed"""
+
     table_name = get_temp_table_name()
     pandas_engine = pandasSQL_builder(conn, schema=kwargs.get("schema", None))
     if isinstance(conn, sqlite3.Connection):
