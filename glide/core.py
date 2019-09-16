@@ -663,9 +663,6 @@ class GliderScript(Script):
         A dictionary of arg names to callables that will be used to perform
         clean up when the CLI script is complete.
 
-    Attributes
-    ----------
-    See Parameters.
     """
 
     def __init__(

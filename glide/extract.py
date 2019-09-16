@@ -1,14 +1,4 @@
-"""A home for common data extraction nodes
-
-To support email:
-http://code.activestate.com/recipes/576858-send-html-or-text-email-with-or-without-attachment/
-
-SFTP is already supported by passing a file-like object to pandas:
-https://stackoverflow.com/questions/51062176/pandas-read-data-from-a-secure-ftp-server-in-python-3
-
-Pandas has S3 support as well:
-https://stackoverflow.com/a/51777553/10682164
-"""
+"""A home for common data extraction nodes"""
 
 import codecs
 from copy import deepcopy

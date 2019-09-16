@@ -1,9 +1,9 @@
-Welcome to Glide's documentation!
-=================================
+Welcome to Glide!
+=================
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 3
+   :caption: Table of Contents:
 
    Quickstart <quickstart.rst>
    modules
