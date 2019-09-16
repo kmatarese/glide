@@ -513,7 +513,7 @@ def main(data, dry_run=False, **node_contexts):
         glider.consume(data, **node_contexts)
 ```
 
-### Argument Injection and Clean-up
+### Argument Injection and Clean Up
 
 The script decorator also has the ability to inject values into arguments
 based on the result of a function, and call clean up functions for the various
