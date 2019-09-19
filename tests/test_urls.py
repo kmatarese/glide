@@ -10,7 +10,7 @@ def test_url_str_extract_and_load():
     ]
     glider.consume(
         urls,
-        extract=dict(response_type="json"),
+        extract=dict(push_type="json"),
         load=dict(
             url="https://jsonplaceholder.typicode.com/todos",
             data_param="json",
@@ -27,7 +27,7 @@ def test_url_dict_extract_and_load():
     ]
     glider.consume(
         urls,
-        extract=dict(response_type="json"),
+        extract=dict(push_type="json"),
         load=dict(
             url="https://jsonplaceholder.typicode.com/todos",
             data_param="json",

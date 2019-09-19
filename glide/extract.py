@@ -3,12 +3,14 @@
 import codecs
 from copy import deepcopy
 import csv
+from email import parser, policy
 from io import BytesIO
 
+from imapclient import IMAPClient
 import pandas as pd
 from pandas.io.common import get_filepath_or_buffer
 import requests
-from toolbox import st, read_chunks
+from toolbox import st, read_chunks, dbg, extract_email_payload
 
 from glide.core import (
     Node,
@@ -20,6 +22,7 @@ from glide.core import (
     SQLiteConnectionNode,
 )
 from glide.sql_utils import build_table_select
+
 
 # -------- Pandas Extractors
 
@@ -111,13 +114,23 @@ class DataFrameSQLTableExtractor(PandasSQLConnectionNode):
 class RowCSVExtractor(Node):
     """Extract data from a CSV"""
 
-    def run(self, f, chunksize=None, nrows=None, reader=csv.DictReader, **kwargs):
+    def run(
+        self,
+        f,
+        open_flags="r",
+        chunksize=None,
+        nrows=None,
+        reader=csv.DictReader,
+        **kwargs
+    ):
         """Extract data for input file and push dict rows
 
         Parameters
         ----------
         f : file path or buffer
             file path or buffer to read CSV
+        open_flags : str, optional
+            Flags to pass to open() if f is not already an opened buffer
         chunksize : int, optional
             Read data in chunks of this size
         nrows : int, optional
@@ -138,7 +151,7 @@ class RowCSVExtractor(Node):
         close = False or should_close
         decode = False
         if isinstance(f, str):
-            f = open(f, "r")
+            f = open(f, open_flags)
             close = True
         elif isinstance(f, BytesIO) or encoding:
             decode = True
@@ -468,16 +481,72 @@ class RowSQLTableExtractor(SQLConnectionNode):
 # -------- Other Extractors
 
 
+class FileExtractor(Node):
+    """Extract raw data from a file"""
+
+    def run(self, f, open_flags="r", chunksize=None, push_lines=False, limit=None):
+        """Extract raw data from a file or buffer and push contents
+
+        Parameters
+        ----------
+        f : file path or buffer
+            File path or buffer to read
+        open_flags : str, optional
+            Flags to pass to open() if f is not already an opened buffer
+        chunksize : int, optional
+            Push lines in chunks of this size
+        push_lines : bool, optional
+            Push each line as it's read instead of reading entire file and pushing
+        limit : int, optional
+            Limit to first N lines
+        """
+        assert not (
+            chunksize and push_lines
+        ), "Only one of chunksize and push_lines may be specified"
+
+        f, encoding, compression, should_close = get_filepath_or_buffer(f)
+
+        close = False or should_close
+        decode = False
+        if isinstance(f, str):
+            f = open(f, open_flags)
+            close = True
+        elif isinstance(f, BytesIO) or encoding:
+            decode = True
+
+        try:
+            data = []
+            count = 0
+
+            for line in f:
+                count += 1
+                if push_lines:
+                    self.push(line)
+                else:
+                    data.append(line)
+                    if chunksize and (count % chunksize == 0):
+                        self.push("".join(data))
+                        data = []
+
+                if limit and count >= limit:
+                    break
+
+            if ((not push_lines) and data) or count == 0:
+                self.push("".join(data))
+
+        finally:
+            if close:
+                try:
+                    f.close()
+                except ValueError:
+                    pass
+
+
 class URLExtractor(Node):
     """Extract data from a URL with requests"""
 
     def run(
-        self,
-        url,
-        response_type="content",
-        session=None,
-        raise_for_status=True,
-        **kwargs
+        self, url, push_type="content", session=None, raise_for_status=True, **kwargs
     ):
         """Extract data from a URL using requests and push response.content. Input
         url maybe be a string (GET that url) or a dictionary of args to
@@ -488,10 +557,10 @@ class URLExtractor(Node):
         Parameters
         ----------
         url : str or dict
-            If str, a URL to GET. If a dict, args to requets.request
-        response_type : str, optional
-            One of "content", "text", or "json" to control interpretation of
-            the requests response
+            If str, a URL to GET. If a dict, args to requests.request
+        push_type : str, optional
+            One of "content", "text", or "json" to control extraction of
+            data from requests response.
         session : optional
             A requests Session to use to make the request
         raise_for_status : bool, optional
@@ -517,16 +586,135 @@ class URLExtractor(Node):
         if raise_for_status:
             resp.raise_for_status()
 
-        if response_type == "content":
+        if push_type == "content":
             data = resp.content
-        elif response_type == "text":
+        elif push_type == "text":
             data = resp.text
-        elif response_type == "json":
+        elif push_type == "json":
             data = resp.json()
         else:
             assert False, (
-                "Unrecognized response_type: %s, must be one of content, text, or json"
-                % response_type
+                "Unrecognized push_type: %s, must be one of content, text, or json"
+                % push_type
             )
 
         self.push(data)
+
+
+class EmailExtractor(Node):
+    """Extract data from an email inbox using IMAPClient: https://imapclient.readthedocs.io"""
+
+    def run(
+        self,
+        criteria,
+        sort=None,
+        folder="INBOX",
+        client=None,
+        host=None,
+        username=None,
+        password=None,
+        push_all=False,
+        push_type="message",
+        limit=None,
+        **kwargs
+    ):
+        """Extract data from an email inbox and push the data forward.
+
+        Note
+        ----
+        Instances of IMAPClient are NOT thread safe. They should not be shared
+        and accessed concurrently from multiple threads.
+
+        Parameters
+        ----------
+        criteria : str or list
+            Criteria argument passed to IMAPClient.search. See https://tools.ietf.org/html/rfc3501.html#section-6.4.4.
+        sort : str or list, optional
+            Sort criteria passed to IMAPClient.sort. Note that SORT is an
+            extension to the IMAP4 standard so it may not be supported by all
+            IMAP servers. See https://tools.ietf.org/html/rfc5256.
+        folder : str, optional
+            Folder to read emails from
+        client : optional
+            An established IMAPClient connection. If not present, the
+            host/login information is required.
+        host : str, optional
+            The IMAP host to connect to
+        username : str, optional
+            The IMAP username for login
+        password : str, optional
+            The IMAP password for login
+        push_all : bool, optional
+            When true push all retrievd data/emails at once
+        push_type : str, optional
+            What type of data to extract and push from the emails. Options include:
+                message: push email.message.EmailMessage objects
+                message_id: push a list of message IDs that can be fetched
+                all: push a list of dict(message=<email.message.EmailMessages>, payload=<extracted payload>)
+                body: push a list of email bodies
+                attachment: push a list of attachments (an email with multiple attachments will be grouped in a sublist)
+        limit : int, optional
+            Limit to N rows
+        **kwargs
+            Keyword arguments to pass IMAPClient if not client is passed
+
+        """
+        data = []
+        logout = False
+        push_types = ["message_id", "message", "all", "body", "attachment"]
+
+        if not client:
+            assert (
+                host and username and password
+            ), "Host/Username/Password required to create IMAPClient"
+            dbg("Logging into IMAPClient %s/%s" % (host, username))
+            logout = True
+            client = IMAPClient(host, **kwargs)
+            client.login(username, password)
+
+        try:
+            select_info = client.select_folder(folder)
+            if sort:
+                messages = client.sort(sort, criteria=criteria)
+            else:
+                messages = client.search(criteria)
+            dbg("Found %d messages" % len(messages))
+
+            if push_type == "message_id":
+                if limit:
+                    data = messages[:limit]
+                else:
+                    data = messages
+            else:
+                assert (
+                    push_type in push_types
+                ), "Unrecognized push_type: %s, options: %s" % (push_type, push_types)
+                count = 0
+                for msg_id, msg_data in client.fetch(messages, ["RFC822"]).items():
+                    raw = msg_data[b"RFC822"].decode("utf8")
+                    msg = parser.Parser(policy=policy.default).parsestr(raw)
+
+                    if push_type == "message":
+                        data.append(msg)
+                    else:
+                        payload = extract_email_payload(msg)
+                        if push_type == "body":
+                            data.append(payload[0])
+                        elif push_type == "attachment":
+                            data.append(payload[1:])
+                        elif push_type == "all":
+                            data.append(dict(message=msg, payload=payload))
+
+                    count += 1
+                    if limit and count >= limit:
+                        break
+
+        finally:
+            if logout:
+                client.logout()
+
+        if push_all:
+            self.push(data)
+        else:
+            for row in data:
+                self.push(row)

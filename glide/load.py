@@ -2,11 +2,15 @@
 
 from copy import deepcopy
 import csv
+from email.message import EmailMessage
+import shutil
 import sqlite3
+import tempfile
 
 import pandas as pd
+from pandas.io.common import get_filepath_or_buffer
 import requests
-from toolbox import st, pp, dbg
+from toolbox import st, pp, dbg, create_email, send_email
 
 from glide.core import (
     Node,
@@ -137,7 +141,7 @@ class DataFrameSQLTempLoader(PandasSQLConnectionNode):
         ), "sqlite3 connections not supported due to bug in Pandas' has_table()?"
         table = get_temp_table(conn, df, schema=schema, create=True)
         df.to_sql(table.name, conn, if_exists="append", **kwargs)
-        self.push([table.name])
+        self.push(table.name)
 
 
 # -------- Row-based Loaders
@@ -303,7 +307,7 @@ class RowSQLiteTempLoader(SQLiteConnectionNode):
         cursor.executemany(sql, rows)
         if commit:
             conn.commit()
-        self.push([table.name])
+        self.push(table.name)
 
 
 class RowSQLLoader(SQLConnectionNode):
@@ -363,10 +367,43 @@ class RowSQLTempLoader(SQLConnectionNode):
         self.sql_executemany(conn, cursor, sql, rows)
         if commit and hasattr(conn, "commit"):
             conn.commit()
-        self.push([table.name])
+        self.push(table.name)
 
 
 # -------- Other Loaders
+
+
+class FileLoader(Node):
+    """Load raw content to a file"""
+
+    def run(self, data, f, open_flags="w"):
+        """Load raw data to a file or buffer
+
+        Parameters
+        ----------
+        f : file path or buffer
+            File path or buffer to write
+        open_flags : str, optional
+            Flags to pass to open() if f is not already an opened buffer
+
+        """
+        f, encoding, compression, should_close = get_filepath_or_buffer(f)
+        close = False or should_close
+        decode = False
+        if isinstance(f, str):
+            f = open(f, open_flags)
+            close = True
+
+        try:
+            f.write(data)
+        finally:
+            if close:
+                try:
+                    f.close()
+                except ValueError:
+                    pass
+
+        self.push(data)
 
 
 class URLLoader(Node):
@@ -426,5 +463,121 @@ class URLLoader(Node):
 
         if raise_for_status:
             resp.raise_for_status()
+
+        self.push(data)
+
+
+class EmailLoader(Node):
+    """Load data to email via SMTP"""
+
+    def run(
+        self,
+        data,
+        frm=None,
+        to=None,
+        subject=None,
+        body=None,
+        html=None,
+        attach_as="attachment",
+        attachment_name=None,
+        formatter=None,
+        client=None,
+        host=None,
+        port=None,
+        username=None,
+        password=None,
+    ):
+        """Load data to email via SMTP.
+
+        Parameters
+        ----------
+        data
+            EmailMessage or data to send. If the latter, the message will be
+            created from the other node arguments.
+        frm : str, optional
+            The from email address
+        to : str or list, optional
+            A str or list of destination email addresses
+        subject : str, optional
+            The email subject
+        body : str, optional
+            The email text body
+        html : str, optional
+            The email html body
+        attach_as : str
+            Where to put the data in the email message if building the message
+            from node arguments. Options: attachment, body, html.
+        attachment_name: str, optional
+            The file name to write the data to when attaching data to the
+            email. The file extension will be used to infer the mimetype of
+            the attachment. This should not be a full path as a temp directory
+            will be created for this.
+        formatter : callable
+            A function to format and return a string from the input data if
+            attach_as is set to "body" or "html".
+        client : optional
+            A connected smtplib.SMTP client
+        host : str, optional
+            The SMTP host to connect to if no client is provided
+        port : int, optional
+            The SMTP port to connect to if no client is provided
+        username : str, optional
+            The SMTP username for login if no client is provided
+        password : str, optional
+            The SMTP password for login if no client is provided
+
+        """
+
+        if isinstance(data, EmailMessage):
+            msg = data
+        else:
+            # Assume its data that needs to be converted to attachments and sent
+            assert (
+                frm and to and subject
+            ), "Node context must have frm/to/subject set to create an email msg"
+            assert isinstance(
+                data, str
+            ), "data must be passed as raw str content, got %s" % type(data)
+
+            attachments = None
+            tmpdir = None
+
+            if attach_as == "attachment":
+                assert (
+                    attachment_name
+                ), "Must specify an attachment_name when attach_as = attachment"
+                tmpdir = tempfile.TemporaryDirectory()
+                filename = tmpdir.name + "/" + attachment_name
+                with open(filename, "w") as f:
+                    f.write(data)
+                attachments = [filename]
+            else:
+                fmt_data = formatter(data) if formatter else data
+                if attach_as == "body":
+                    body = (body or "") + fmt_data
+                elif attach_as == "html":
+                    html = (html or "") + fmt_data
+                else:
+                    assert False, (
+                        "Invalid attach_as value: %s, options: attachment, body, html"
+                        % attach_as
+                    )
+
+            msg = create_email(
+                frm, to, subject, body=body, html=html, attachments=attachments
+            )
+
+            if tmpdir:
+                tmpdir.cleanup()
+
+        dbg("Sending msg %s to %s" % (msg["Subject"], msg["To"]))
+        send_email(
+            msg,
+            client=client,
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+        )
 
         self.push(data)

@@ -4,7 +4,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 import numpy as np
 import pandas as pd
-from toolbox import set_missing_key
+from toolbox import st, json, set_missing_key, update_email
 
 from glide.core import Node
 
@@ -136,3 +136,61 @@ class RowThreadPoolTransformer(Node):
         with ThreadPoolExecutor() as executor:
             rows = [x for x in executor.map(func, rows, **kwargs)]
         self.push(rows)
+
+
+# -------- Other Transformers
+
+
+class JSONDumpsTransformer(Node):
+    def run(self, data):
+        self.push(json.dumps(data))
+
+
+class JSONLoadsTransformer(Node):
+    def run(self, data):
+        self.push(json.loads(data))
+
+
+class EmailMessageTransformer(Node):
+    """Update EmailMessage objects"""
+
+    def run(
+        self,
+        msg,
+        frm=None,
+        to=None,
+        subject=None,
+        body=None,
+        html=None,
+        attachments=None,
+    ):
+        """Update the EmailMessage with the given arguments
+
+        Parameters
+        ----------
+        msg : EmailMessage
+            EmailMessage object to update
+        frm : str, optional
+            Update from address
+        to : str, optional
+            Update to address(es)
+        subject : str, optional
+            Update email subject
+        body : str, optional
+            Update email body
+        html : str, optional
+            Update email html
+        attachments : list, optional
+            Replace the email attachments with these
+
+        """
+        update_email(
+            msg,
+            frm=frm,
+            to=to,
+            subject=subject,
+            body=body,
+            html=html,
+            attachments=attachments,
+        )
+        self.push(msg)

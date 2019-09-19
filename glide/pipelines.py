@@ -9,6 +9,9 @@ from glide.extract import (
     DataFrameExcelExtractor,
     RowSQLExtractor,
     RowCSVExtractor,
+    EmailExtractor,
+    FileExtractor,
+    URLExtractor,
 )
 from glide.load import (
     DataFrameSQLLoader,
@@ -16,6 +19,9 @@ from glide.load import (
     DataFrameExcelLoader,
     RowSQLLoader,
     RowCSVLoader,
+    EmailLoader,
+    FileLoader,
+    URLLoader,
 )
 from glide.utils import iterize
 
@@ -80,6 +86,32 @@ class GliderTemplate:
         return results
 
 
+def basic_glider(
+    extract=PlaceholderNode, transform=PlaceholderNode, load=PlaceholderNode
+):
+    """Convenience function to produce a basic ETL template
+
+    Parameters
+    ----------
+    extract : type, optional
+        A Node class to use as the extractor
+    transform : type, optional
+        A Node class to use as the transformer
+    load : type, optional
+        A Node class to use as the loader
+
+    Returns
+    -------
+    A GliderTemplate that can be called to produce Gliders from the template.
+
+    """
+    return GliderTemplate(
+        partial(extract, "extract"),
+        partial(transform, "transform"),
+        partial(load, "load"),
+    )
+
+
 GLIDER_TEMPLATE_DATA = {
     "Row": {
         "extract": [("SQL", RowSQLExtractor), ("CSV", RowCSVExtractor)],
@@ -107,8 +139,15 @@ for data_format, template in GLIDER_TEMPLATE_DATA.items():
     for etype, extractor in extractors:
         for ltype, loader in loaders:
             name = "%s%s2%s" % (data_format, etype, ltype)
-            locals()[name] = GliderTemplate(
-                partial(extractor, "extract"),
-                partial(PlaceholderNode, "transform"),
-                partial(loader, "load"),
-            )
+            locals()[name] = basic_glider(extract=extractor, load=loader)
+
+File2File = basic_glider(extract=FileExtractor, load=FileLoader)
+File2Email = basic_glider(extract=FileExtractor, load=EmailLoader)
+File2URL = basic_glider(extract=FileExtractor, load=URLLoader)
+
+Email2Email = basic_glider(extract=EmailExtractor, load=EmailLoader)
+Email2File = basic_glider(extract=EmailExtractor, load=FileLoader)
+
+URL2Email = basic_glider(extract=URLExtractor, load=EmailLoader)
+URL2File = basic_glider(extract=URLExtractor, load=FileLoader)
+URL2URL = basic_glider(extract=URLExtractor, load=URLLoader)
