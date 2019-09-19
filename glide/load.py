@@ -49,7 +49,7 @@ class DataFrameCSVLoader(Node):
         """Initialize state for CSV writing"""
         self.wrote_header = False
 
-    def run(self, df, f, **kwargs):
+    def run(self, df, f, push_file=False, **kwargs):
         """Use Pandas to_csv to output a DataFrame
 
         Parameters
@@ -58,6 +58,8 @@ class DataFrameCSVLoader(Node):
             DataFrame to load to a CSV
         f : file or buffer
             File to write the DataFrame to
+        push_file : bool
+            If true, push the file forward instead of the data
         **kwargs
             Keyword arguments passed to DataFrame.to_csv
 
@@ -66,8 +68,13 @@ class DataFrameCSVLoader(Node):
             kwargs["header"] = not self.wrote_header
             if not self.wrote_header:
                 self.wrote_header = True
+
         df.to_csv(f, **kwargs)
-        self.push(df)
+
+        if push_file:
+            self.push(f)
+        else:
+            self.push(df)
 
     def end(self):
         """Reset state in case the node gets reused"""
@@ -77,7 +84,7 @@ class DataFrameCSVLoader(Node):
 class DataFrameExcelLoader(Node):
     """Load data into an Excel file from a Pandas DataFrame"""
 
-    def run(self, df, f, **kwargs):
+    def run(self, df, f, push_file=False, **kwargs):
         """Use Pandas to_excel to output a DataFrame
 
         Parameters
@@ -86,18 +93,23 @@ class DataFrameExcelLoader(Node):
             DataFrame to load to an Excel file
         f : file or buffer
             File to write the DataFrame to
+        push_file : bool
+            If true, push the file forward instead of the data
         **kwargs
             Keyword arguments passed to DataFrame.to_excel
 
         """
         df.to_excel(f, **kwargs)
-        self.push(df)
+        if push_file:
+            self.push(f)
+        else:
+            self.push(df)
 
 
 class DataFrameSQLLoader(PandasSQLConnectionNode):
     """Load data into a SQL db from a Pandas DataFrame"""
 
-    def run(self, df, conn, table, **kwargs):
+    def run(self, df, conn, table, push_table=False, **kwargs):
         """Use Pandas to_sql to output a DataFrame
 
         Parameters
@@ -106,23 +118,27 @@ class DataFrameSQLLoader(PandasSQLConnectionNode):
             DataFrame to load to a SQL table
         conn
             Database connection
-        table
+        table : str
             Name of a table to write the data to
+        push_table : bool
+            If true, push the table forward instead of the data
         **kwargs
             Keyword arguments passed to DataFrame.to_sql
 
         """
         df.to_sql(table, conn, **kwargs)
-        self.push(df)
+        if push_table:
+            self.push(table)
+        else:
+            self.push(df)
 
 
 class DataFrameSQLTempLoader(PandasSQLConnectionNode):
     """Load data into a SQL temp table from a Pandas DataFrame"""
 
     def run(self, df, conn, schema=None, **kwargs):
-        """Use Pandas to_sql to output a DataFrame to a temporary table.
-
-        Note: this pushes the temporary table name instead of the data.
+        """Use Pandas to_sql to output a DataFrame to a temporary table. Push a
+        reference to the temp table forward.
 
         Parameters
         ----------
@@ -130,7 +146,7 @@ class DataFrameSQLTempLoader(PandasSQLConnectionNode):
             DataFrame to load to a SQL table
         conn
             Database connection
-        schema
+        schema : str, optional
             schema to create the temp table in
         **kwargs
             Keyword arguments passed to DataFrame.to_sql
@@ -139,8 +155,10 @@ class DataFrameSQLTempLoader(PandasSQLConnectionNode):
         assert not isinstance(
             conn, sqlite3.Connection
         ), "sqlite3 connections not supported due to bug in Pandas' has_table()?"
+
         table = get_temp_table(conn, df, schema=schema, create=True)
         df.to_sql(table.name, conn, if_exists="append", **kwargs)
+
         self.push(table.name)
 
 
@@ -154,7 +172,7 @@ class RowCSVLoader(Node):
         """Initialize state for CSV writing"""
         self.writer = None
 
-    def run(self, rows, f, **kwargs):
+    def run(self, rows, f, push_file=False, **kwargs):
         """Use DictWriter to output dict rows to a CSV.
 
         Parameters
@@ -163,6 +181,8 @@ class RowCSVLoader(Node):
             Iterable of rows to load to a CSV
         f : file or buffer
             File to write rows to
+        push_file : bool
+            If true, push the file forward instead of the data
         **kwargs
             Keyword arguments passed to csv.DictWriter
 
@@ -180,7 +200,11 @@ class RowCSVLoader(Node):
         finally:
             if close:
                 f.close()
-        self.push(rows)
+
+        if push_file:
+            self.push(f)
+        else:
+            self.push(rows)
 
     def end(self):
         """Reset state in case the node gets reused"""
@@ -190,7 +214,7 @@ class RowCSVLoader(Node):
 class RowSQLiteLoader(SQLiteConnectionNode):
     """Load date with a SQLite connection"""
 
-    def run(self, rows, conn, table, cursor=None, commit=True, **kwargs):
+    def run(self, rows, conn, table, cursor=None, commit=True, push_table=False):
         """Form SQL statement and use bulk execute to write rows to table
 
         Parameters
@@ -199,32 +223,36 @@ class RowSQLiteLoader(SQLiteConnectionNode):
             Iterable of rows to load to the table
         conn
             SQLite database connection
-        table
+        table : str
             Name of a table to write the data to
         cursor : optional
             SQLite database cursor
         commit : bool, optional
             If true call conn.commit
-        **kwargs
-            Keyword arguments passed to cursor.executemany
+        push_table : bool, optional
+            If true, push the table forward instead of the data
 
         """
-
-        dbg("Loading %d rows to %s" % (len(rows), table))
         assert isinstance(rows[0], sqlite3.Row), "Only sqlite3.Row rows are supported"
+        dbg("Loading %d rows to %s" % (len(rows), table))
         sql = get_bulk_replace(table, rows[0].keys(), dicts=False, value_string="?")
+
         if not cursor:
             cursor = conn.cursor()
         cursor.executemany(sql, rows)
         if commit:
             conn.commit()
-        self.push(rows)
+
+        if push_table:
+            self.push(table)
+        else:
+            self.push(rows)
 
 
 class RowSQLDBAPILoader(SQLDBAPIConnectionNode):
     """Load data with a DBAPI-based connection"""
 
-    def run(self, rows, conn, table, cursor=None, commit=True, **kwargs):
+    def run(self, rows, conn, table, cursor=None, commit=True, push_table=False):
         """Form SQL statement and use bulk execute to write rows to table
 
         Parameters
@@ -233,30 +261,35 @@ class RowSQLDBAPILoader(SQLDBAPIConnectionNode):
             Iterable of rows to load to the table
         conn
             DBAPI database connection
-        table
+        table : str
             Name of a table to write the data to
         cursor : optional
             DBAPI database connection cursor
         commit : bool, optional
             If true call conn.commit
-        **kwargs
-            Keyword arguments passed to cursor.executemany
+        push_table : bool, optional
+            If true, push the table forward instead of the data
 
         """
         dbg("Loading %d rows to %s" % (len(rows), table))
         sql = get_bulk_replace(table, rows[0].keys())
+
         if not cursor:
             cursor = conn.cursor()
         cursor.executemany(sql, rows)
         if commit and hasattr(conn, "commit"):
             conn.commit()
-        self.push(rows)
+
+        if push_table:
+            self.push(table)
+        else:
+            self.push(rows)
 
 
 class RowSQLAlchemyLoader(SQLAlchemyConnectionNode):
     """Load data with a SQLAlchemy connection"""
 
-    def run(self, rows, conn, table):
+    def run(self, rows, conn, table, push_table=False):
         """Form SQL statement and use bulk execute to write rows to table
 
         Parameters
@@ -265,21 +298,29 @@ class RowSQLAlchemyLoader(SQLAlchemyConnectionNode):
             Iterable of rows to load to the table
         conn
             SQLAlchemy database connection
-        table
+        table : str
             Name of a table to write the data to
+        push_table : bool, optional
+            If true, push the table forward instead of the data
 
         """
         dbg("Loading %d rows to %s" % (len(rows), table))
         sql = get_bulk_replace(table, rows[0].keys(), dicts=False)
+
         conn.execute(sql, rows)
-        self.push(rows)
+
+        if push_table:
+            self.push(table)
+        else:
+            self.push(rows)
 
 
 class RowSQLiteTempLoader(SQLiteConnectionNode):
     """Load data into a temp table with a SQLite connection"""
 
-    def run(self, rows, conn, cursor=None, schema=None, commit=True, **kwargs):
-        """Create and bulk load a temp table
+    def run(self, rows, conn, cursor=None, schema=None, commit=True):
+        """Create and bulk load a temp table. Push a reference to the temp
+        table forward.
 
         Parameters
         ----------
@@ -293,27 +334,28 @@ class RowSQLiteTempLoader(SQLiteConnectionNode):
             Schema to create temp table in
         commit : bool, optional
             If true call conn.commit
-        **kwargs
-            Keyword arguments passed to cursor.executemany
 
         """
         assert isinstance(rows[0], sqlite3.Row), "Only sqlite3.Row rows are supported"
+
         table = get_temp_table(conn, rows, create=True, schema=schema)
         sql = get_bulk_replace(
             table.name, rows[0].keys(), dicts=False, value_string="?"
         )
+
         if not cursor:
             cursor = conn.cursor()
         cursor.executemany(sql, rows)
         if commit:
             conn.commit()
+
         self.push(table.name)
 
 
 class RowSQLLoader(SQLConnectionNode):
     """Generic SQL loader"""
 
-    def run(self, rows, conn, table, cursor=None, commit=True):
+    def run(self, rows, conn, table, cursor=None, commit=True, push_table=True):
         """Form SQL statement and use bulk execute to write rows to table
 
         Parameters
@@ -322,22 +364,29 @@ class RowSQLLoader(SQLConnectionNode):
             Iterable of rows to load to the table
         conn
             Database connection
-        table
+        table : str
             Name of a table to write the data to
         cursor : optional
             Database connection cursor
         commit : bool, optional
             If true and conn has a commit method, call conn.commit
+        push_table : bool
+            If true, push the table forward instead of the data
 
         """
         dbg("Loading %d rows to %s" % (len(rows), table))
         sql = self.get_bulk_replace(conn, table, rows)
+
         if not cursor:
             cursor = self.get_sql_executor(conn)
         self.sql_executemany(conn, cursor, sql, rows)
         if commit and hasattr(conn, "commit"):
             conn.commit()
-        self.push(rows)
+
+        if push_table:
+            self.push(table)
+        else:
+            self.push(rows)
 
 
 class RowSQLTempLoader(SQLConnectionNode):
@@ -362,11 +411,13 @@ class RowSQLTempLoader(SQLConnectionNode):
         """
         table = get_temp_table(conn, rows, create=True, schema=schema)
         sql = self.get_bulk_replace(conn, table.name, rows)
+
         if not cursor:
             cursor = self.get_sql_executor(conn)
         self.sql_executemany(conn, cursor, sql, rows)
         if commit and hasattr(conn, "commit"):
             conn.commit()
+
         self.push(table.name)
 
 
@@ -376,7 +427,7 @@ class RowSQLTempLoader(SQLConnectionNode):
 class FileLoader(Node):
     """Load raw content to a file"""
 
-    def run(self, data, f, open_flags="w"):
+    def run(self, data, f, open_flags="w", push_file=False):
         """Load raw data to a file or buffer
 
         Parameters
@@ -385,6 +436,8 @@ class FileLoader(Node):
             File path or buffer to write
         open_flags : str, optional
             Flags to pass to open() if f is not already an opened buffer
+        push_file : bool
+            If true, push the file forward instead of the data
 
         """
         f, encoding, compression, should_close = get_filepath_or_buffer(f)
@@ -403,7 +456,10 @@ class FileLoader(Node):
                 except ValueError:
                     pass
 
-        self.push(data)
+        if push_file:
+            self.push(f)
+        else:
+            self.push(data)
 
 
 class URLLoader(Node):
