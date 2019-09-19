@@ -648,11 +648,12 @@ class EmailExtractor(Node):
             When true push all retrievd data/emails at once
         push_type : str, optional
             What type of data to extract and push from the emails. Options include:
-                message: push email.message.EmailMessage objects
-                message_id: push a list of message IDs that can be fetched
-                all: push a list of dict(message=<email.message.EmailMessages>, payload=<extracted payload>)
-                body: push a list of email bodies
-                attachment: push a list of attachments (an email with multiple attachments will be grouped in a sublist)
+
+                * **message**: push email.message.EmailMessage objects
+                * **message_id**: push a list of message IDs that can be fetched
+                * **all**: push a list of dict(message=<email.message.EmailMessages>, payload=<extracted payload>)
+                * **body**: push a list of email bodies
+                * **attachment**: push a list of attachments (an email with multiple attachments will be grouped in a sublist)
         limit : int, optional
             Limit to N rows
         **kwargs

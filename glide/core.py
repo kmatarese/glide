@@ -1,6 +1,5 @@
-"""
-Core classes used to power pipelines
-"""
+"""Core classes used to power pipelines"""
+
 from collections import OrderedDict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from inspect import signature, Parameter
@@ -150,40 +149,6 @@ class IterPushNode(Node):
     def run(self, data, **kwargs):
         for row in data:
             self.push(row)
-
-
-class DictKeyPushNode(Node):
-    """A node that pushes a specific value from a dict-like object"""
-
-    def run(self, item, key):
-        """Given a dict-like object, extract and push a key
-
-        Parameters
-        ----------
-        item : dict-like
-            The dict-like object to extract the value from
-        key : hashable
-            The key to extract from item
-
-        """
-        self.push(item[key])
-
-
-class AttributePushNode(Node):
-    """A node that pushes a specific attribute of an object"""
-
-    def run(self, item, attribute):
-        """Given an object, extract and push an attribute
-
-        Parameters
-        ----------
-        item
-            The object to pull the attribute from
-        attribute
-            The attribute to read from the object
-
-        """
-        self.push(getattr(item, attribute))
 
 
 class PlaceholderNode(DefaultNode):
