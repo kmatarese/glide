@@ -30,7 +30,7 @@ from glide.utils import iterize, get_class_list_docstring
 
 class GliderTemplate:
     """A 'partial' for a Glider. It must be passed functools.partial nodes
-    that it will will create when __call__'d.
+    that it will create when __call__'d.
 
     NOTE: this currently does not support lists of lists for node levels.
 
