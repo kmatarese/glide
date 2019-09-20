@@ -27,7 +27,7 @@ from glide.sql_utils import (
     get_bulk_insert,
     get_temp_table,
 )
-from glide.utils import save_excel, find_class_in_dict
+from glide.utils import save_excel, find_class_in_dict, get_class_list_docstring
 
 
 class Logger(Node):
@@ -694,4 +694,4 @@ class EmailLoader(Node):
 
 node_names = find_class_in_dict(Node, locals(), "Load")
 if node_names:
-    __doc__ = __doc__ + "\n\nNodes\n-----\n\n-" + "\n-".join(node_names)
+    __doc__ = __doc__ + get_class_list_docstring("Nodes", node_names)

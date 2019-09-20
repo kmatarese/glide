@@ -1,7 +1,7 @@
 """A home for common filter nodes"""
 
 from glide.core import Node
-from glide.utils import find_class_in_dict
+from glide.utils import find_class_in_dict, get_class_list_docstring
 
 
 class DictKeyFilterNode(Node):
@@ -40,4 +40,4 @@ class AttributeFilterNode(Node):
 
 node_names = find_class_in_dict(Node, locals(), "Filter")
 if node_names:
-    __doc__ = __doc__ + "\n\nNodes\n-----\n\n-" + "\n-".join(node_names)
+    __doc__ = __doc__ + get_class_list_docstring("Nodes", node_names)

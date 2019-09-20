@@ -25,7 +25,7 @@ from glide.load import (
     FileLoader,
     URLLoader,
 )
-from glide.utils import iterize
+from glide.utils import iterize, get_class_list_docstring
 
 
 class GliderTemplate:
@@ -160,4 +160,4 @@ for key, value in locals().copy().items():
         template_names.append(key)
 
 if template_names:
-    __doc__ = __doc__ + "\n\nPipelines\n---------\n\n-" + "\n-".join(template_names)
+    __doc__ = __doc__ + get_class_list_docstring("Pipelines", template_names)

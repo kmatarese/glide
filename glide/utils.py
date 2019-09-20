@@ -25,6 +25,19 @@ def find_class_in_dict(cls, d, filter=None):
     return names
 
 
+_CLASS_LIST_DOCSTRING_TEMPLATE = """
+**{heading}:**
+{classes_str}
+"""
+
+
+def get_class_list_docstring(heading, classes):
+    classes_str = "- " + "\n- ".join(classes)
+    return _CLASS_LIST_DOCSTRING_TEMPLATE.format(
+        heading=heading, classes_str=classes_str
+    )
+
+
 def is_pandas(o):
     return isinstance(o, (pd.DataFrame, pd.Series, pd.Panel))
 
