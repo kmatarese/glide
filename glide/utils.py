@@ -26,6 +26,7 @@ def find_class_in_dict(cls, d, filter=None):
 
 
 _CLASS_LIST_DOCSTRING_TEMPLATE = """
+
 **{heading}:**
 
 {classes_str}
