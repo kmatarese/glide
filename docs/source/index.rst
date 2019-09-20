@@ -19,7 +19,7 @@ automatic CLI generation.
 ``Glide`` encourages extensions that provide nodes and pipelines for
 interacting with various data sources and data processing modules. Check out
 the ``glide.extensions`` module to see some currently supported extensions,
-such as [Dask](https://dask.org/) for scalable analytics workflows.
+such as `Dask <https://dask.org/>`_ for scalable analytics workflows.
 
 .. toctree::
    :maxdepth: 3
