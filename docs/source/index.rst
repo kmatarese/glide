@@ -25,4 +25,4 @@ such as `Dask <https://dask.org/>`_ for scalable analytics workflows.
    :maxdepth: 3
 
    Quickstart <quickstart.rst>
-   modules
+   Glide <glide>
