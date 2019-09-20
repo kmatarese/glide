@@ -753,4 +753,4 @@ class EmailExtractor(Node):
 
 node_names = find_class_in_dict(Node, locals(), "Extract")
 if node_names:
-    __doc__ = __doc__ + "\n\nNodes\n-----\n    " + "\n    ".join(node_names)
+    __doc__ = __doc__ + "\n\nNodes\n-----\n\n-" + "\n-".join(node_names)

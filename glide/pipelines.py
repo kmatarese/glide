@@ -160,4 +160,4 @@ for key, value in locals().copy().items():
         template_names.append(key)
 
 if template_names:
-    __doc__ = __doc__ + "\n\nPipelines\n---------\n    " + "\n    ".join(template_names)
+    __doc__ = __doc__ + "\n\nPipelines\n---------\n\n-" + "\n-".join(template_names)
