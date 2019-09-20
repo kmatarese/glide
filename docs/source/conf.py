@@ -55,14 +55,17 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 html_theme = "alabaster"
 
 html_theme_options = {
-    "show_powered_by": False,
     "github_user": "kmatarese",
     "github_repo": "glide",
     "github_banner": True,
+    "github_type": "star",
     "show_related": False,
+    "show_powered_by": False,
+    "show_relbars": True,
     "note_bg": "#FFF59C",
     "logo": "img/glider_image.jpg",
-    "logo_name": True,
+    "logo_name": False,
+    "page_width": "980px",
 }
 
 html_sidebars = {
@@ -79,3 +82,12 @@ html_sidebars = {
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+
+# If false, no index is generated.
+html_use_index = True
+
+# If true, the index is split into individual pages for each letter.
+html_split_index = False
+
+# If true, links to the reST sources are added to the pages.
+html_show_sourcelink = False

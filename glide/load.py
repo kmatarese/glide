@@ -185,7 +185,7 @@ class RowCSVLoader(Node):
 
         Parameters
         ----------
-        row
+        rows
             Iterable of rows to load to a CSV
         f : file or buffer
             File to write rows to
@@ -229,7 +229,7 @@ class RowExcelLoader(Node):
 
         Parameters
         ----------
-        row
+        rows
             Iterable of rows to load to an Excel file, or a dict of
             sheet_name->iterable for multi-sheet loads.
         f : file or buffer
@@ -483,6 +483,8 @@ class FileLoader(Node):
 
         Parameters
         ----------
+        data
+            Data to write to file
         f : file path or buffer
             File path or buffer to write
         open_flags : str, optional

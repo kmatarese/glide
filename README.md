@@ -573,7 +573,7 @@ $ pip install .[dask]
 
 To access installed extensions import from the `glide.extensions` submodules as necessary.
 
-### Adding Extensions
+### Extensions
 
 New extensions are welcome! To add an extension:
 
