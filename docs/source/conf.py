@@ -10,12 +10,63 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+import inspect
 import os
 import sys
 
 sys.path.insert(0, os.path.abspath("../.."))
 
 import glide
+
+# From: https://github.com/pandas-dev/pandas/blob/v0.25.1/doc/source/conf.py
+def linkcode_resolve(domain, info):
+    """
+    Determine the URL corresponding to Python object
+    """
+    if domain != "py":
+        return None
+
+    modname = info["module"]
+    fullname = info["fullname"]
+
+    submod = sys.modules.get(modname)
+    if submod is None:
+        return None
+
+    obj = submod
+    for part in fullname.split("."):
+        try:
+            obj = getattr(obj, part)
+        except AttributeError:
+            return None
+
+    try:
+        # inspect.unwrap() was added in Python version 3.4
+        if sys.version_info >= (3, 5):
+            fn = inspect.getsourcefile(inspect.unwrap(obj))
+        else:
+            fn = inspect.getsourcefile(obj)
+    except TypeError:
+        fn = None
+    if not fn:
+        return None
+
+    try:
+        source, lineno = inspect.getsourcelines(obj)
+    except OSError:
+        lineno = None
+
+    if lineno:
+        linespec = "#L{:d}-L{:d}".format(lineno, lineno + len(source) - 1)
+    else:
+        linespec = ""
+
+    fn = os.path.relpath(fn, start=os.path.dirname(glide.__file__))
+
+    return "https://github.com/kmatarese/glide/blob/master/glide/" "{}{}".format(
+        fn, linespec
+    )
+
 
 # -- Project information -----------------------------------------------------
 
@@ -34,7 +85,13 @@ master_doc = "index"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["sphinx.ext.autodoc", "sphinx.ext.coverage", "sphinx.ext.napoleon", "m2r"]
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.coverage",
+    "sphinx.ext.linkcode",
+    "sphinx.ext.napoleon",
+    "m2r",
+]
 
 source_suffix = [".rst", ".md"]
 
