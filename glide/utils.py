@@ -52,11 +52,6 @@ def excel_file_type(f):
 def read_excel(f, **kwargs):
     """Read data from an Excel file using pyexcel
 
-    Note
-    ----
-    This uses pyexcel internals directly so we can generically call get_data
-    and avoid the overhead of creating a Book object
-
     Parameters
     ----------
     f : str or buffer
@@ -78,8 +73,8 @@ def save_excel(f, data, **kwargs):
 
     Note
     ----
-    If f is a file name that ends in .xls, pyexcel_xls will be used, otherwise
-    it defaults to pyexcel_xlsx.
+    If f is a file that ends in .xls, pyexcel_xls will be used, otherwise it
+    defaults to pyexcel_xlsx.
 
     Parameters
     ----------
