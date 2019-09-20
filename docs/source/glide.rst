@@ -1,8 +1,5 @@
-glide package
+Glide package
 =============
-
-Submodules
-----------
 
 glide.core module
 -----------------
