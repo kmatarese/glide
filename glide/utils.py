@@ -13,6 +13,18 @@ XLS = "xls"
 XLSX = "xlsx"
 
 
+def find_class_in_dict(cls, d, filter=None):
+    names = []
+    for key, value in d.copy().items():
+        if not isinstance(value, type):
+            continue
+        if issubclass(value, cls):
+            if filter and filter not in key:
+                continue
+            names.append(key)
+    return names
+
+
 def is_pandas(o):
     return isinstance(o, (pd.DataFrame, pd.Series, pd.Panel))
 

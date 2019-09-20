@@ -1,9 +1,10 @@
 """A home for common filter nodes"""
 
 from glide.core import Node
+from glide.utils import find_class_in_dict
 
 
-class DictKeyPushNode(Node):
+class DictKeyFilterNode(Node):
     """A node that pushes a specific value from a dict-like object"""
 
     def run(self, item, key):
@@ -20,7 +21,7 @@ class DictKeyPushNode(Node):
         self.push(item[key])
 
 
-class AttributePushNode(Node):
+class AttributeFilterNode(Node):
     """A node that pushes a specific attribute of an object"""
 
     def run(self, item, attribute):
@@ -35,3 +36,8 @@ class AttributePushNode(Node):
 
         """
         self.push(getattr(item, attribute))
+
+
+node_names = find_class_in_dict(Node, locals(), "Filter")
+if node_names:
+    __doc__ = __doc__ + "\n\nNodes\n-----\n    " + "\n    ".join(node_names)

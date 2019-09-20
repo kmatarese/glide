@@ -145,7 +145,7 @@ def test_email_load_messages_format_body():
             extract=extract,
             load=load,
             transform=dict(attribute="payload"),
-            transformer=AttributePushNode,
+            transformer=AttributeFilterNode,
         )
 
 
@@ -167,7 +167,7 @@ def test_email_load_messages_format_html():
             extract=extract,
             load=load,
             transform=dict(attribute="payload"),
-            transformer=AttributePushNode,
+            transformer=AttributeFilterNode,
         )
 
 

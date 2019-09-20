@@ -23,7 +23,7 @@ from glide.core import (
     SQLiteConnectionNode,
 )
 from glide.sql_utils import build_table_select
-from glide.utils import read_excel
+from glide.utils import read_excel, find_class_in_dict
 
 # -------- Pandas Extractors
 
@@ -749,3 +749,8 @@ class EmailExtractor(Node):
         else:
             for row in data:
                 self.push(row)
+
+
+node_names = find_class_in_dict(Node, locals(), "Extract")
+if node_names:
+    __doc__ = __doc__ + "\n\nNodes\n-----\n    " + "\n    ".join(node_names)

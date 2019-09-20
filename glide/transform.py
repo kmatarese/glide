@@ -7,6 +7,7 @@ import pandas as pd
 from toolbox import st, json, set_missing_key, update_email
 
 from glide.core import Node
+from glide.utils import find_class_in_dict
 
 
 class DummyTransformer(Node):
@@ -194,3 +195,8 @@ class EmailMessageTransformer(Node):
             attachments=attachments,
         )
         self.push(msg)
+
+
+node_names = find_class_in_dict(Node, locals(), "Transform")
+if node_names:
+    __doc__ = __doc__ + "\n\nNodes\n-----\n    " + "\n    ".join(node_names)

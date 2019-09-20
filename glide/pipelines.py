@@ -1,3 +1,5 @@
+"""Basic ETL pipeline templates for common nodes"""
+
 from functools import partial
 
 from toolbox import st
@@ -151,3 +153,11 @@ Email2File = basic_glider(extract=EmailExtractor, load=FileLoader)
 URL2Email = basic_glider(extract=URLExtractor, load=EmailLoader)
 URL2File = basic_glider(extract=URLExtractor, load=FileLoader)
 URL2URL = basic_glider(extract=URLExtractor, load=URLLoader)
+
+template_names = []
+for key, value in locals().copy().items():
+    if isinstance(value, GliderTemplate):
+        template_names.append(key)
+
+if template_names:
+    __doc__ = __doc__ + "\n\nPipelines\n---------\n    " + "\n    ".join(template_names)
