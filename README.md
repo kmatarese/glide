@@ -21,8 +21,11 @@ Glide also has:
 - An expanding suite of built-in nodes and pipelines that extract, transform, and load data from/to any combination of:
   - SQL databases (SQLite, DBAPI, and SQLAlchemy support)
   - URLs
-  - Local or remote CSVs
-  - Local or remote Excel files
+  - Local or remote files including:
+    - CSVs
+    - Excel files (including multi-sheet support)
+    - Raw/generic files
+  - Emails
 - Built-in nodes for Pandas DataFrame-based pipelines, including optional support for DataFrame transformation via [Dask](https://dask.org/) or [Swifter](https://github.com/jmcarpenter2/swifter)
 - A variety of node and DAG parallel processing strategies via concurrent.futures Executors or optional [Dask](https://dask.org/) support
 - A simple decorator to generate a command line interface from a pipeline in ~one line of code
@@ -580,7 +583,6 @@ New extensions are welcome! To add an extension:
 
 Here are some current ideas for extensions/endpoints in case you need inspiration:
 
-- Email
 - NoSQL databases
 - Google Analytics
 - Google Ads
