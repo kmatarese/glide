@@ -1,6 +1,7 @@
 """A home for common data extraction nodes"""
 
 import codecs
+from collections import OrderedDict
 from copy import deepcopy
 import csv
 from email import parser, policy
@@ -22,7 +23,7 @@ from glide.core import (
     SQLiteConnectionNode,
 )
 from glide.sql_utils import build_table_select
-
+from glide.utils import read_excel
 
 # -------- Pandas Extractors
 
@@ -49,7 +50,9 @@ class DataFrameExcelExtractor(DataFramePushNode):
     """Extract data from an Excel file using Pandas"""
 
     def run(self, f, **kwargs):
-        """Extract data for input file and push as a DataFrame
+        """Extract data for input file and push as a DataFrame. This will push a
+        DataFrame or dict of DataFrames in the case of reading multiple sheets
+        from an Excel file.
 
         Parameters
         ----------
@@ -59,8 +62,8 @@ class DataFrameExcelExtractor(DataFramePushNode):
             kwargs to be passed to pandas.read_excel
 
         """
-        df = pd.read_excel(f, **kwargs)
-        self.do_push(df, kwargs.get("chunksize", None))
+        df_or_dict = pd.read_excel(f, **kwargs)
+        self.do_push(df_or_dict)
 
 
 class DataFrameSQLExtractor(PandasSQLConnectionNode):
@@ -178,6 +181,33 @@ class RowCSVExtractor(Node):
                     f.close()
                 except ValueError:
                     pass
+
+
+class RowExcelExtractor(Node):
+    """Extract data from an Excel file"""
+
+    def run(self, f, dict_rows=False, **kwargs):
+        """Use pyexcel to read data from a file
+
+        Parameters
+        ----------
+        f : str or buffer
+            The Excel file to read. Multiple excel formats supported.
+        dict_rows : bool, optional
+            If true the rows of each sheet will be converted to dicts with
+            column names as keys.
+        **kwargs
+            Keyword arguments passed to pyexcel
+
+        """
+        data = read_excel(f, **kwargs)
+        if dict_rows:
+            for sheet_name in data.keys():
+                data[sheet_name] = [
+                    OrderedDict(zip(data[sheet_name][0], data[sheet_name][i]))
+                    for i in range(1, len(data[sheet_name]))
+                ]
+        self.push(data)
 
 
 class RowSQLiteExtractor(SQLiteConnectionNode):

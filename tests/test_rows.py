@@ -48,6 +48,37 @@ def test_csv_row_thread_pool_lowercase(rootdir):
         glider.consume([infile], transform=dict(func=row_lower), load=dict(f=f))
 
 
+def test_excel_row_extract_and_load(rootdir):
+    nodes = RowExcelExtractor("extract") | RowExcelLoader("load")
+    glider, infile, outfile = file_glider(rootdir, "xlsx", nodes)
+    glider.consume(
+        [infile],
+        extract=dict(row_limit=5, dict_rows=True),
+        load=dict(f=outfile, dict_rows=True),
+    )
+
+
+def test_excel_row_file_extract_and_load(rootdir):
+    nodes = RowExcelExtractor("extract") | RowExcelLoader("load")
+    glider, infile, outfile = file_glider(rootdir, "xlsx", nodes)
+    with open(infile, "rb") as _in, open(outfile, "wb") as _out:
+        glider.consume([_in], extract=dict(row_limit=10), load=dict(f=_out))
+
+
+def test_excel_row_sheet_extract(rootdir):
+    nodes = RowExcelExtractor(
+        "extract", dict_rows=True, sheet_index=0, row_limit=5
+    ) | Logger("load")
+    glider, infile, outfile = file_glider(rootdir, "xlsx", nodes)
+    glider.consume([infile])
+
+
+def test_excel_row_xls_extract(rootdir):
+    nodes = RowExcelExtractor("extract", dict_rows=True, row_limit=5) | Logger("load")
+    glider, infile, outfile = file_glider(rootdir, "xls", nodes)
+    glider.consume([infile])
+
+
 # -------- SQL-based gliders
 
 

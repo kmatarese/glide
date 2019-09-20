@@ -27,6 +27,7 @@ from glide.sql_utils import (
     get_bulk_insert,
     get_temp_table,
 )
+from glide.utils import save_excel
 
 
 class Logger(Node):
@@ -84,13 +85,14 @@ class DataFrameCSVLoader(Node):
 class DataFrameExcelLoader(Node):
     """Load data into an Excel file from a Pandas DataFrame"""
 
-    def run(self, df, f, push_file=False, **kwargs):
+    def run(self, df_or_dict, f, push_file=False, **kwargs):
         """Use Pandas to_excel to output a DataFrame
 
         Parameters
         ----------
-        df : pandas.DataFrame
-            DataFrame to load to an Excel file
+        df_or_dict
+            DataFrame or dict of DataFrames to load to an Excel file. In the
+            case of a dict the keys will be the sheet names.
         f : file or buffer
             File to write the DataFrame to
         push_file : bool
@@ -99,11 +101,17 @@ class DataFrameExcelLoader(Node):
             Keyword arguments passed to DataFrame.to_excel
 
         """
-        df.to_excel(f, **kwargs)
+        if isinstance(df_or_dict, dict):
+            with pd.ExcelWriter(f) as writer:
+                for sheet_name, df in df_or_dict.items():
+                    df.to_excel(writer, sheet_name=sheet_name)
+        else:
+            df_or_dict.to_excel(f, **kwargs)
+
         if push_file:
             self.push(f)
         else:
-            self.push(df)
+            self.push(df_or_dict)
 
 
 class DataFrameSQLLoader(PandasSQLConnectionNode):
@@ -181,7 +189,7 @@ class RowCSVLoader(Node):
             Iterable of rows to load to a CSV
         f : file or buffer
             File to write rows to
-        push_file : bool
+        push_file : bool, optional
             If true, push the file forward instead of the data
         **kwargs
             Keyword arguments passed to csv.DictWriter
@@ -209,6 +217,49 @@ class RowCSVLoader(Node):
     def end(self):
         """Reset state in case the node gets reused"""
         self.writer = None
+
+
+class RowExcelLoader(Node):
+    """Load data into an Excel file using pyexcel"""
+
+    def run(
+        self, rows, f, dict_rows=False, sheet_name="Sheet1", push_file=False, **kwargs
+    ):
+        """Use DictWriter to output dict rows to a CSV.
+
+        Parameters
+        ----------
+        row
+            Iterable of rows to load to an Excel file, or a dict of
+            sheet_name->iterable for multi-sheet loads.
+        f : file or buffer
+            File to write rows to
+        dict_rows : bool, optional
+            If true the rows of each sheet will be converted from dicts to lists
+        sheet_name : str, optional
+            Sheet name to use if input is an iterable of rows. Unused otherwise.
+        push_file : bool, optional
+            If true, push the file forward instead of the data
+        **kwargs
+            Keyword arguments passed to pyexcel
+
+        """
+        data = rows
+        if not isinstance(rows, dict):
+            # Setup as a single sheet
+            data = {sheet_name: rows}
+
+        if dict_rows:
+            for sheet_name, sheet_data in data.items():
+                header = [list(sheet_data[0].keys())]
+                data[sheet_name] = header + [list(x.values()) for x in sheet_data]
+
+        save_excel(f, data, **kwargs)
+
+        if push_file:
+            self.push(f)
+        else:
+            self.push(rows)
 
 
 class RowSQLiteLoader(SQLiteConnectionNode):

@@ -1,18 +1,16 @@
 """Common utilities"""
 
-# import attr
-# from email.message import EmailMessage
 from inspect import isgenerator
 import io
 
-# import mimetypes
-# import ntpath
-# import smtplib
-
 import pandas as pd
+from pyexcel.internal import SOURCE
+from pyexcel_xlsx import get_data as get_xlsx, save_data as save_xlsx
+from pyexcel_xls import get_data as get_xls, save_data as save_xls
 from toolbox import st, is_str, MappingMixin
 
-# SMTP_SSL_PORT = 465
+XLS = "xls"
+XLSX = "xlsx"
 
 
 def is_pandas(o):
@@ -36,108 +34,66 @@ def iterize(o):
     return o
 
 
-# @attr.s(kw_only=True)
-# class EmailPayload(MappingMixin):
-#     payload = attr.ib()
-#     content_type = attr.ib()
-#     charset = attr.ib()
+def excel_file_type(f):
+    """Best guess at Excel file type from name"""
+    if isinstance(f, str):
+        if f.endswith(XLS):
+            return XLS
+        if f.endswith(XLSX):
+            return XLSX
+        assert False, "Unsupported Excel file: %s" % f
+    else:
+        if hasattr(f, "name") and f.name.endswith(XLS):
+            return XLS
+        # Just assumes it's an .xlsx file
+        return XLSX
 
 
-# def extract_email_payload(msg, decode=True):
-#     """Extract and decode the payload of an email.message.EmailMessage object
+def read_excel(f, **kwargs):
+    """Read data from an Excel file using pyexcel
 
-#     Parameters
-#     ----------
-#     msg : EmailMessage
-#         The message to extract the payload from
-#     decode : bool, optional
-#         The decode flag to pass to get_payload
+    Note
+    ----
+    This uses pyexcel internals directly so we can generically call get_data
+    and avoid the overhead of creating a Book object
 
-#     Returns
-#     -------
-#     A list of dicts with content_type/charset/payload items
+    Parameters
+    ----------
+    f : str or buffer
+        Excel file to read from
+    **kwargs
+        Keyword arguments passed to pyexcel
 
-#     """
-
-#     def decode_if_necessary(payload, charset):
-#         # decode=True still returns encoded bytes, but just decodes the
-#         # message contents from transfer encoding, such as if they are base64
-#         # encoded.
-#         charset = charset or 'utf8' # Fallback to utf8 if no charset specified
-#         if (not decode) or (not isinstance(payload, bytes)):
-#             return payload
-#         return payload.decode(charset)
-
-#     if msg.is_multipart():
-#         parts = []
-#         for part in msg.walk():
-#             if 'multipart' in part.get_content_type().lower():
-#                 continue
-#             charset = part.get_content_charset()
-#             payload = part.get_payload(decode=decode)
-#             payload = decode_if_necessary(payload, charset)
-#             parts.append(EmailPayload(content_type=part.get_content_type(),
-#                                       charset=charset,
-#                                       payload=payload))
-#         return parts
-#     else:
-#         # When is_multipart is False, payload is a string
-#         charset = msg.get_content_charset()
-#         payload = msg.get_payload(decode=decode)
-#         payload = decode_if_necessary(payload, charset)
-#         return [EmailPayload(content_type=msg.get_content_type(),
-#                              charset=charset,
-#                              payload=payload)]
+    """
+    excel_type = excel_file_type(f)
+    if excel_type == XLS:
+        data = get_xls(f, **kwargs)
+    else:
+        data = get_xlsx(f, **kwargs)
+    return data
 
 
-# def add_email_attachments(msg, attachments):
-#     for attachment in (attachments or []):
-#         assert ntpath.isfile(attachment), 'Email attachments must be valid file paths'
-#         filename = ntpath.basename(attachment)
+def save_excel(f, data, **kwargs):
+    """Write data to an Excel file using pyexcel
 
-#         ctype, encoding = mimetypes.guess_type(attachment)
-#         if ctype is None or encoding is not None:
-#             # No guess could be made, or the file is encoded (compressed), so
-#             # use a generic bag-of-bits type.
-#             ctype = 'application/octet-stream'
-#         maintype, subtype = ctype.split('/', 1)
+    Note
+    ----
+    If f is a file name that ends in .xls, pyexcel_xls will be used, otherwise
+    it defaults to pyexcel_xlsx.
 
-#         with open(attachment, 'rb') as fp:
-#             msg.add_attachment(fp.read(),
-#                                maintype=maintype,
-#                                subtype=subtype,
-#                                filename=filename)
+    Parameters
+    ----------
+    f : str or buffer
+        Excel file to write to
+    data : dict
+        Data to write to the file. This is expected to be a dict of
+        {sheet_name: sheet_data} format.
+    **kwargs
+        Keyword arguments passed to pyexcel's save_data
 
-# def create_email(frm, to, subject, body=None, html=None, attachments=None):
-#     msg = EmailMessage()
-#     msg['From'] = frm
-#     msg['To'] = to if isinstance(to, str) else ', '.join(to)
-#     msg['Subject'] = subject
-#     msg.preamble = 'You will not see this in a MIME-aware mail reader.\n'
-#     msg.set_content(body or '')
-
-#     if html is not None:
-#         msg.add_alternative(html, subtype='html')
-
-#     add_email_attachments(msg, attachments)
-
-#     return msg
-
-# def send_email(msg, client=None, host=None, port=None, username=None, password=None, smtp_class=smtplib.SMTP, debug=False):
-#     if client:
-#         client.send_message(msg)
-#         return
-
-#     assert (host and port and username and password), \
-#         "Must pass host/port/username/password for SMTP connection"
-
-#     if port == SMTP_SSL_PORT:
-#         smtp_class = smtplib.SMTP_SSL
-#     with smtp_class(host, port=port) as client:
-#         client.ehlo()
-#         if smtp_class == smtplib.SMTP:
-#             client.starttls()
-#             client.ehlo()
-#         client.login(username, password)
-#         client.set_debuglevel(debug)
-#         client.send_message(msg)
+    """
+    excel_type = excel_file_type(f)
+    if excel_type == XLS:
+        save_xls(f, data, **kwargs)
+    else:
+        save_xlsx(f, data, **kwargs)
