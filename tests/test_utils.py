@@ -9,7 +9,7 @@ try:
 except ImportError:
     pymysql = None
 from sqlalchemy import create_engine
-from toolbox import rmfile
+from tlbx import rmfile
 
 from glide import *
 

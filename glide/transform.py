@@ -4,7 +4,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 
 import numpy as np
 import pandas as pd
-from toolbox import st, json, set_missing_key, update_email
+from tlbx import st, json, set_missing_key, update_email
 
 from glide.core import Node
 from glide.utils import find_class_in_dict, get_class_list_docstring

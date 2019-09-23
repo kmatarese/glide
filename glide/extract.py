@@ -11,7 +11,7 @@ from imapclient import IMAPClient
 import pandas as pd
 from pandas.io.common import get_filepath_or_buffer
 import requests
-from toolbox import st, read_chunks, dbg, extract_email_payload
+from tlbx import st, read_chunks, dbg, extract_email_payload
 
 from glide.core import (
     Node,

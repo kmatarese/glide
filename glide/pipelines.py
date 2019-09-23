@@ -2,7 +2,7 @@
 
 from functools import partial
 
-from toolbox import st
+from tlbx import st
 
 from glide.core import Glider, PlaceholderNode
 from glide.extract import (

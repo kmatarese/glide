@@ -10,7 +10,7 @@ import tempfile
 import pandas as pd
 from pandas.io.common import get_filepath_or_buffer
 import requests
-from toolbox import st, pp, dbg, create_email, send_email
+from tlbx import st, pp, dbg, create_email, send_email
 
 from glide.core import (
     Node,

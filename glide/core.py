@@ -7,7 +7,7 @@ from inspect import signature, Parameter
 import climax
 import numpy as np
 import sqlite3
-from toolbox import st, dbg, Script, Arg, Parent, MappingMixin, set_missing_key
+from tlbx import st, dbg, Script, Arg, Parent, MappingMixin, set_missing_key
 
 from consecution import (
     Pipeline,
@@ -751,7 +751,7 @@ class GliderScript(Script):
         return "%s_%s" % (node_name, arg_name)
 
     def _get_script_arg(self, node, arg_name, required=False, default=None):
-        """Generate a toolbox Arg"""
+        """Generate a tlbx Arg"""
         if self.blacklisted(node.name, arg_name):
             return
 
@@ -788,7 +788,7 @@ class GliderScript(Script):
         return script_arg
 
     def _get_script_args(self, custom_script_args=None):
-        """Generate all toolbox Args for this Glider"""
+        """Generate all tlbx Args for this Glider"""
         node_lookup = self.glider.get_node_lookup()
         custom_script_args = custom_script_args or []
         script_args = OrderedDict()

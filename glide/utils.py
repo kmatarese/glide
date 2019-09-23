@@ -7,7 +7,7 @@ import pandas as pd
 from pyexcel.internal import SOURCE
 from pyexcel_xlsx import get_data as get_xlsx, save_data as save_xlsx
 from pyexcel_xls import get_data as get_xls, save_data as save_xls
-from toolbox import st, is_str, MappingMixin
+from tlbx import st, is_str, MappingMixin
 
 XLS = "xls"
 XLSX = "xlsx"

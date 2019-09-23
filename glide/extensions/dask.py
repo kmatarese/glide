@@ -10,7 +10,7 @@ except ImportError:
     delayed = None
     Client = None
     dask_as_completed = None
-from toolbox import st, set_missing_key
+from tlbx import st, set_missing_key
 
 from glide.core import Node, DefaultNode, FuturesPushNode, Glider, consume
 

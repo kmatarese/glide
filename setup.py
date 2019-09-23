@@ -42,7 +42,7 @@ for repo in git_requires:
 
 extras_require = {
     "swifter": ["swifter>=0.289"],
-    "dev": ["black", "pre-commit", "pytest", "sphinx", "wheel"],
+    "dev": ["black", "pre-commit", "pytest", "sphinx", "twine", "wheel"],
     "dask": ["dask[complete]>=2.1.0"],
 }
 extras_require["complete"] = sorted(set(sum(extras_require.values(), [])))
@@ -53,7 +53,10 @@ setup(
     name="glide",
     description="Easy ETL",
     long_description=README,
+    long_description_content_type="text/markdown",
+    url="https://github.com/kmatarese/glide",
     author="Kurt Matarese",
+    author_email="none@none.com",
     maintainer="Kurt Matarese",
     version=__version__,
     license="MIT",
