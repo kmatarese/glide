@@ -48,14 +48,8 @@ Installation
 
 > ⚠️ **Warning**: This project is still in an alpha state and should probably not be used in production.
 
-Until this gets added to PyPi, you must clone the git repo and then install into your python
-environment as follows:
-
 ```shell
-$ git clone https://github.com/kmatarese/glide
-$ cd glide
-$ source /path/to/venv/bin/activate
-$ pip install . # pip install .[complete] to include extensions and dev packages
+$ pip install glide
 ```
 
 <a name="examples"></a>
@@ -558,17 +552,16 @@ Extensions
 
 ### Installing Extensions
 
-To install all extensions and their associated nodes execute the following
-from the Glide root directory:
+To install all extensions and dev dependencies:
 
 ```shell
-$ pip install .[complete]
+$ pip install glide[complete]
 ```
 
-To just install a specific extension, such as dask:
+To just install Glide plus a specific extension, such as Dask:
 
 ```shell
-$ pip install .[dask]
+$ pip install glide[dask]
 ```
 
 To access installed extensions import from the `glide.extensions` submodules as necessary.
