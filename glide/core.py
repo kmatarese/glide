@@ -575,8 +575,9 @@ class Glider:
         parents : list, optional
             List of parent CLIs to inherit from
         inject : dict, optional
-            A dictionary of arg names to callables that inject a value for
-            that arg. Those args will be passed to nodes that can accept them.
+            A dictionary of arg names to callables/values that inject a value
+            for that arg. Those args will be passed to nodes that can accept
+            them.
         clean : dict, optional
             A dictionary of arg names to callables that will be used to perform
             clean up when the CLI script is complete.
@@ -664,7 +665,7 @@ class GliderScript(Script):
     parents : list, optional
         List of parent CLIs to inherit from
     inject : dict, optional
-        A dictionary of arg names to callables that inject a value for
+        A dictionary of arg names to callables/values that inject a value for
         that arg. Those args will be passed to nodes that can accept them.
     clean : dict, optional
         A dictionary of arg names to callables that will be used to perform
@@ -717,9 +718,13 @@ class GliderScript(Script):
         if not self.inject:
             return {}
         result = {}
-        for key, func in self.inject.items():
-            dbg("Injecting %s via %s" % (key, func))
-            result[key] = func()
+        for key, value in self.inject.items():
+            if callable(value):
+                dbg("Injecting '%s' via func: %s" % (key, value))
+                result[key] = value()
+            else:
+                dbg("Injecting '%s' as value: %s" % (key, value))
+                result[key] = value
         return result
 
     def clean_up(self, **kwargs):
