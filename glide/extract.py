@@ -16,11 +16,11 @@ from tlbx import st, read_chunks, dbg, extract_email_payload
 from glide.core import (
     Node,
     DataFramePushNode,
-    SQLConnectionNode,
-    PandasSQLConnectionNode,
-    SQLAlchemyConnectionNode,
-    SQLDBAPIConnectionNode,
-    SQLiteConnectionNode,
+    SQLNode,
+    PandasSQLNode,
+    SQLAlchemyNode,
+    SQLDBAPINode,
+    SQLiteNode,
 )
 from glide.sql_utils import build_table_select
 from glide.utils import read_excel, find_class_in_dict, get_class_list_docstring
@@ -66,7 +66,7 @@ class DataFrameExcelExtractor(DataFramePushNode):
         self.do_push(df_or_dict)
 
 
-class DataFrameSQLExtractor(PandasSQLConnectionNode):
+class DataFrameSQLExtractor(PandasSQLNode):
     """Extract data from a SQL db using Pandas"""
 
     def run(self, sql, conn, **kwargs):
@@ -86,7 +86,7 @@ class DataFrameSQLExtractor(PandasSQLConnectionNode):
         self.do_push(df, kwargs.get("chunksize", None))
 
 
-class DataFrameSQLTableExtractor(PandasSQLConnectionNode):
+class DataFrameSQLTableExtractor(PandasSQLNode):
     """Extract data from a SQL table using Pandas"""
 
     def run(self, table, conn, where=None, limit=None, **kwargs):
@@ -210,7 +210,7 @@ class RowExcelExtractor(Node):
         self.push(data)
 
 
-class RowSQLiteExtractor(SQLiteConnectionNode):
+class RowSQLiteExtractor(SQLiteNode):
     """Extract data from a SQLite connection"""
 
     def run(self, sql, conn, cursor=None, params=None, chunksize=None):
@@ -237,7 +237,7 @@ class RowSQLiteExtractor(SQLiteConnectionNode):
         self.do_push(cursor, chunksize=chunksize)
 
 
-class RowSQLDBAPIExtractor(SQLDBAPIConnectionNode):
+class RowSQLDBAPIExtractor(SQLDBAPINode):
     """Extract data from a DBAPI connection"""
 
     def run(self, sql, conn, cursor=None, params=None, chunksize=None, **kwargs):
@@ -266,7 +266,7 @@ class RowSQLDBAPIExtractor(SQLDBAPIConnectionNode):
         self.do_push(cursor, chunksize=chunksize)
 
 
-class RowSQLAlchemyExtractor(SQLAlchemyConnectionNode):
+class RowSQLAlchemyExtractor(SQLAlchemyNode):
     """Extract data from a SQLAlchemy connection"""
 
     def run(self, sql, conn, params=None, chunksize=None, **kwargs):
@@ -291,7 +291,7 @@ class RowSQLAlchemyExtractor(SQLAlchemyConnectionNode):
         self.do_push(qr, chunksize=chunksize)
 
 
-class RowSQLiteTableExtractor(SQLiteConnectionNode):
+class RowSQLiteTableExtractor(SQLiteNode):
     """Extract data from SQLite tables"""
 
     def run(
@@ -332,7 +332,7 @@ class RowSQLiteTableExtractor(SQLiteConnectionNode):
         self.do_push(cursor, chunksize=chunksize)
 
 
-class RowSQLDBAPITableExtractor(SQLDBAPIConnectionNode):
+class RowSQLDBAPITableExtractor(SQLDBAPINode):
     """Extract data from tables in a DBAPI connected"""
 
     def run(
@@ -376,7 +376,7 @@ class RowSQLDBAPITableExtractor(SQLDBAPIConnectionNode):
         self.do_push(cursor, chunksize=chunksize)
 
 
-class RowSQLAlchemyTableExtractor(SQLAlchemyConnectionNode):
+class RowSQLAlchemyTableExtractor(SQLAlchemyNode):
     """Extract data from tables in a SQLAlchemy connection"""
 
     def run(
@@ -408,7 +408,7 @@ class RowSQLAlchemyTableExtractor(SQLAlchemyConnectionNode):
         self.do_push(qr, chunksize=chunksize)
 
 
-class RowSQLExtractor(SQLConnectionNode):
+class RowSQLExtractor(SQLNode):
     """Generic SQL Extractor"""
 
     def run(self, sql, conn, cursor=None, params=None, chunksize=None, **kwargs):
@@ -464,7 +464,7 @@ class RowSQLParamExtractor(RowSQLExtractor):
         )
 
 
-class RowSQLTableExtractor(SQLConnectionNode):
+class RowSQLTableExtractor(SQLNode):
     """Generic SQL Table Extractor"""
 
     def run(

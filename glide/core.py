@@ -14,7 +14,11 @@ from consecution import (
     GlobalState as ConsecutionGlobalState,
     Node as ConsecutionNode,
 )
-from glide.sql_utils import SQLALCHEMY_CONN_TYPES, is_sqlalchemy_conn, get_bulk_replace
+from glide.sql_utils import (
+    SQLALCHEMY_CONN_TYPES,
+    is_sqlalchemy_conn,
+    get_bulk_statement,
+)
 from glide.utils import iterize, is_pandas
 
 SCRIPT_DATA_ARG = "data"
@@ -226,7 +230,7 @@ class DataFramePushNode(Node, DataFramePushMixin):
     pass
 
 
-class BaseSQLConnectionNode(SkipFalseNode):
+class BaseSQLNode(SkipFalseNode):
     """Base class for SQL-based nodes, checks for valid connection types on init
 
     Attributes
@@ -264,25 +268,25 @@ class BaseSQLConnectionNode(SkipFalseNode):
         )
 
 
-class PandasSQLConnectionNode(BaseSQLConnectionNode, DataFramePushMixin):
+class PandasSQLNode(BaseSQLNode, DataFramePushMixin):
     """Captures the connection types allowed to work with Pandas to_sql/from_sql"""
 
     allowed_conn_types = SQLALCHEMY_CONN_TYPES + [sqlite3.Connection]
 
 
-class SQLAlchemyConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
+class SQLAlchemyNode(BaseSQLNode, SQLCursorPushMixin):
     """Captures the connection types allowed to work with SQLAlchemy"""
 
     allowed_conn_types = SQLALCHEMY_CONN_TYPES
 
 
-class SQLiteConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
+class SQLiteNode(BaseSQLNode, SQLCursorPushMixin):
     """Captures the connection types allowed to work with SQLite"""
 
     allowed_conn_types = [sqlite3.Connection]
 
 
-class SQLDBAPIConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
+class SQLDBAPINode(BaseSQLNode, SQLCursorPushMixin):
     """Checks that a valid DBAPI connection is passed"""
 
     allowed_conn_types = [object]
@@ -292,8 +296,8 @@ class SQLDBAPIConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
         assert hasattr(conn, "cursor"), "DBAPI connections must have a cursor() method"
 
 
-class SQLConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
-    """A generic SQL node that will behave differently based on the conn type"""
+class SQLNode(BaseSQLNode, SQLCursorPushMixin):
+    """A generic SQL node that will behave differently based on the connection type"""
 
     allowed_conn_types = [object]
 
@@ -362,18 +366,24 @@ class SQLConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
         qr = cursor.executemany(sql, rows)
         return cursor
 
-    def get_bulk_replace(self, conn, table, rows):
-        """Get a bulk replace SQL statement
+    def get_bulk_statement(self, conn, stmt_type, table, rows, odku=False):
+        """Get a bulk execution SQL statement
 
         Parameters
         ----------
         conn
             A SQL database connection object
+        stmt_type : str
+            Type of SQL statement to use (REPLACE, INSERT, etc.)
         table : str
             name of a SQL table
         rows
             An iterable of dict rows. The first row is used to determine
             column names.
+        odku : bool or list, optional
+            If true, add ON DUPLICATE KEY UPDATE clause for all columns. If a
+            list then only add it for the specified columns. **Note:** Backend
+            support for this varies.
 
         Returns
         -------
@@ -382,18 +392,25 @@ class SQLConnectionNode(BaseSQLConnectionNode, SQLCursorPushMixin):
 
         """Get a bulk replace SQL statement"""
         if is_sqlalchemy_conn(conn):
-            return get_bulk_replace(table, rows[0].keys(), dicts=False)
+            return get_bulk_statement(
+                stmt_type, table, rows[0].keys(), dicts=False, odku=odku
+            )
         if isinstance(conn, sqlite3.Connection):
             assert isinstance(
                 rows[0], sqlite3.Row
             ), "Only sqlite3.Row rows are supported"
-            return get_bulk_replace(
-                table, rows[0].keys(), dicts=False, value_string="?"
+            return get_bulk_statement(
+                stmt_type,
+                table,
+                rows[0].keys(),
+                dicts=False,
+                value_string="?",
+                odku=odku,
             )
         assert not isinstance(
             rows[0], tuple
         ), "Dict rows expected, got tuple. Please use a dict cursor."
-        return get_bulk_replace(table, rows[0].keys())
+        return get_bulk_statement(stmt_type, table, rows[0].keys(), odku=odku)
 
 
 class Reducer(Node):

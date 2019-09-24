@@ -91,7 +91,7 @@ def test_sql_row_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     glider.consume(
         [sql],
         extract=dict(conn=sqlite_in_conn),
-        load=dict(conn=sqlite_out_conn, table=table),
+        load=dict(conn=sqlite_out_conn, table=table, stmt_type="INSERT"),
     )
     sqlite_out_conn.commit()
 
@@ -133,7 +133,13 @@ def test_pymysql_row_extract_and_load(rootdir, pymysql_conn):
     glider.consume(
         [sql],
         extract=dict(conn=pymysql_conn, cursor=cursor, params=dict(zip="01000")),
-        load=dict(conn=pymysql_conn, cursor=cursor, table=out_table),
+        load=dict(
+            conn=pymysql_conn,
+            cursor=cursor,
+            table=out_table,
+            stmt_type="INSERT",
+            odku=True,
+        ),
     )
 
 

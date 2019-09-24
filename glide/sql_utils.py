@@ -13,6 +13,7 @@ from pandas.io.sql import (
 )
 import sqlalchemy as sa
 import sqlite3
+from tlbx import st
 
 SQLALCHEMY_CONN_TYPES = [sa.engine.base.Connection, sa.engine.Connectable]
 
@@ -76,11 +77,36 @@ def get_temp_table(conn, data, create=False, **kwargs):
 
 
 def get_bulk_statement(
-    table_name, column_names, dicts=True, value_string="%s", type="REPLACE"
+    stmt_type, table_name, column_names, dicts=True, value_string="%s", odku=False
 ):
-    """Get a SQL statement suitable for use with bulk execute functions"""
-    assert type.lower() in ("replace", "insert", "insert ignore"), (
-        "Invalid statement type: %s" % type
+    """Get a SQL statement suitable for use with bulk execute functions
+
+    Parameters
+    ----------
+    stmt_type : str
+        One of REPLACE, INSERT, or INSERT IGNORE. **Note:** Backend support for
+        this varies.
+    table_name : str
+        Name of SQL table to use in statement
+    column_names : list
+        A list of column names to load
+    dicts : bool, optional
+        If true, assume the data will be a list of dict rows
+    value_string : str, optional
+        The parameter replacement string used by the underyling DB API
+    odku : bool or list, optional
+        If true, add ON DUPLICATE KEY UPDATE clause for all columns. If a list
+        then only add it for the specified columns. **Note:** Backend support for
+        this varies.
+
+    Returns
+    -------
+    sql : str
+        The sql query string to use with bulk execute functions
+
+    """
+    assert stmt_type.lower() in ("replace", "insert", "insert ignore"), (
+        "Invalid statement type: %s" % stmt_type
     )
     columns_clause = ", ".join(["`%s`" % c for c in column_names])
     if dicts:
@@ -88,24 +114,32 @@ def get_bulk_statement(
     else:
         values_clause = ", ".join(["%s" % value_string for c in column_names])
     sql = "%s INTO %s (%s) VALUES (%s)" % (
-        type,
+        stmt_type,
         table_name,
         columns_clause,
         values_clause,
     )
+
+    if odku:
+        odku_cols = column_names
+        if isinstance(odku, (list, tuple)):
+            odku_cols = odku
+        odku_clause = ", ".join(["%s=VALUES(%s)" % (col, col) for col in odku_cols])
+        sql = sql + " ON DUPLICATE KEY UPDATE %s" % odku_clause
+
     return sql
 
 
 def get_bulk_insert(table_name, column_names, **kwargs):
-    return get_bulk_statement(table_name, column_names, type="INSERT", **kwargs)
+    return get_bulk_statement("INSERT", table_name, column_names, **kwargs)
 
 
 def get_bulk_insert_ignore(table_name, column_names, **kwargs):
-    return get_bulk_statement(table_name, column_names, type="INSERT IGNORE", **kwargs)
+    return get_bulk_statement("INSERT IGNORE", table_name, column_names, **kwargs)
 
 
 def get_bulk_replace(table_name, column_names, **kwargs):
-    return get_bulk_statement(table_name, column_names, type="REPLACE", **kwargs)
+    return get_bulk_statement("REPLACE", table_name, column_names, **kwargs)
 
 
 def build_table_select(table, where=None, limit=None):

@@ -14,17 +14,17 @@ from tlbx import st, pp, dbg, log, create_email, send_email
 
 from glide.core import (
     Node,
-    SQLConnectionNode,
-    PandasSQLConnectionNode,
-    SQLAlchemyConnectionNode,
-    SQLDBAPIConnectionNode,
-    SQLiteConnectionNode,
+    SQLNode,
+    PandasSQLNode,
+    SQLAlchemyNode,
+    SQLDBAPINode,
+    SQLiteNode,
 )
 from glide.sql_utils import (
     TemporaryTable,
     SQLiteTemporaryTable,
     get_bulk_replace,
-    get_bulk_insert,
+    get_bulk_statement,
     get_temp_table,
 )
 from glide.utils import save_excel, find_class_in_dict, get_class_list_docstring
@@ -125,7 +125,7 @@ class DataFrameExcelLoader(Node):
             self.push(df_or_dict)
 
 
-class DataFrameSQLLoader(PandasSQLConnectionNode):
+class DataFrameSQLLoader(PandasSQLNode):
     """Load data into a SQL db from a Pandas DataFrame"""
 
     def run(self, df, conn, table, push_table=False, dry_run=False, **kwargs):
@@ -158,7 +158,7 @@ class DataFrameSQLLoader(PandasSQLConnectionNode):
             self.push(df)
 
 
-class DataFrameSQLTempLoader(PandasSQLConnectionNode):
+class DataFrameSQLTempLoader(PandasSQLNode):
     """Load data into a SQL temp table from a Pandas DataFrame"""
 
     def run(self, df, conn, schema=None, dry_run=False, **kwargs):
@@ -304,7 +304,7 @@ class RowExcelLoader(Node):
             self.push(rows)
 
 
-class RowSQLiteLoader(SQLiteConnectionNode):
+class RowSQLiteLoader(SQLiteNode):
     """Load date with a SQLite connection"""
 
     def run(
@@ -314,6 +314,7 @@ class RowSQLiteLoader(SQLiteConnectionNode):
         table,
         cursor=None,
         commit=True,
+        stmt_type="REPLACE",
         push_table=False,
         dry_run=False,
     ):
@@ -331,6 +332,8 @@ class RowSQLiteLoader(SQLiteConnectionNode):
             SQLite database cursor
         commit : bool, optional
             If true call conn.commit
+        stmt_type : str, optional
+            Type of SQL statement to use (REPLACE, INSERT, etc.)
         push_table : bool, optional
             If true, push the table forward instead of the data
         dry_run : bool, optional
@@ -339,7 +342,9 @@ class RowSQLiteLoader(SQLiteConnectionNode):
         """
         assert isinstance(rows[0], sqlite3.Row), "Only sqlite3.Row rows are supported"
         dbg("Loading %d rows to %s" % (len(rows), table))
-        sql = get_bulk_replace(table, rows[0].keys(), dicts=False, value_string="?")
+        sql = get_bulk_statement(
+            stmt_type, table, rows[0].keys(), dicts=False, value_string="?"
+        )
 
         if dry_run:
             log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
@@ -356,7 +361,7 @@ class RowSQLiteLoader(SQLiteConnectionNode):
             self.push(rows)
 
 
-class RowSQLDBAPILoader(SQLDBAPIConnectionNode):
+class RowSQLDBAPILoader(SQLDBAPINode):
     """Load data with a DBAPI-based connection"""
 
     def run(
@@ -366,6 +371,8 @@ class RowSQLDBAPILoader(SQLDBAPIConnectionNode):
         table,
         cursor=None,
         commit=True,
+        stmt_type="REPLACE",
+        odku=False,
         push_table=False,
         dry_run=False,
     ):
@@ -383,6 +390,12 @@ class RowSQLDBAPILoader(SQLDBAPIConnectionNode):
             DBAPI database connection cursor
         commit : bool, optional
             If true call conn.commit
+        stmt_type : str, optional
+            Type of SQL statement to use (REPLACE, INSERT, etc.)
+        odku : bool or list, optional
+            If true, add ON DUPLICATE KEY UPDATE clause for all columns. If a
+            list then only add it for the specified columns. **Note:** Backend
+            support for this varies.
         push_table : bool, optional
             If true, push the table forward instead of the data
         dry_run : bool, optional
@@ -390,7 +403,7 @@ class RowSQLDBAPILoader(SQLDBAPIConnectionNode):
 
         """
         dbg("Loading %d rows to %s" % (len(rows), table))
-        sql = get_bulk_replace(table, rows[0].keys())
+        sql = get_bulk_statement(stmt_type, table, rows[0].keys(), odku=odku)
 
         if dry_run:
             log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
@@ -407,10 +420,19 @@ class RowSQLDBAPILoader(SQLDBAPIConnectionNode):
             self.push(rows)
 
 
-class RowSQLAlchemyLoader(SQLAlchemyConnectionNode):
+class RowSQLAlchemyLoader(SQLAlchemyNode):
     """Load data with a SQLAlchemy connection"""
 
-    def run(self, rows, conn, table, push_table=False, dry_run=False):
+    def run(
+        self,
+        rows,
+        conn,
+        table,
+        stmt_type="REPLACE",
+        odku=False,
+        push_table=False,
+        dry_run=False,
+    ):
         """Form SQL statement and use bulk execute to write rows to table
 
         Parameters
@@ -421,6 +443,12 @@ class RowSQLAlchemyLoader(SQLAlchemyConnectionNode):
             SQLAlchemy database connection
         table : str
             Name of a table to write the data to
+        stmt_type : str, optional
+            Type of SQL statement to use (REPLACE, INSERT, etc.)
+        odku : bool or list, optional
+            If true, add ON DUPLICATE KEY UPDATE clause for all columns. If a
+            list then only add it for the specified columns. **Note:** Backend
+            support for this varies.
         push_table : bool, optional
             If true, push the table forward instead of the data
         dry_run : bool, optional
@@ -428,7 +456,9 @@ class RowSQLAlchemyLoader(SQLAlchemyConnectionNode):
 
         """
         dbg("Loading %d rows to %s" % (len(rows), table))
-        sql = get_bulk_replace(table, rows[0].keys(), dicts=False)
+        sql = get_bulk_statement(
+            stmt_type, table, rows[0].keys(), dicts=False, odku=odku
+        )
 
         if dry_run:
             log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
@@ -441,7 +471,7 @@ class RowSQLAlchemyLoader(SQLAlchemyConnectionNode):
             self.push(rows)
 
 
-class RowSQLiteTempLoader(SQLiteConnectionNode):
+class RowSQLiteTempLoader(SQLiteNode):
     """Load data into a temp table with a SQLite connection"""
 
     def run(self, rows, conn, cursor=None, schema=None, commit=True, dry_run=False):
@@ -483,7 +513,7 @@ class RowSQLiteTempLoader(SQLiteConnectionNode):
         self.push(table.name)
 
 
-class RowSQLLoader(SQLConnectionNode):
+class RowSQLLoader(SQLNode):
     """Generic SQL loader"""
 
     def run(
@@ -493,6 +523,8 @@ class RowSQLLoader(SQLConnectionNode):
         table,
         cursor=None,
         commit=True,
+        stmt_type="REPLACE",
+        odku=False,
         push_table=True,
         dry_run=False,
     ):
@@ -510,6 +542,13 @@ class RowSQLLoader(SQLConnectionNode):
             Database connection cursor
         commit : bool, optional
             If true and conn has a commit method, call conn.commit
+        stmt_type : str, optional
+            Type of SQL statement to use (REPLACE, INSERT, etc.). **Note:** Backend
+            support for this varies.
+        odku : bool or list, optional
+            If true, add ON DUPLICATE KEY UPDATE clause for all columns. If a
+            list then only add it for the specified columns. **Note:** Backend
+            support for this varies.
         push_table : bool
             If true, push the table forward instead of the data
         dry_run : bool, optional
@@ -517,7 +556,7 @@ class RowSQLLoader(SQLConnectionNode):
 
         """
         dbg("Loading %d rows to %s" % (len(rows), table))
-        sql = self.get_bulk_replace(conn, table, rows)
+        sql = self.get_bulk_statement(conn, stmt_type, table, rows, odku=odku)
 
         if dry_run:
             log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
@@ -534,7 +573,7 @@ class RowSQLLoader(SQLConnectionNode):
             self.push(rows)
 
 
-class RowSQLTempLoader(SQLConnectionNode):
+class RowSQLTempLoader(SQLNode):
     """Generic SQL temp table loader"""
 
     def run(self, rows, conn, cursor=None, schema=None, commit=True, dry_run=False):
@@ -557,7 +596,7 @@ class RowSQLTempLoader(SQLConnectionNode):
 
         """
         table = get_temp_table(conn, rows, create=True, schema=schema)
-        sql = self.get_bulk_replace(conn, table.name, rows)
+        sql = self.get_bulk_statement(conn, "REPLACE", table.name, rows)
 
         if dry_run:
             log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
