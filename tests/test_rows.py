@@ -113,7 +113,7 @@ def test_sql_row_param_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn
 
 
 def test_sqlite_row_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
-    nodes = RowSQLiteExtractor("extract") | RowSQLiteLoader("load")
+    nodes = RowSQLExtractor("extract") | RowSQLLoader("load")
     glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
     sql = "select * from %s where Zip_Code < :zip" % table
     sqlite_out_conn.execute("delete from %s" % table)
@@ -129,7 +129,7 @@ def test_sqlite_row_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
 def test_pymysql_row_extract_and_load(rootdir, pymysql_conn):
     in_table, out_table, cursor = dbapi_setup(rootdir, pymysql_conn, truncate=True)
     sql = "select * from %s where Zip_Code < %%(zip)s" % in_table
-    glider = Glider(RowSQLDBAPIExtractor("extract") | RowSQLDBAPILoader("load"))
+    glider = Glider(RowSQLExtractor("extract") | RowSQLLoader("load"))
     glider.consume(
         [sql],
         extract=dict(conn=pymysql_conn, cursor=cursor, params=dict(zip="01000")),
@@ -146,7 +146,7 @@ def test_pymysql_row_extract_and_load(rootdir, pymysql_conn):
 def test_sqlalchemy_row_extract_and_load(rootdir, sqlalchemy_conn):
     in_table, out_table = sqlalchemy_setup(rootdir, sqlalchemy_conn, truncate=True)
     sql = "select * from %s where Zip_Code < %%(zip)s" % in_table
-    glider = Glider(RowSQLAlchemyExtractor("extract") | RowSQLAlchemyLoader("load"))
+    glider = Glider(RowSQLExtractor("extract") | RowSQLLoader("load"))
     glider.consume(
         [sql],
         extract=dict(conn=sqlalchemy_conn, zip="01000"),
@@ -156,22 +156,18 @@ def test_sqlalchemy_row_extract_and_load(rootdir, sqlalchemy_conn):
 
 def test_pymysql_table_extract(rootdir, pymysql_conn):
     in_table, out_table, cursor = dbapi_setup(rootdir, pymysql_conn)
-    glider = Glider(RowSQLDBAPITableExtractor("extract", limit=10) | Logger("load"))
+    glider = Glider(RowSQLTableExtractor("extract", limit=10) | Logger("load"))
     glider.consume([in_table], extract=dict(conn=pymysql_conn, cursor=cursor))
 
 
 def test_sqlalchemy_table_extract(rootdir, sqlalchemy_conn):
     in_table, _ = sqlalchemy_setup(rootdir, sqlalchemy_conn)
-    glider = Glider(RowSQLAlchemyTableExtractor("extract", limit=10) | Logger("load"))
+    glider = Glider(RowSQLTableExtractor("extract", limit=10) | Logger("load"))
     glider.consume([in_table], extract=dict(conn=sqlalchemy_conn))
 
 
 def test_sqlite_row_temp_load(rootdir, sqlite_in_conn):
-    nodes = (
-        RowSQLiteExtractor("extract")
-        | RowSQLiteTempLoader("tmp_loader")
-        | Logger("load")
-    )
+    nodes = RowSQLExtractor("extract") | RowSQLTempLoader("tmp_loader") | Logger("load")
     glider, table = sqlite_glider(rootdir, nodes)
     sql = "select * from %s limit 10" % table
     glider.consume(

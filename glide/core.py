@@ -267,46 +267,6 @@ class BaseSQLNode(SkipFalseNode):
             % (type(conn), self.allowed_conn_types)
         )
 
-
-class PandasSQLNode(BaseSQLNode, DataFramePushMixin):
-    """Captures the connection types allowed to work with Pandas to_sql/from_sql"""
-
-    allowed_conn_types = SQLALCHEMY_CONN_TYPES + [sqlite3.Connection]
-
-
-class SQLAlchemyNode(BaseSQLNode, SQLCursorPushMixin):
-    """Captures the connection types allowed to work with SQLAlchemy"""
-
-    allowed_conn_types = SQLALCHEMY_CONN_TYPES
-
-
-class SQLiteNode(BaseSQLNode, SQLCursorPushMixin):
-    """Captures the connection types allowed to work with SQLite"""
-
-    allowed_conn_types = [sqlite3.Connection]
-
-
-class SQLDBAPINode(BaseSQLNode, SQLCursorPushMixin):
-    """Checks that a valid DBAPI connection is passed"""
-
-    allowed_conn_types = [object]
-
-    def check_conn(self, conn):
-        super().check_conn(conn)
-        assert hasattr(conn, "cursor"), "DBAPI connections must have a cursor() method"
-
-
-class SQLNode(BaseSQLNode, SQLCursorPushMixin):
-    """A generic SQL node that will behave differently based on the connection type"""
-
-    allowed_conn_types = [object]
-
-    def check_conn(self, conn):
-        """Make sure the object is a valid SQL connection"""
-        assert hasattr(conn, "cursor") or is_sqlalchemy_conn(
-            conn
-        ), "Connection must have a cursor() method or be a SQLAlchemy connection"
-
     def get_sql_executor(self, conn):
         """Get the object that can execute queries"""
         if is_sqlalchemy_conn(conn):
@@ -395,6 +355,7 @@ class SQLNode(BaseSQLNode, SQLCursorPushMixin):
             return get_bulk_statement(
                 stmt_type, table, rows[0].keys(), dicts=False, odku=odku
             )
+
         if isinstance(conn, sqlite3.Connection):
             assert isinstance(
                 rows[0], sqlite3.Row
@@ -407,10 +368,29 @@ class SQLNode(BaseSQLNode, SQLCursorPushMixin):
                 value_string="?",
                 odku=odku,
             )
+
         assert not isinstance(
             rows[0], tuple
         ), "Dict rows expected, got tuple. Please use a dict cursor."
         return get_bulk_statement(stmt_type, table, rows[0].keys(), odku=odku)
+
+
+class PandasSQLNode(BaseSQLNode, DataFramePushMixin):
+    """Captures the connection types allowed to work with Pandas to_sql/from_sql"""
+
+    allowed_conn_types = SQLALCHEMY_CONN_TYPES + [sqlite3.Connection]
+
+
+class SQLNode(BaseSQLNode, SQLCursorPushMixin):
+    """A generic SQL node that will behave differently based on the connection type"""
+
+    allowed_conn_types = [object]
+
+    def check_conn(self, conn):
+        """Make sure the object is a valid SQL connection"""
+        assert hasattr(conn, "cursor") or is_sqlalchemy_conn(
+            conn
+        ), "Connection must have a cursor() method or be a SQLAlchemy connection"
 
 
 class Reducer(Node):
