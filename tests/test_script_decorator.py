@@ -100,3 +100,18 @@ def _test_injected_args(data, conn, node_contexts):
 def test_injected_args():
     with patch("argparse._sys.argv", get_argv(get_load_table(), data=False)):
         _test_injected_args()
+
+
+@glider.cli(
+    inject=dict(
+        data=get_data, extract_conn=get_pymysql_conn, load_conn=get_pymysql_conn
+    ),
+    clean=dict(extract_conn=lambda x: x.close(), load_conn=lambda x: x.close()),
+)
+def _test_injected_args_with_node_prefix(data, node_contexts, **kwargs):
+    glider.consume(data, **node_contexts)
+
+
+def test_injected_args_with_node_prefix():
+    with patch("argparse._sys.argv", get_argv(get_load_table(), data=False)):
+        _test_injected_args_with_node_prefix()

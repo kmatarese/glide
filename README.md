@@ -538,7 +538,7 @@ def get_data():
     inject=dict(data=get_data, conn=get_my_db_conn),
     clean=dict(conn=lambda x: x.close()),
 )
-def main(data, conn, node_contexts):
+def main(data, node_contexts, **kwargs):
     glider.consume(data, **node_contexts)
 ```
 
@@ -553,7 +553,7 @@ run:
 $ python my_script.py
 ```
 
-> **Note:** Injected args are also passed to the wrapped function. 
+> **Note:** Injected args are also passed to the wrapped function as keyword args. 
 
 > **Also Note:** If an injected argument name is mapped to a non-callable via
 `inject` the value will be used as is. The main difference is those values are

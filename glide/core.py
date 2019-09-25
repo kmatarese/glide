@@ -857,14 +857,19 @@ class GliderScript(Script):
         """Convert flat kwargs to node contexts and remaining kwargs"""
         nodes = self.glider.get_node_lookup()
         node_contexts = {}
-        unused = set()
+        add_to_final = set()
 
         for key, value in kwargs.items():
             key_parts = key.split("_")
             node_name = key_parts[0]
+
             if node_name not in nodes:
-                unused.add(key)
+                add_to_final.add(key)
                 continue
+
+            if key in self.inject:
+                add_to_final.add(key)
+
             assert (
                 len(key_parts) > 1
             ), "Invalid keyword arg %s, can not be a node name" % (key)
@@ -880,7 +885,7 @@ class GliderScript(Script):
                 node_contexts[node_name] = injected_args
 
         final_kwargs = dict(node_contexts=node_contexts)
-        for key in unused:
+        for key in add_to_final:
             final_kwargs[key] = kwargs[key]
 
         return final_kwargs
