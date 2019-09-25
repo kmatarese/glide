@@ -42,7 +42,7 @@ def get_conn():
 
 
 @gs_glider.cli()
-def _test_base_cli(data, **node_contexts):
+def _test_base_cli(data, node_contexts):
     gs_glider.consume(data, **node_contexts)
 
 
@@ -58,7 +58,7 @@ def parent_cli():
 
 
 @gs_glider.cli(parents=[parent_cli])
-def _test_parent_cli(data, dry_run, **node_contexts):
+def _test_parent_cli(data, dry_run, node_contexts):
     assert dry_run
     gs_glider.consume(data, **node_contexts)
 
@@ -69,7 +69,7 @@ def test_parent_cli():
 
 
 @gs_glider.cli(Arg("--load_table", required=False, default=LOAD_TABLE))
-def _test_arg_override(data, **node_contexts):
+def _test_arg_override(data, node_contexts):
     gs_glider.consume(data, **node_contexts)
 
 
@@ -79,7 +79,7 @@ def test_arg_override():
 
 
 @gs_glider.cli()
-def _test_help(data, **node_contexts):
+def _test_help(data, node_contexts):
     assert False
 
 
@@ -93,7 +93,7 @@ def test_help():
     inject=dict(data=get_data, conn=get_pymysql_conn),
     clean=dict(conn=lambda x: x.close()),
 )
-def _test_injected_args(data, conn, **node_contexts):
+def _test_injected_args(data, conn, node_contexts):
     glider.consume(data, **node_contexts)
 
 

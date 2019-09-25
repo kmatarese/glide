@@ -879,7 +879,7 @@ class GliderScript(Script):
             else:
                 node_contexts[node_name] = injected_args
 
-        final_kwargs = node_contexts
+        final_kwargs = dict(node_contexts=node_contexts)
         for key in unused:
             final_kwargs[key] = kwargs[key]
 

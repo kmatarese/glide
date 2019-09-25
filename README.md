@@ -388,7 +388,7 @@ You can create a command line script from the `glider` object as follows:
 
 ```python
 @glider.cli()
-def main(data, **node_contexts):
+def main(data, node_contexts):
     glider.consume(data, **node_contexts)
 
 if __name__ == "__main__":
@@ -450,7 +450,7 @@ into the CLI as follows:
 
 ```python
 @glider.cli(blacklist=["conn"])
-def main(data, **node_contexts):
+def main(data, node_contexts):
     glider.consume(data, **node_contexts)
 ```
 
@@ -461,7 +461,7 @@ node name:
 
 ```python
 @glider.cli(blacklist=["load_conn"])
-def main(data, **node_contexts):
+def main(data, node_contexts):
     glider.consume(data, **node_contexts)
 ```
 
@@ -478,7 +478,7 @@ from glide.core import Glider, Arg
 glider = ...
 
 @glider.cli(Arg("--load_table", required=False, default="output_table"))
-def main(data, **node_contexts):
+def main(data, node_contexts):
     glider.consume(data, **node_contexts)
 ```
 
@@ -494,7 +494,7 @@ change the type/requirements:
 
 ```python
 @glider.cli(Arg("data", type=str, default="some default sql query"))
-def main(data, **node_contexts):
+def main(data, node_contexts):
     glider.consume(data, **node_contexts)
 ```
 
@@ -515,7 +515,7 @@ def parent_cli():
     pass
 
 @glider.cli(parents=[parent_cli])
-def main(data, dry_run=False, **node_contexts):
+def main(data, dry_run=False, node_contexts):
     if dry_run:
         something_else()
     else:
@@ -538,7 +538,7 @@ def get_data():
     inject=dict(data=get_data, conn=get_my_db_conn),
     clean=dict(conn=lambda x: x.close()),
 )
-def main(data, conn, **node_contexts):
+def main(data, conn, node_contexts):
     glider.consume(data, **node_contexts)
 ```
 
