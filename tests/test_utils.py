@@ -13,7 +13,7 @@ from tlbx import rmfile
 
 from glide import *
 
-logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger("glide").setLevel(logging.DEBUG)
 
 TEST_DATA_NAME = "dma_zip"
 

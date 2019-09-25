@@ -11,11 +11,12 @@ from imapclient import IMAPClient
 import pandas as pd
 from pandas.io.common import get_filepath_or_buffer
 import requests
-from tlbx import st, read_chunks, dbg, extract_email_payload
+from tlbx import st, read_chunks, extract_email_payload
 
 from glide.core import Node, DataFramePushNode, SQLNode, PandasSQLNode
 from glide.sql_utils import build_table_select
-from glide.utils import read_excel, find_class_in_dict, get_class_list_docstring
+from glide.utils import dbg, read_excel, find_class_in_dict, get_class_list_docstring
+
 
 # -------- Pandas Extractors
 
@@ -503,7 +504,7 @@ class EmailExtractor(Node):
                 messages = client.sort(sort, criteria=criteria)
             else:
                 messages = client.search(criteria)
-            dbg("Found %d messages" % len(messages))
+            dbg("Found %d email messages" % len(messages))
 
             if push_type == "message_id":
                 if limit:

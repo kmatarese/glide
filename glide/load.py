@@ -10,7 +10,7 @@ import tempfile
 import pandas as pd
 from pandas.io.common import get_filepath_or_buffer
 import requests
-from tlbx import st, pp, dbg, log, create_email, send_email
+from tlbx import st, pp, create_email, send_email, sqlformat
 
 from glide.core import Node, SQLNode, PandasSQLNode
 from glide.sql_utils import (
@@ -20,7 +20,13 @@ from glide.sql_utils import (
     get_bulk_statement,
     get_temp_table,
 )
-from glide.utils import save_excel, find_class_in_dict, get_class_list_docstring
+from glide.utils import (
+    dbg,
+    warn,
+    save_excel,
+    find_class_in_dict,
+    get_class_list_docstring,
+)
 
 
 class Logger(Node):
@@ -66,7 +72,7 @@ class DataFrameCSVLoader(Node):
                 self.wrote_header = True
 
         if dry_run:
-            log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
+            warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
         else:
             df.to_csv(f, **kwargs)
 
@@ -103,7 +109,7 @@ class DataFrameExcelLoader(Node):
         """
 
         if dry_run:
-            log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
+            warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
         else:
             if isinstance(df_or_dict, dict):
                 with pd.ExcelWriter(f) as writer:
@@ -141,7 +147,7 @@ class DataFrameSQLLoader(PandasSQLNode):
 
         """
         if dry_run:
-            log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
+            warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
         else:
             df.to_sql(table, conn, **kwargs)
 
@@ -178,7 +184,7 @@ class DataFrameSQLTempLoader(PandasSQLNode):
 
         table = get_temp_table(conn, df, schema=schema, create=True)
         if dry_run:
-            log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
+            warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
         else:
             df.to_sql(table.name, conn, if_exists="append", **kwargs)
 
@@ -220,7 +226,7 @@ class RowCSVLoader(Node):
 
         try:
             if dry_run:
-                log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
+                warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
             else:
                 if not self.writer:
                     self.writer = csv.DictWriter(
@@ -287,7 +293,7 @@ class RowExcelLoader(Node):
                 data[sheet_name] = header + [list(x.values()) for x in sheet_data]
 
         if dry_run:
-            log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
+            warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
         else:
             save_excel(f, data, **kwargs)
 
@@ -339,11 +345,11 @@ class RowSQLLoader(SQLNode):
             If true, skip actually loading the data
 
         """
-        dbg("Loading %d rows to %s" % (len(rows), table))
         sql = self.get_bulk_statement(conn, stmt_type, table, rows, odku=odku)
+        dbg("Loading %d rows\n%s" % (len(rows), sqlformat(sql)), indent="label")
 
         if dry_run:
-            log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
+            warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
         else:
             if not cursor:
                 cursor = self.get_sql_executor(conn)
@@ -381,9 +387,10 @@ class RowSQLTempLoader(SQLNode):
         """
         table = get_temp_table(conn, rows, create=True, schema=schema)
         sql = self.get_bulk_statement(conn, "REPLACE", table.name, rows)
+        dbg("Loading %d rows\n%s" % (len(rows), sqlformat(sql)), indent="label")
 
         if dry_run:
-            log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
+            warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
         else:
             if not cursor:
                 cursor = self.get_sql_executor(conn)
@@ -426,7 +433,7 @@ class FileLoader(Node):
 
         try:
             if dry_run:
-                log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
+                warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
             else:
                 fo.write(data)
         finally:
@@ -484,7 +491,7 @@ class URLLoader(Node):
             requestor = session
 
         if dry_run:
-            log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
+            warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
         else:
             if isinstance(url, str):
                 assert not (
@@ -616,7 +623,7 @@ class EmailLoader(Node):
                 tmpdir.cleanup()
 
         if dry_run:
-            log("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
+            warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
         else:
             dbg("Sending msg %s to %s" % (msg["Subject"], msg["To"]))
             send_email(

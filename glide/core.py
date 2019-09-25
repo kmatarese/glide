@@ -3,11 +3,12 @@
 from collections import OrderedDict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from inspect import signature, Parameter
+from pprint import pformat
 
 import climax
 import numpy as np
 import sqlite3
-from tlbx import st, dbg, Script, Arg, Parent, MappingMixin, set_missing_key
+from tlbx import st, Script, Arg, Parent, MappingMixin, set_missing_key
 
 from consecution import (
     Pipeline,
@@ -19,7 +20,7 @@ from glide.sql_utils import (
     is_sqlalchemy_conn,
     get_bulk_statement,
 )
-from glide.utils import iterize, is_pandas
+from glide.utils import dbg, repr, iterize, is_pandas
 
 SCRIPT_DATA_ARG = "data"
 
@@ -130,6 +131,7 @@ class Node(ConsecutionNode):
     def process(self, item):
         """Required method used by Consecution to process nodes"""
         _args, _kwargs = self._populate_run_args()
+        dbg(repr(item), label=self.name)
         self._run(item, *_args, **_kwargs)
 
     def _run(self, item, *args, **kwargs):
@@ -489,6 +491,8 @@ def reset_node_contexts(pipeline, node_contexts):
 def consume(pipeline, data, **node_contexts):
     """Handles node contexts before/after calling pipeline.consume()"""
     update_node_contexts(pipeline, node_contexts)
+    contexts = {k: pipeline[k].context for k in pipeline._node_lookup}
+    dbg("size=%s\n%s" % (len(data), pformat(contexts)), indent="label")
     pipeline.consume(iterize(data))
     reset_node_contexts(pipeline, node_contexts)
 

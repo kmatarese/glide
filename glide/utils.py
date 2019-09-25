@@ -2,15 +2,37 @@
 
 from inspect import isgenerator
 import io
+import logging
 
 import pandas as pd
 from pyexcel.internal import SOURCE
 from pyexcel_xlsx import get_data as get_xlsx, save_data as save_xlsx
 from pyexcel_xls import get_data as get_xls, save_data as save_xls
-from tlbx import st, is_str, MappingMixin
+from tlbx import (
+    st,
+    dbg as _dbg,
+    dbgsql as _dbgsql,
+    info as _info,
+    warn as _warn,
+    error as _error,
+    get_caller,
+    repr,
+    is_str,
+    MappingMixin,
+)
+
+default_logger = logging.getLogger("glide")
+default_logger.setLevel(logging.WARNING)
 
 XLS = "xls"
 XLSX = "xlsx"
+
+_CLASS_LIST_DOCSTRING_TEMPLATE = """
+
+**{heading}:**
+
+{classes_str}
+"""
 
 
 def find_class_in_dict(cls, d, filter=None):
@@ -23,14 +45,6 @@ def find_class_in_dict(cls, d, filter=None):
                 continue
             names.append(key)
     return names
-
-
-_CLASS_LIST_DOCSTRING_TEMPLATE = """
-
-**{heading}:**
-
-{classes_str}
-"""
 
 
 def get_class_list_docstring(heading, classes):
@@ -119,3 +133,33 @@ def save_excel(f, data, **kwargs):
         save_xls(f, data, **kwargs)
     else:
         save_xlsx(f, data, **kwargs)
+
+
+# -------- Logging utils
+
+
+def dbg(msg, **kwargs):
+    kwargs["logger"] = kwargs.get("logger", default_logger)
+    kwargs["label"] = kwargs.get("label", get_caller())
+    _dbg(msg, **kwargs)
+
+
+def dbgsql(msg, **kwargs):
+    kwargs["logger"] = kwargs.get("logger", default_logger)
+    kwargs["label"] = kwargs.get("label", get_caller())
+    _dbgsql(msg, **kwargs)
+
+
+def info(msg, **kwargs):
+    kwargs["logger"] = kwargs.get("logger", default_logger)
+    _info(msg, **kwargs)
+
+
+def warn(msg, **kwargs):
+    kwargs["logger"] = kwargs.get("logger", default_logger)
+    _warn(msg, **kwargs)
+
+
+def error(msg, **kwargs):
+    kwargs["logger"] = kwargs.get("logger", default_logger)
+    _error(msg, **kwargs)

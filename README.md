@@ -296,6 +296,18 @@ databases in parallel as a final step.
 > **Also Note:** standard limitations apply regarding what types of data can
 be serialized and passed to a parallel process.
 
+### Debug Logging
+
+To enable debug logging for Glide change the log level of the "glide" logger:
+
+```python
+import logging
+logging.getLogger("glide").setLevel(logging.DEBUG)
+```
+
+Glide will then print debug information about data passed through your
+pipeline.
+
 <a name="creatingnodes"></a>
 Creating Nodes
 --------------

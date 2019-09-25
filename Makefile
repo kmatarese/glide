@@ -45,6 +45,7 @@ pip:
 	$(MAKE) dist
 	$(MAKE) upload
 	$(MAKE) test_env
+	sleep 30
 	$(TEST_ENV)/bin/pip install -U glide==$(VERSION)
 	$(TEST_ENV)/bin/python -c "import glide"
 
@@ -52,6 +53,7 @@ test_pip:
 	$(MAKE) dist
 	$(MAKE) test_upload
 	$(MAKE) test_env
+	sleep 30
 	$(TEST_ENV)/bin/pip install -i "https://test.pypi.org/simple/" --extra-index-url "https://pypi.org/simple/" glide==$(VERSION)
 	$(TEST_ENV)/bin/python -c "import glide"
 
