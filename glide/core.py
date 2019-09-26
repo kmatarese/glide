@@ -8,7 +8,7 @@ from pprint import pformat
 import climax
 import numpy as np
 import sqlite3
-from tlbx import st, Script, Arg, Parent, MappingMixin, set_missing_key
+from tlbx import st, Script, Arg, Parent, MappingMixin, set_missing_key, format_msg
 
 from consecution import (
     Pipeline,
@@ -58,8 +58,9 @@ class Node(ConsecutionNode):
         An OrderedDict of keyword args and defaults to run()
     """
 
-    def __init__(self, name, **default_context):
+    def __init__(self, name, log=False, **default_context):
         super().__init__(name)
+        self.log = log
         self.default_context = default_context or {}
         self.reset_context()
         self.run_args, self.run_kwargs = self._get_run_args()
@@ -131,7 +132,10 @@ class Node(ConsecutionNode):
     def process(self, item):
         """Required method used by Consecution to process nodes"""
         _args, _kwargs = self._populate_run_args()
-        dbg(repr(item), label=self.name)
+        if self.log:
+            print(format_msg(repr(item), label=self.name))
+        else:
+            dbg(repr(item), label=self.name)
         self._run(item, *_args, **_kwargs)
 
     def _run(self, item, *args, **kwargs):
@@ -618,6 +622,10 @@ class ProcessPoolParaGlider(Glider):
         with ProcessPoolExecutor() as executor:
             splits = np.array_split(data, min(len(data), executor._max_workers))
             futures = []
+            dbg(
+                "%s: %d worker(s), %d split(s)"
+                % (self.__class__.__name__, executor._max_workers, len(splits))
+            )
             for split in splits:
                 futures.append(
                     executor.submit(consume, self.pipeline, split, **node_contexts)
@@ -644,6 +652,10 @@ class ThreadPoolParaGlider(Glider):
         with ThreadPoolExecutor() as executor:
             splits = np.array_split(data, min(len(data), executor._max_workers))
             futures = []
+            dbg(
+                "%s: %d worker(s), %d split(s)"
+                % (self.__class__.__name__, executor._max_workers, len(splits))
+            )
             for split in splits:
                 futures.append(
                     executor.submit(consume, self.pipeline, split, **node_contexts)

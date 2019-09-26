@@ -99,7 +99,7 @@ def test_sql_row_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
 
 
 def test_sql_row_param_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
-    nodes = RowSQLParamExtractor("extract") | RowSQLLoader("load")
+    nodes = RowSQLParamExtractor("extract", log=True) | RowSQLLoader("load")
     glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
     sql = "select * from %s where Zip_Code = :zip" % table
     sqlite_out_conn.execute("delete from %s" % table)

@@ -35,10 +35,13 @@ class Printer(Node):
     def print(self, item):
         print(item)
 
+    def get_label(self):
+        return "---- %s ----\n" % self.name
+
     def run(self, item, label=True):
         """Print the item with the printer function and push"""
         if label:
-            print("---- %s ----" % self.name)
+            print(self.get_label(), end="")
         self.print(item)
         self.push(item)
 
@@ -53,8 +56,11 @@ class PrettyPrinter(Printer):
 class LenPrinter(Printer):
     """Prints the length of the item"""
 
+    def get_label(self):
+        return "%s: " % self.name
+
     def print(self, item):
-        print("Item length: %s" % len(item))
+        print("item length: %s" % len(item))
 
 
 class ReprPrinter(Printer):

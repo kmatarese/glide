@@ -13,6 +13,7 @@ except ImportError:
 from tlbx import st, set_missing_key
 
 from glide.core import Node, DefaultNode, FuturesPushNode, Glider, consume
+from glide.utils import dbg
 
 
 class DaskClientPush(FuturesPushNode):
@@ -68,8 +69,13 @@ class DaskParaGlider(Glider):
         assert Client, "Please install dask (Client) to use DaskParaGlider"
 
         with Client() as client:  # Local multi-processor for now
-            splits = np.array_split(data, min(len(data), len(client.ncores())))
+            worker_count = len(client.ncores())
+            splits = np.array_split(data, min(len(data), worker_count))
             futures = []
+            dbg(
+                "%s: %d worker(s), %d split(s)"
+                % (self.__class__.__name__, worker_count, len(splits))
+            )
             for split in splits:
                 futures.append(
                     client.submit(consume, self.pipeline, split, **node_contexts)
