@@ -10,7 +10,7 @@ import tempfile
 import pandas as pd
 from pandas.io.common import get_filepath_or_buffer
 import requests
-from tlbx import st, pp, create_email, send_email, sqlformat
+from tlbx import st, pp, create_email, send_email, sqlformat, repr, format_msg
 
 from glide.core import Node, SQLNode, PandasSQLNode
 from glide.sql_utils import (
@@ -29,13 +29,75 @@ from glide.utils import (
 )
 
 
-class Logger(Node):
-    """Simple logging node"""
+class Printer(Node):
+    """Print the item"""
 
-    def run(self, item):
-        """Pretty print the item and then push"""
-        print("---- %s ----" % self.name)
+    def print(self, item):
+        print(item)
+
+    def run(self, item, label=True):
+        """Print the item with the printer function and push"""
+        if label:
+            print("---- %s ----" % self.name)
+        self.print(item)
+        self.push(item)
+
+
+class PrettyPrinter(Printer):
+    """Pretty-prints the item"""
+
+    def print(self, item):
         pp(item)
+
+
+class LenPrinter(Printer):
+    """Prints the length of the item"""
+
+    def print(self, item):
+        print("Item length: %s" % len(item))
+
+
+class ReprPrinter(Printer):
+    """Prints the reprlib.repr of the item"""
+
+    def print(self, item):
+        print(repr(item))
+
+
+class FormatPrinter(Node):
+    """Format and print the item"""
+
+    def run(
+        self,
+        item,
+        label=None,
+        indent=None,
+        color=None,
+        autocolor=False,
+        format_func="pf",
+    ):
+        """Format using tlx.format_msg, then print
+
+        Parameters
+        ----------
+        item
+            The item to print
+        **kwargs
+            Keyword arguments passed to tlx.format_msg
+
+        """
+        if label == "node":
+            label = self.name
+
+        msg = format_msg(
+            item,
+            label=label,
+            indent=indent,
+            color=color,
+            autocolor=autocolor,
+            format_func=format_func,
+        )
+        print(msg)
         self.push(item)
 
 

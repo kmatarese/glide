@@ -85,13 +85,13 @@ Let's build some pipelines to explore Glide further...
 
 ### Example: Read a CSV
 
-Here is a trivial example that reads a CSV and passes all rows to a `Logger`
+Here is a trivial example that reads a CSV and passes all rows to a `PrettyPrinter`
 node in a single push to be pretty-printed:
 
 ```python
 glider = Glider(
     RowCSVExtractor("extract")
-    | Logger("load")
+    | PrettyPrinter("load")
 )
 glider.consume(["/path/to/file.csv"])
 ```
@@ -222,7 +222,7 @@ data:
 ```python
 glider = ProcessPoolParaGlider(
     RowCSVExtractor('extract')
-    | Logger('load')
+    | Printer('load')
 )
 glider.consume(
     ["/path/to/infile1.csv", "/path/to/infile2.csv"],
@@ -240,7 +240,7 @@ push node as in the following example:
 glider = Glider(
     RowCSVExtractor("extract", nrows=60)
     | ProcessPoolPush("push", split=True)
-    | [Logger("load1"), Logger("load2"), Logger("load3")]
+    | [Printer("load1"), Printer("load2"), Printer("load3")]
 )
 glider.consume(["/path/to/infile.csv"])
 ```
@@ -261,9 +261,9 @@ achieved with threads if necessary as shown in the next example.
 glider = Glider(
     RowCSVExtractor("extract", nrows=60)
     | ThreadPoolPush("push", split=True)
-    | [Logger("load1"), Logger("load2"), Logger("load3")]
+    | [Printer("load1"), Printer("load2"), Printer("load3")]
     | ThreadReducer("reducer")
-    | Logger("loadall")
+    | Printer("loadall")
 )
 glider.consume(["/path/to/infile.csv"])
 ```
@@ -306,7 +306,10 @@ logging.getLogger("glide").setLevel(logging.DEBUG)
 ```
 
 Glide will then print debug information about data passed through your
-pipeline.
+pipeline. There are also a variety of print nodes you can place in your
+pipeline for general logging or debugging, such as `Printer`, `PrettyPrinter`,
+`LenPrinter`, `ReprPrinter`, and `FormatPrinter`. See the node documentation
+for more info.
 
 <a name="creatingnodes"></a>
 Creating Nodes

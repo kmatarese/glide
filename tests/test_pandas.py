@@ -149,7 +149,7 @@ def test_sqlalchemy_temp_load(rootdir, sqlalchemy_conn):
     glider = Glider(
         DataFrameSQLExtractor("extract")
         | DataFrameSQLTempLoader("tmp_loader")
-        | Logger("load")
+        | Printer("load")
     )
     glider.consume(
         [sql], extract=dict(conn=sqlalchemy_conn), tmp_loader=dict(conn=sqlalchemy_conn)
@@ -172,5 +172,5 @@ def test_sqlalchemy_extract_and_load(rootdir, sqlalchemy_conn):
 
 def test_sqlalchemy_table_extract(rootdir, sqlalchemy_conn):
     in_table, _ = sqlalchemy_setup(rootdir, sqlalchemy_conn)
-    glider = Glider(DataFrameSQLTableExtractor("extract", limit=100) | Logger("load"))
+    glider = Glider(DataFrameSQLTableExtractor("extract", limit=100) | Printer("load"))
     glider.consume([in_table], extract=dict(conn=sqlalchemy_conn))

@@ -10,6 +10,7 @@ from glide.extract import (
     DataFrameCSVExtractor,
     DataFrameExcelExtractor,
     RowSQLExtractor,
+    RowSQLParamExtractor,
     RowCSVExtractor,
     EmailExtractor,
     FileExtractor,
@@ -116,7 +117,11 @@ def basic_glider(
 
 GLIDER_TEMPLATE_DATA = {
     "Row": {
-        "extract": [("SQL", RowSQLExtractor), ("CSV", RowCSVExtractor)],
+        "extract": [
+            ("SQL", RowSQLExtractor),
+            ("SQLParam", RowSQLParamExtractor),
+            ("CSV", RowCSVExtractor),
+        ],
         "load": [("SQL", RowSQLLoader), ("CSV", RowCSVLoader)],
     },
     "DataFrame": {

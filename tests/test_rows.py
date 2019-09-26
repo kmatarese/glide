@@ -68,13 +68,15 @@ def test_excel_row_file_extract_and_load(rootdir):
 def test_excel_row_sheet_extract(rootdir):
     nodes = RowExcelExtractor(
         "extract", dict_rows=True, sheet_index=0, row_limit=5
-    ) | Logger("load")
+    ) | PrettyPrinter("load")
     glider, infile, outfile = file_glider(rootdir, "xlsx", nodes)
     glider.consume([infile])
 
 
 def test_excel_row_xls_extract(rootdir):
-    nodes = RowExcelExtractor("extract", dict_rows=True, row_limit=5) | Logger("load")
+    nodes = RowExcelExtractor("extract", dict_rows=True, row_limit=5) | LenPrinter(
+        "load"
+    )
     glider, infile, outfile = file_glider(rootdir, "xls", nodes)
     glider.consume([infile])
 
@@ -156,18 +158,23 @@ def test_sqlalchemy_row_extract_and_load(rootdir, sqlalchemy_conn):
 
 def test_pymysql_table_extract(rootdir, pymysql_conn):
     in_table, out_table, cursor = dbapi_setup(rootdir, pymysql_conn)
-    glider = Glider(RowSQLTableExtractor("extract", limit=10) | Logger("load"))
+    glider = Glider(RowSQLTableExtractor("extract", limit=10) | Printer("load"))
     glider.consume([in_table], extract=dict(conn=pymysql_conn, cursor=cursor))
 
 
 def test_sqlalchemy_table_extract(rootdir, sqlalchemy_conn):
     in_table, _ = sqlalchemy_setup(rootdir, sqlalchemy_conn)
-    glider = Glider(RowSQLTableExtractor("extract", limit=10) | Logger("load"))
+    glider = Glider(
+        RowSQLTableExtractor("extract", limit=10)
+        | FormatPrinter("load", indent="label", label="node")
+    )
     glider.consume([in_table], extract=dict(conn=sqlalchemy_conn))
 
 
 def test_sqlite_row_temp_load(rootdir, sqlite_in_conn):
-    nodes = RowSQLExtractor("extract") | RowSQLTempLoader("tmp_loader") | Logger("load")
+    nodes = (
+        RowSQLExtractor("extract") | RowSQLTempLoader("tmp_loader") | Printer("load")
+    )
     glider, table = sqlite_glider(rootdir, nodes)
     sql = "select * from %s limit 10" % table
     glider.consume(
@@ -176,7 +183,9 @@ def test_sqlite_row_temp_load(rootdir, sqlite_in_conn):
 
 
 def test_sql_row_temp_load(rootdir, sqlite_in_conn):
-    nodes = RowSQLExtractor("extract") | RowSQLTempLoader("tmp_loader") | Logger("load")
+    nodes = (
+        RowSQLExtractor("extract") | RowSQLTempLoader("tmp_loader") | Printer("load")
+    )
     glider, table = sqlite_glider(rootdir, nodes)
     sql = "select * from %s where Zip_Code < :zip" % table
     glider.consume(

@@ -9,7 +9,7 @@ def test_dask_delayed_push_node(rootdir):
     glider = Glider(
         RowCSVExtractor("extract", nrows=10)
         | DaskDelayedPush("push")
-        | [Logger("load1"), Logger("load2"), Logger("load3")]
+        | [Printer("load1"), Printer("load2"), Printer("load3")]
     )
     glider.consume([infile])
 
@@ -20,7 +20,7 @@ def test_dask_client_push_node(rootdir):
     glider = Glider(
         RowCSVExtractor("extract", nrows=10)
         | DaskClientPush("push")
-        | [Logger("load1"), Logger("load2"), Logger("load3")]
+        | [Printer("load1"), Printer("load2"), Printer("load3")]
     )
     glider.consume([infile])
 
@@ -31,7 +31,7 @@ def test_process_pool_push_node(rootdir):
     glider = Glider(
         RowCSVExtractor("extract", nrows=10)
         | ProcessPoolPush("push", split=True)
-        | [Logger("load1"), Logger("load2"), Logger("load3")]
+        | [Printer("load1"), Printer("load2"), Printer("load3")]
     )
     glider.consume([infile])
 
@@ -42,7 +42,7 @@ def test_thread_pool_push_node(rootdir):
     glider = Glider(
         RowCSVExtractor("extract", nrows=10)
         | ThreadPoolPush("push")
-        | [Logger("load1"), Logger("load2"), Logger("load3")]
+        | [Printer("load1"), Printer("load2"), Printer("load3")]
     )
     glider.consume([infile])
 
@@ -53,8 +53,8 @@ def test_thread_pool_push_reduce(rootdir):
     glider = Glider(
         RowCSVExtractor("extract", nrows=10)
         | ThreadPoolPush("push", split=True)
-        | [Logger("load1"), Logger("load2"), Logger("load3")]
+        | [Printer("load1"), Printer("load2"), Printer("load3")]
         | ThreadReducer("reducer")
-        | Logger("load4")
+        | Printer("load4")
     )
     glider.consume([infile])

@@ -698,7 +698,6 @@ class GliderScript(Script):
                 self.inject, dict
             ), "inject must be a dict of argname->func mappings"
             for injected_arg in inject:
-                dbg("Adding injected_arg %s to blacklist" % injected_arg)
                 self.blacklist.add(injected_arg)
 
         self.clean = clean or {}
@@ -721,10 +720,8 @@ class GliderScript(Script):
         result = {}
         for key, value in self.inject.items():
             if callable(value):
-                dbg("Injecting '%s' via func: %s" % (key, value))
                 result[key] = value()
             else:
-                dbg("Injecting '%s' as value: %s" % (key, value))
                 result[key] = value
         return result
 
@@ -738,7 +735,6 @@ class GliderScript(Script):
             try:
                 if key not in kwargs:
                     errors.append("Could not clean up %s, no arg found" % key)
-                dbg("Calling clean_up function %s for %s=%s" % (func, key, kwargs[key]))
                 func(kwargs[key])
             except:
                 pass
@@ -776,10 +772,6 @@ class GliderScript(Script):
             arg_type = type(default)
 
         arg_name = "--" + self._get_script_arg_name(node.name, arg_name)
-        dbg(
-            "Script arg: %s required:%s, type:%s, default:%s"
-            % (arg_name, required, arg_type, default)
-        )
         if arg_type == bool:
             action = "store_true"
             if default:
@@ -821,8 +813,6 @@ class GliderScript(Script):
             assert not self.blacklisted("", custom_arg.name), (
                 "Blacklisted arg '%s' passed as a custom arg" % custom_arg.name
             )
-            if custom_arg.name in script_args:
-                dbg("Overriding '%s' with custom arg" % custom_arg.name)
             script_args[custom_arg.name] = custom_arg
 
         return script_args.values()
@@ -878,7 +868,6 @@ class GliderScript(Script):
 
         injected_node_contexts = self._get_injected_node_contexts(kwargs)
         for node_name, injected_args in injected_node_contexts.items():
-            dbg("Injecting args for node %s: %s" % (node_name, injected_args))
             if node_name in node_contexts:
                 node_contexts[node_name].update(injected_args)
             else:
