@@ -322,7 +322,7 @@ glider.consume(
 ```
 
 In this case it is also necessary to specify the cursor_type so
-`RowSQLExtract` can create a dict-based cursor for query execution.
+`RowSQLExtractor` can create a dict-based cursor for query execution.
 
 > **Note** any args/kwargs passed to ContextFunc will be passed to the
 function when called.
