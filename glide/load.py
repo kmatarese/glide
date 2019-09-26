@@ -707,5 +707,6 @@ class EmailLoader(Node):
 
 
 node_names = find_class_in_dict(Node, locals(), "Load")
+node_names.extend(find_class_in_dict(Node, locals(), "Print"))
 if node_names:
     __doc__ = __doc__ + get_class_list_docstring("Nodes", node_names)

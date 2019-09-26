@@ -119,9 +119,14 @@ def sqlalchemy_setup(rootdir, conn, truncate=False):
     return in_table, out_table
 
 
-def dbapi_setup(rootdir, conn, truncate=False):
+def dbapi_tables():
     in_table = "%s.%s" % (test_config["MySQLTestSchema"], TEST_DATA_NAME)
     out_table = "%s_tmp" % in_table
+    return in_table, out_table
+
+
+def dbapi_setup(rootdir, conn, truncate=False):
+    in_table, out_table = dbapi_tables()
     cursor = conn.cursor(pymysql.cursors.DictCursor)
     cursor.execute("use %s" % test_config["MySQLTestSchema"])
     if truncate:

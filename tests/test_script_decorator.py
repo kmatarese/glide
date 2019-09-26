@@ -13,6 +13,11 @@ gs_glider = Glider(
     global_state=dict(conn=get_pymysql_conn()),
 )
 
+cf_glider = Glider(
+    RowSQLExtractor("extract") | RowSQLLoader("load"),
+    global_state=dict(conn=ContextFunc(get_pymysql_conn)),
+)
+
 glider = Glider(RowSQLExtractor("extract") | RowSQLLoader("load"))
 
 
@@ -68,7 +73,7 @@ def test_parent_cli():
         _test_parent_cli()
 
 
-@gs_glider.cli(Arg("--load_table", required=False, default=LOAD_TABLE))
+@cf_glider.cli(Arg("--load_table", required=False, default=LOAD_TABLE))
 def _test_arg_override(data, node_contexts):
     gs_glider.consume(data, **node_contexts)
 

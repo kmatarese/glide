@@ -296,6 +296,37 @@ databases in parallel as a final step.
 > **Also Note:** standard limitations apply regarding what types of data can
 be serialized and passed to a parallel process.
 
+### Runtime Context Generation
+
+Sometimes it is useful or necessary to fill in node context values at
+runtime. A prime example is when using SQL-based nodes in a parallel
+processing context. Since the database connection objects can not be pickled
+and passed to the spawned processes you need to establish the connection
+within the subprocess. Glide has a special `ContextFunc` class for this
+purpose. Any callable wrapped as a ContextFunc will not be called until
+`consume` is called. In the example below, `get_pymysql_conn` will be executed
+in a subprocess to fill in the "conn" context variable for the "extract" node:
+
+```python
+glider = ProcessPoolParaGlider(
+    RowSQLExtractor("extract")
+    | PrettyPrinter("load")
+)
+glider.consume(
+    [sql],
+    extract=dict(
+        conn=ContextFunc(get_pymysql_conn),
+        cursor_type=pymysql.cursors.DictCursor,
+    )
+)
+```
+
+In this case it is also necessary to specify the cursor_type so
+`RowSQLExtract` can create a dict-based cursor for query execution.
+
+> **Note** any args/kwargs passed to ContextFunc will be passed to the
+function when called.
+
 ### Debug Logging
 
 To enable debug logging for Glide change the log level of the "glide" logger:

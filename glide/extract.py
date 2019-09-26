@@ -206,7 +206,16 @@ class RowExcelExtractor(Node):
 class RowSQLExtractor(SQLNode):
     """Generic SQL Extractor"""
 
-    def run(self, sql, conn, cursor=None, params=None, chunksize=None, **kwargs):
+    def run(
+        self,
+        sql,
+        conn,
+        cursor=None,
+        cursor_type=None,
+        params=None,
+        chunksize=None,
+        **kwargs
+    ):
         """Extract data for input query and push fetched rows.
 
         Parameters
@@ -217,6 +226,8 @@ class RowSQLExtractor(SQLNode):
             SQL connection object
         cursor : optional
             SQL connection cursor object
+        cursor_type : optional
+            SQL connection cursor type when creating a cursor is necessary
         params : tuple or dict, optional
             A tuple or dict of params to pass to the execute method
         chunksize : int, optional
@@ -226,7 +237,7 @@ class RowSQLExtractor(SQLNode):
 
         """
         if not cursor:
-            cursor = self.get_sql_executor(conn)
+            cursor = self.get_sql_executor(conn, cursor_type=cursor_type)
         params = params or ()
         fetcher = self.sql_execute(conn, cursor, sql, params=params, **kwargs)
         self.do_push(fetcher, chunksize=chunksize)
@@ -235,7 +246,9 @@ class RowSQLExtractor(SQLNode):
 class RowSQLParamExtractor(RowSQLExtractor):
     """Generic SQL Extractor that expects SQL params as data instead of a query"""
 
-    def run(self, params, sql, conn, cursor=None, chunksize=None, **kwargs):
+    def run(
+        self, params, sql, conn, cursor=None, cursor_type=None, chunksize=None, **kwargs
+    ):
         """Extract data for input params and push fetched rows.
 
         Parameters
@@ -248,6 +261,8 @@ class RowSQLParamExtractor(RowSQLExtractor):
             SQL connection object
         cursor : optional
             SQL connection cursor object
+        cursor_type : optional
+            SQL connection cursor type when creating a cursor is necessary
         chunksize : int, optional
             Fetch and push data in chunks of this size
         **kwargs
@@ -255,7 +270,13 @@ class RowSQLParamExtractor(RowSQLExtractor):
 
         """
         super().run(
-            sql, conn, cursor=cursor, params=params, chunksize=chunksize, **kwargs
+            sql,
+            conn,
+            cursor=cursor,
+            cursor_type=cursor_type,
+            params=params,
+            chunksize=chunksize,
+            **kwargs
         )
 
 
@@ -267,6 +288,7 @@ class RowSQLTableExtractor(SQLNode):
         table,
         conn,
         cursor=None,
+        cursor_type=None,
         where=None,
         limit=None,
         params=None,
@@ -280,9 +302,11 @@ class RowSQLTableExtractor(SQLNode):
         table : str
             SQL table name
         conn
-            DBAPI connection object
+            SQL connection object
         cursor : optional
-            DBAPI connection cursor object
+            SQL connection cursor object
+        cursor_type : optional
+            SQL connection cursor type when creating a cursor is necessary
         where : str, optional
             SQL where clause
         limit : int, optional
@@ -296,7 +320,7 @@ class RowSQLTableExtractor(SQLNode):
 
         """
         if not cursor:
-            cursor = self.get_sql_executor(conn)
+            cursor = self.get_sql_executor(conn, cursor_type=cursor_type)
         sql = build_table_select(table, where=where, limit=limit)
         params = params or ()
         fetcher = self.sql_execute(conn, cursor, sql, params=params, **kwargs)

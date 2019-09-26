@@ -67,7 +67,6 @@ class Node(ConsecutionNode):
 
     def update_context(self, context):
         """Update the context dict for this Node"""
-
         self.context.update(context)
 
     def reset_context(self):
@@ -110,14 +109,14 @@ class Node(ConsecutionNode):
             if run_arg not in self.context:
                 if self.global_state and run_arg in self.global_state:
                     # Use global_state as a backup for populating positional args
-                    _args.append(self.global_state[run_arg])
+                    _args.append(get_context_value(self.global_state[run_arg]))
                 else:
                     raise Exception(
                         'Required run arg "%s" is missing from context: %s'
                         % (run_arg, self.context)
                     )
             else:
-                _args.append(self.context[run_arg])
+                _args.append(get_context_value(self.context[run_arg]))
 
         # Everything else in the node context will be passed as part of kwargs
         # if it hasn't already been used in run_args
@@ -125,7 +124,7 @@ class Node(ConsecutionNode):
         for key in self.context:
             if key in self.run_args:
                 continue
-            _kwargs[key] = self.context[key]
+            _kwargs[key] = get_context_value(self.context[key])
 
         return _args, _kwargs
 
@@ -262,6 +261,12 @@ class BaseSQLNode(SkipFalseNode):
             "%s requires a conn argument in context or global state"
             % self.__class__.__name__
         )
+
+        if isinstance(conn, ContextFunc):
+            # TODO: move type check or ContextFunc processing
+            dbg("Skipping connection check for ContextFunc")
+            return
+
         self.check_conn(conn)
 
     def _is_allowed_conn(self, conn):
@@ -273,11 +278,11 @@ class BaseSQLNode(SkipFalseNode):
             % (type(conn), self.allowed_conn_types)
         )
 
-    def get_sql_executor(self, conn):
+    def get_sql_executor(self, conn, cursor_type=None):
         """Get the object that can execute queries"""
         if is_sqlalchemy_conn(conn):
             return conn
-        return conn.cursor()
+        return conn.cursor(cursor_type) if cursor_type else conn.cursor()
 
     def sql_execute(self, conn, cursor, sql, params=None, **kwargs):
         """Executes the sql statement and returns an object that can fetch results
@@ -478,6 +483,36 @@ class ThreadPoolPush(FuturesPushNode):
     executor_class = ThreadPoolExecutor
 
 
+class ContextFunc:
+    """A function to be executed at runtime to populate context values
+
+    Parameters
+    ----------
+    func : callable
+        The function to execute
+    args
+        Positional arguments to pass to func when called
+    kwargs
+        Keyword arguments to pass to func when called
+
+    """
+
+    def __init__(self, func, *args, **kwargs):
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+
+    def __call__(self):
+        return self.func(*self.args, **self.kwargs)
+
+
+def get_context_value(value):
+    if isinstance(value, ContextFunc):
+        dbg("executing ContextFunc %s" % value.func)
+        return value()
+    return value
+
+
 def update_node_contexts(pipeline, node_contexts):
     """Helper function for updating node contexts in a pipeline"""
     for k, v in node_contexts.items():
@@ -581,8 +616,8 @@ class Glider:
             List of parent CLIs to inherit from
         inject : dict, optional
             A dictionary of arg names to callables/values that inject a value
-            for that arg. Those args will be passed to nodes that can accept
-            them.
+            for that arg. Those args will be passed as context to nodes that
+            can accept them in their run() method.
         clean : dict, optional
             A dictionary of arg names to callables that will be used to perform
             clean up when the CLI script is complete.
@@ -679,7 +714,8 @@ class GliderScript(Script):
         List of parent CLIs to inherit from
     inject : dict, optional
         A dictionary of arg names to callables/values that inject a value for
-        that arg. Those args will be passed to nodes that can accept them.
+        that arg. Those args will be passed as context to nodes that can
+        accept them in their run() method.
     clean : dict, optional
         A dictionary of arg names to callables that will be used to perform
         clean up when the CLI script is complete.
