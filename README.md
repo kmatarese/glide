@@ -302,8 +302,8 @@ Sometimes it is useful or necessary to fill in node context values at
 runtime. A prime example is when using SQL-based nodes in a parallel
 processing context. Since the database connection objects can not be pickled
 and passed to the spawned processes you need to establish the connection
-within the subprocess. Glide has a special `ContextFunc` class for this
-purpose. Any callable wrapped as a ContextFunc will not be called until
+within the subprocess. Glide has a special `RuntimeContext` class for this
+purpose. Any callable wrapped as a RuntimeContext will not be called until
 `consume` is called. In the example below, `get_pymysql_conn` will be executed
 in a subprocess to fill in the "conn" context variable for the "extract" node:
 
@@ -315,7 +315,7 @@ glider = ProcessPoolParaGlider(
 glider.consume(
     [sql],
     extract=dict(
-        conn=ContextFunc(get_pymysql_conn),
+        conn=RuntimeContext(get_pymysql_conn),
         cursor_type=pymysql.cursors.DictCursor,
     )
 )
@@ -324,8 +324,45 @@ glider.consume(
 In this case it is also necessary to specify the cursor_type so
 `RowSQLExtractor` can create a dict-based cursor for query execution.
 
-> **Note:** any args/kwargs passed to ContextFunc will be passed to the
+> **Note:** any args/kwargs passed to RuntimeContext will be passed to the
 function when called.
+
+### Cleaning Up
+
+Sometimes it is necessary to call clean up functionality after processing is
+complete. Sticking with the example above that utilizes SQL-based nodes in a
+parallel processing context, you'll want to explicitly close your database
+connections in each subprocess. The `consume` method accepts a `clean`
+argument that is a dictionary mapping argument names to cleaner functions. The
+following example tells the `Glider` to call the function `closer` with the
+value from `extract_conn` once `consume` is finished. Note that `closer` is a
+convenience function provided by glide that just calls `close` on the given
+object.
+
+```python
+glider = ProcessPoolParaGlider(
+    RowSQLExtractor("extract")
+    | PrettyPrinter("load")
+)
+glider.consume(
+    [sql],
+    clean=dict(extract_conn=closer),
+    extract=dict(
+        conn=RuntimeContext(get_pymysql_conn),
+        cursor_type=pymysql.cursors.DictCursor,
+    )
+)
+```
+
+The keys of the `clean` dict can either be explicit <node_name>_<arg> pairs or
+more generic arg names that will map that function to every node that has that
+arg in its `run` method signature (so just "conn=" would have worked too). It's
+often better to be explicit as shown here.
+
+> **Note:** In single-process cases this is usually not necessary, as you
+often have access to the objects you need to clean up in the main process and
+can just do normal clean up there with context managers or explicit calls to
+`close` methods.
 
 ### Debug Logging
 
@@ -337,8 +374,20 @@ logging.getLogger("glide").setLevel(logging.DEBUG)
 ```
 
 Glide will then print debug information about data passed through your
-pipeline. There are also a variety of print nodes you can place in your
-pipeline for general logging or debugging, such as `Printer`, `PrettyPrinter`,
+pipeline. 
+
+You can also pass `log=True` to the init method of any node to enable logging
+of processed items:
+
+```python
+glider = Glider(
+    RowSQLExtractor("extract", log=True)
+    ...
+)
+```
+
+Finally, there are a variety of print nodes you can place in your pipeline
+for general logging or debugging, such as `Printer`, `PrettyPrinter`,
 `LenPrinter`, `ReprPrinter`, and `FormatPrinter`. See the node documentation
 for more info.
 
@@ -593,7 +642,8 @@ $ python my_script.py
 `inject` the value will be used as is. The main difference is those values are
 interpreted as soon as the module is loaded (when the decorator is init'd). If
 that is not desirable, pass a callable as shown above which will only be
-executed once the decorated function is actually called.
+executed once the decorated function is actually called. Injected
+RuntimeContexts are still not called until `consume` is called.
 
 The `clean` decorator argument takes a dictionary that maps argument names to
 callables that accept the argument value to perform some clean up. In this

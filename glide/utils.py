@@ -54,6 +54,10 @@ def get_class_list_docstring(heading, classes):
     )
 
 
+def closer(x):
+    x.close()
+
+
 def is_pandas(o):
     return isinstance(o, (pd.DataFrame, pd.Series, pd.Panel))
 

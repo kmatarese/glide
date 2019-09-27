@@ -2,6 +2,7 @@
 
 from collections import OrderedDict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+import copy
 from inspect import signature, Parameter
 from pprint import pformat
 
@@ -20,7 +21,7 @@ from glide.sql_utils import (
     is_sqlalchemy_conn,
     get_bulk_statement,
 )
-from glide.utils import dbg, repr, iterize, is_pandas
+from glide.utils import dbg, repr, iterize, is_pandas, closer
 
 SCRIPT_DATA_ARG = "data"
 
@@ -40,6 +41,8 @@ class Node(ConsecutionNode):
     ----------
     name : str
         The name of the Node.
+    log : bool, optional
+        If true, log items processed by the node.
     **default_context
         Keyword args that establish the default_context of the Node.
 
@@ -47,6 +50,9 @@ class Node(ConsecutionNode):
     ----------
     name : str
         The name of the Node.
+    log : bool
+        If true, log items processed by the node. Note that this overrides
+        Consecution's log() functionality.
     default_context : dict
         A dictionary to establish default context for the node that can be
         used to populate run() arguments.
@@ -56,6 +62,7 @@ class Node(ConsecutionNode):
         An OrderedDict of positional args to run()
     run_kwargs : dict
         An OrderedDict of keyword args and defaults to run()
+
     """
 
     def __init__(self, name, log=False, **default_context):
@@ -71,7 +78,13 @@ class Node(ConsecutionNode):
 
     def reset_context(self):
         """Reset context dict for this Node to the default"""
-        self.context = self.default_context.copy()
+        self.context = copy.deepcopy(self.default_context)
+
+    def _begin(self):
+        for k, v in self.context.items():
+            if isinstance(v, RuntimeContext):
+                self.context[k] = v()
+        super()._begin()
 
     def _get_run_args(self):
         """Get the args and kwargs of this Node's run() method"""
@@ -102,21 +115,21 @@ class Node(ConsecutionNode):
 
         return positionals, keywords
 
-    def _populate_run_args(self):
-        """Populate the args to run() based on the current context"""
+    def _get_run_arg_values(self):
+        """Get the args to run() based on the current context"""
         _args = []
         for run_arg in self.run_args:
             if run_arg not in self.context:
                 if self.global_state and run_arg in self.global_state:
                     # Use global_state as a backup for populating positional args
-                    _args.append(get_context_value(self.global_state[run_arg]))
+                    _args.append(self.global_state[run_arg])
                 else:
                     raise Exception(
                         'Required run arg "%s" is missing from context: %s'
                         % (run_arg, self.context)
                     )
             else:
-                _args.append(get_context_value(self.context[run_arg]))
+                _args.append(self.context[run_arg])
 
         # Everything else in the node context will be passed as part of kwargs
         # if it hasn't already been used in run_args
@@ -124,18 +137,18 @@ class Node(ConsecutionNode):
         for key in self.context:
             if key in self.run_args:
                 continue
-            _kwargs[key] = get_context_value(self.context[key])
+            _kwargs[key] = self.context[key]
 
         return _args, _kwargs
 
     def process(self, item):
         """Required method used by Consecution to process nodes"""
-        _args, _kwargs = self._populate_run_args()
+        arg_values, kwarg_values = self._get_run_arg_values()
         if self.log:
             print(format_msg(repr(item), label=self.name))
         else:
             dbg(repr(item), label=self.name)
-        self._run(item, *_args, **_kwargs)
+        self._run(item, *arg_values, **kwarg_values)
 
     def _run(self, item, *args, **kwargs):
         self.run(item, *args, **kwargs)
@@ -261,12 +274,6 @@ class BaseSQLNode(SkipFalseNode):
             "%s requires a conn argument in context or global state"
             % self.__class__.__name__
         )
-
-        if isinstance(conn, ContextFunc):
-            # TODO: move type check or ContextFunc processing
-            dbg("Skipping connection check for ContextFunc")
-            return
-
         self.check_conn(conn)
 
     def _is_allowed_conn(self, conn):
@@ -483,7 +490,7 @@ class ThreadPoolPush(FuturesPushNode):
     executor_class = ThreadPoolExecutor
 
 
-class ContextFunc:
+class RuntimeContext:
     """A function to be executed at runtime to populate context values
 
     Parameters
@@ -505,12 +512,13 @@ class ContextFunc:
     def __call__(self):
         return self.func(*self.args, **self.kwargs)
 
+    def copy(self):
+        return RuntimeContext(self.func, *self.args, **self.kwargs)
 
-def get_context_value(value):
-    if isinstance(value, ContextFunc):
-        dbg("executing ContextFunc %s" % value.func)
-        return value()
-    return value
+
+def get_node_contexts(pipeline):
+    contexts = {k: pipeline[k].context for k in pipeline._node_lookup}
+    return contexts
 
 
 def update_node_contexts(pipeline, node_contexts):
@@ -527,13 +535,82 @@ def reset_node_contexts(pipeline, node_contexts):
         pipeline[k].reset_context()
 
 
-def consume(pipeline, data, **node_contexts):
-    """Handles node contexts before/after calling pipeline.consume()"""
+def clean_up_nodes(clean, contexts):
+    """Call clean up functions for node context objects"""
+    errors = []
+    cleaned = set()
+
+    # This block will clean any arg names that match regardless of node name
+    removes = set()
+    for node_name, context in contexts.items():
+        for arg_name, arg_value in context.items():
+            if arg_name in clean:
+                cleaned.add((node_name, arg_name))
+                removes.add(arg_name)
+                func = clean[arg_name]
+                try:
+                    func(arg_value)
+                except Exception as e:
+                    dbg("Exception during clean up: %s" % str(e))
+
+    for key in removes:
+        del clean[key]
+
+    # This block handles specific node_name/arg_name pairs
+    for key, func in clean.items():
+        parts = key.split("_")
+        node_name = parts[0]
+        arg_name = "_".join(parts[1:])
+
+        if node_name not in contexts:
+            errors.append(
+                "Could not clean up %s, invalid node name: %s" % (key, node_name)
+            )
+            continue
+
+        if arg_name not in contexts[node_name]:
+            errors.append(
+                "Could not clean up %s, invalid node arg name: %s->%s"
+                % (key, node_name, arg_name)
+            )
+            continue
+
+        if (node_name, arg_name) in cleaned:
+            dbg("Skipping clean up for %s->%s, already cleaned" % (node_name, arg_name))
+            continue
+
+        ctx_value = contexts[node_name][arg_name]
+        if not ctx_value:
+            dbg("Skipping clean up for %s->%s, value is blank" % (node_name, arg_name))
+            continue
+        dbg("Executing clean up for %s->%s" % (node_name, arg_name))
+        func(ctx_value)
+
+    if errors:
+        raise Exception("Errors during clean_up: %s" % errors)
+
+
+def consume(pipeline, data, clean=None, **node_contexts):
+    """Handles node contexts before/after calling pipeline.consume()
+
+    Note
+    ----
+    It would have been better to subclass Pipeline and implement this logic
+    right before/after the core consume() call, but there is a bug in pickle
+    that prevents that from working with multiprocessing.
+
+    """
     update_node_contexts(pipeline, node_contexts)
-    contexts = {k: pipeline[k].context for k in pipeline._node_lookup}
-    dbg("size=%s\n%s" % (len(data), pformat(contexts)), indent="label")
-    pipeline.consume(iterize(data))
-    reset_node_contexts(pipeline, node_contexts)
+    try:
+        contexts = get_node_contexts(pipeline)
+        dbg("size=%s\n%s" % (len(data), pformat(contexts)), indent="label")
+        try:
+            pipeline.consume(iterize(data))
+        finally:
+            if clean:
+                clean_up_nodes(clean, contexts)
+    finally:
+        reset_node_contexts(pipeline, node_contexts)
 
 
 class Glider:
@@ -581,19 +658,22 @@ class Glider:
     def global_state(self, value):
         self.pipeline.global_state = value
 
-    def consume(self, data, **node_contexts):
+    def consume(self, data, clean=None, **node_contexts):
         """Setup node contexts and consume data with the pipeline
 
         Parameters
         ----------
         data
             Iterable of data to consume
+        clean : dict, optional
+            A mapping of arg names to clean up functions to be run after
+            data processing is complete.
         **node_contexts
             Keyword arguments that are node_name->param_dict
         """
 
         """Setup node contexts and consume data with the pipeline"""
-        consume(self.pipeline, data, **node_contexts)
+        consume(self.pipeline, data, clean=clean, **node_contexts)
 
     def plot(self, *args, **kwargs):
         """Passthrough to Consecution Pipeline.plot"""
@@ -643,13 +723,16 @@ class ProcessPoolParaGlider(Glider):
     """A parallel Glider that uses a ProcessPoolExecutor to execute parallel calls to
     consume()"""
 
-    def consume(self, data, **node_contexts):
+    def consume(self, data, clean=None, **node_contexts):
         """Setup node contexts and consume data with the pipeline
 
         Parameters
         ----------
         data
             Iterable of data to consume
+        clean : dict, optional
+            A mapping of arg names to clean up functions to be run after
+            data processing is complete.
         **node_contexts
             Keyword arguments that are node_name->param_dict
 
@@ -663,7 +746,9 @@ class ProcessPoolParaGlider(Glider):
             )
             for split in splits:
                 futures.append(
-                    executor.submit(consume, self.pipeline, split, **node_contexts)
+                    executor.submit(
+                        consume, self.pipeline, split, clean=clean, **node_contexts
+                    )
                 )
             for future in as_completed(futures):
                 result = future.result()
@@ -673,13 +758,16 @@ class ThreadPoolParaGlider(Glider):
     """A parallel Glider that uses a ThreadPoolExecutor to execute parallel calls to
     consume()"""
 
-    def consume(self, data, **node_contexts):
+    def consume(self, data, clean=None, **node_contexts):
         """Setup node contexts and consume data with the pipeline
 
         Parameters
         ----------
         data
             Iterable of data to consume
+        clean : dict, optional
+            A mapping of arg names to clean up functions to be run after
+            data processing is complete.
         **node_contexts
             Keyword arguments that are node_name->param_dict
 
@@ -693,7 +781,9 @@ class ThreadPoolParaGlider(Glider):
             )
             for split in splits:
                 futures.append(
-                    executor.submit(consume, self.pipeline, split, **node_contexts)
+                    executor.submit(
+                        consume, self.pipeline, split, clean=clean, **node_contexts
+                    )
                 )
             for future in as_completed(futures):
                 result = future.result()
@@ -767,7 +857,7 @@ class GliderScript(Script):
             return {}
         result = {}
         for key, value in self.inject.items():
-            if callable(value):
+            if callable(value) and not isinstance(value, RuntimeContext):
                 result[key] = value()
             else:
                 result[key] = value
@@ -783,7 +873,17 @@ class GliderScript(Script):
             try:
                 if key not in kwargs:
                     errors.append("Could not clean up %s, no arg found" % key)
-                func(kwargs[key])
+                    continue
+
+                value = kwargs[key]
+                if isinstance(value, RuntimeContext):
+                    errors.append(
+                        "Attempting to call clean_up on a RuntimeContext for key: %s"
+                        % key
+                    )
+                    continue
+
+                func(value)
             except:
                 pass
         if errors:

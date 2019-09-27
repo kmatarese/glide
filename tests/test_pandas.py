@@ -7,7 +7,7 @@ from glide.extensions import *
 
 def test_placeholder_node(rootdir):
     nodes = PlaceholderNode("extract") | DataFrameCSVLoader(
-        "load", index=False, mode="a"
+        "load", index=False, mode=RuntimeContext(lambda: "a")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     glider["extract"] = DataFrameCSVExtractor("extract")

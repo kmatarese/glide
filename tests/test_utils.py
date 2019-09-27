@@ -67,6 +67,11 @@ def get_sqlalchemy_mysql_engine():
     return engine
 
 
+def get_sqlalchemy_conn():
+    engine = get_sqlalchemy_mysql_engine()
+    return engine.connect()
+
+
 def get_pymysql_conn():
     assert pymysql, "PyMySQL package is not installed"
     host = test_config["MySQLHost"]
@@ -94,23 +99,8 @@ def sqlite_glider(rootdir, nodes, reset_output=False):
     return glider, "`%s`" % table.strip("`")
 
 
-def sqlalchemy_setup_old(rootdir, truncate=False):
-    in_table = "%s.%s" % (test_config["MySQLTestSchema"], TEST_DATA_NAME)
-    out_table = "%s_tmp" % in_table
-    engine = get_sqlalchemy_mysql_engine()
-    conn = engine.connect()
-    conn.execute("use %s" % test_config["MySQLTestSchema"])
-    if truncate:
-        try:
-            conn.execute("truncate %s" % out_table)
-        except Exception as e:
-            print("Error during truncation: %s" % str(e))
-    return in_table, out_table, conn
-
-
 def sqlalchemy_setup(rootdir, conn, truncate=False):
-    in_table = "%s.%s" % (test_config["MySQLTestSchema"], TEST_DATA_NAME)
-    out_table = "%s_tmp" % in_table
+    in_table, out_table = db_tables()
     if truncate:
         try:
             conn.execute("truncate %s" % out_table)
@@ -119,14 +109,14 @@ def sqlalchemy_setup(rootdir, conn, truncate=False):
     return in_table, out_table
 
 
-def dbapi_tables():
+def db_tables():
     in_table = "%s.%s" % (test_config["MySQLTestSchema"], TEST_DATA_NAME)
     out_table = "%s_tmp" % in_table
     return in_table, out_table
 
 
 def dbapi_setup(rootdir, conn, truncate=False):
-    in_table, out_table = dbapi_tables()
+    in_table, out_table = db_tables()
     cursor = conn.cursor(pymysql.cursors.DictCursor)
     cursor.execute("use %s" % test_config["MySQLTestSchema"])
     if truncate:

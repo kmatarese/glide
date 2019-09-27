@@ -15,7 +15,7 @@ gs_glider = Glider(
 
 cf_glider = Glider(
     RowSQLExtractor("extract") | RowSQLLoader("load"),
-    global_state=dict(conn=ContextFunc(get_pymysql_conn)),
+    global_state=dict(conn=RuntimeContext(get_pymysql_conn)),
 )
 
 glider = Glider(RowSQLExtractor("extract") | RowSQLLoader("load"))
@@ -94,12 +94,9 @@ def test_help():
             _test_help()
 
 
-@glider.cli(
-    inject=dict(data=get_data, conn=get_pymysql_conn),
-    clean=dict(conn=lambda x: x.close()),
-)
+@glider.cli(inject=dict(data=get_data, conn=RuntimeContext(get_pymysql_conn)))
 def _test_injected_args(data, conn, node_contexts):
-    glider.consume(data, **node_contexts)
+    glider.consume(data, clean=dict(conn=lambda x: x.close()), **node_contexts)
 
 
 def test_injected_args():
