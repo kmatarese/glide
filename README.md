@@ -643,8 +643,8 @@ $ python my_script.py
 interpreted as soon as the module is loaded (when the decorator is init'd). If
 that is not desirable, pass a function as shown above which will only be
 executed once the decorated function is actually called. Injected
-RuntimeContexts and other objects that are not one of `types.FunctionType`,
-`types.BuiltinFunctionType`, or `functools.partial` are passed through as-is.
+RuntimeContexts and other objects that are not a `types.FunctionType` or
+`functools.partial` are passed through as-is.
 
 The `clean` decorator argument takes a dictionary that maps argument names to
 callables that accept the argument value to perform some clean up. In this

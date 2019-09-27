@@ -61,9 +61,7 @@ def closer(x):
 
 
 def is_function(f):
-    return isinstance(
-        f, (types.FunctionType, types.BuiltinFunctionType, functools.partial)
-    )
+    return isinstance(f, (types.FunctionType, functools.partial))
 
 
 def is_pandas(o):
