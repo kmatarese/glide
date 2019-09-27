@@ -354,10 +354,10 @@ glider.consume(
 )
 ```
 
-The keys of the `clean` dict can either be explicit <node_name>_<arg> pairs or
+The keys of the `clean` dict can either be explicit (node name prefixed) or
 more generic arg names that will map that function to every node that has that
-arg in its `run` method signature (so just "conn=" would have worked too). It's
-often better to be explicit as shown here.
+arg in its `run` method signature (so just "conn=" would have worked
+too). It's often better to be explicit as shown here.
 
 > **Note:** In single-process cases this is usually not necessary, as you
 often have access to the objects you need to clean up in the main process and
