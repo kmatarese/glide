@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from .test_utils import get_pymysql_conn
+from .test_utils import get_pymysql_conn, pymysql
 from glide import *
 
 BASE_ARGV = ["test_script_decorator.py"]
@@ -106,7 +106,10 @@ def test_injected_args():
 
 @glider.cli(
     inject=dict(
-        data=get_data, extract_conn=get_pymysql_conn, load_conn=get_pymysql_conn
+        data=get_data,
+        extract_conn=get_pymysql_conn,
+        load_conn=get_pymysql_conn,
+        cursor_type=pymysql.cursors.DictCursor,
     ),
     clean=dict(extract_conn=lambda x: x.close(), load_conn=lambda x: x.close()),
 )

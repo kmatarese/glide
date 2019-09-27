@@ -1,8 +1,10 @@
 """Common utilities"""
 
+import functools
 from inspect import isgenerator
 import io
 import logging
+import types
 
 import pandas as pd
 from pyexcel.internal import SOURCE
@@ -56,6 +58,12 @@ def get_class_list_docstring(heading, classes):
 
 def closer(x):
     x.close()
+
+
+def is_function(f):
+    return isinstance(
+        f, (types.FunctionType, types.BuiltinFunctionType, functools.partial)
+    )
 
 
 def is_pandas(o):

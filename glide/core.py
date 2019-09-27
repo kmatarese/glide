@@ -21,7 +21,7 @@ from glide.sql_utils import (
     is_sqlalchemy_conn,
     get_bulk_statement,
 )
-from glide.utils import dbg, repr, iterize, is_pandas, closer
+from glide.utils import dbg, repr, iterize, is_function, is_pandas, closer
 
 SCRIPT_DATA_ARG = "data"
 
@@ -406,9 +406,10 @@ class SQLNode(BaseSQLNode, SQLCursorPushMixin):
 
     def check_conn(self, conn):
         """Make sure the object is a valid SQL connection"""
-        assert hasattr(conn, "cursor") or is_sqlalchemy_conn(
-            conn
-        ), "Connection must have a cursor() method or be a SQLAlchemy connection"
+        assert hasattr(conn, "cursor") or is_sqlalchemy_conn(conn), (
+            "Connection must have a cursor() method or be a SQLAlchemy connection: %s"
+            % conn
+        )
 
 
 class Reducer(Node):
@@ -584,7 +585,12 @@ def clean_up_nodes(clean, contexts):
             dbg("Skipping clean up for %s->%s, value is blank" % (node_name, arg_name))
             continue
         dbg("Executing clean up for %s->%s" % (node_name, arg_name))
-        func(ctx_value)
+        try:
+            func(ctx_value)
+        except Exception as e:
+            errors.append(
+                "Failed to clean up %s->%s: %s" % (node_name, arg_name, str(e))
+            )
 
     if errors:
         raise Exception("Errors during clean_up: %s" % errors)
@@ -695,7 +701,7 @@ class Glider:
         parents : list, optional
             List of parent CLIs to inherit from
         inject : dict, optional
-            A dictionary of arg names to callables/values that inject a value
+            A dictionary of arg names to functions/values that inject a value
             for that arg. Those args will be passed as context to nodes that
             can accept them in their run() method.
         clean : dict, optional
@@ -803,7 +809,7 @@ class GliderScript(Script):
     parents : list, optional
         List of parent CLIs to inherit from
     inject : dict, optional
-        A dictionary of arg names to callables/values that inject a value for
+        A dictionary of arg names to functions/values that inject a value for
         that arg. Those args will be passed as context to nodes that can
         accept them in their run() method.
     clean : dict, optional
@@ -857,7 +863,7 @@ class GliderScript(Script):
             return {}
         result = {}
         for key, value in self.inject.items():
-            if callable(value) and not isinstance(value, RuntimeContext):
+            if is_function(value) and not isinstance(value, RuntimeContext):
                 result[key] = value()
             else:
                 result[key] = value
@@ -986,7 +992,7 @@ class GliderScript(Script):
                     node_contexts.setdefault(node.name, {})[arg_name] = kwargs[arg_name]
             for kwarg_name, kwarg_default in node.run_kwargs.items():
                 if kwarg_name in self.inject:
-                    node_contexts.setdefault(node.name, {})[arg_name] = kwargs[
+                    node_contexts.setdefault(node.name, {})[kwarg_name] = kwargs[
                         kwarg_name
                     ]
         return node_contexts

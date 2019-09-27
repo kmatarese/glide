@@ -626,7 +626,7 @@ def main(data, node_contexts, **kwargs):
 ```
 
 Here we use the `inject` decorator argument and pass a dictionary that maps
-injected argument names to callables that return the value. We inject a `data`
+injected argument names to functions that return the values. We inject a `data`
 arg and a `conn` arg and neither are necessary for the command line. This
 automatically blacklists those args from the command line as well. Since we
 added the `load_table` arg and gave it a default as well, we can now simply
@@ -638,12 +638,13 @@ $ python my_script.py
 
 > **Note:** Injected args are also passed to the wrapped function as keyword args. 
 
-> **Also Note:** If an injected argument name is mapped to a non-callable via
+> **Also Note:** If an injected argument name is mapped to a non-function via
 `inject` the value will be used as is. The main difference is those values are
 interpreted as soon as the module is loaded (when the decorator is init'd). If
-that is not desirable, pass a callable as shown above which will only be
+that is not desirable, pass a function as shown above which will only be
 executed once the decorated function is actually called. Injected
-RuntimeContexts are still not called until `consume` is called.
+RuntimeContexts and other objects that are not one of `types.FunctionType`,
+`types.BuiltinFunctionType`, or `functools.partial` are passed through as-is.
 
 The `clean` decorator argument takes a dictionary that maps argument names to
 callables that accept the argument value to perform some clean up. In this
