@@ -24,7 +24,7 @@ from tlbx import (
 )
 
 default_logger = logging.getLogger("glide")
-default_logger.setLevel(logging.WARNING)
+default_logger.setLevel(logging.INFO)
 
 XLS = "xls"
 XLSX = "xlsx"
@@ -162,14 +162,17 @@ def dbgsql(msg, **kwargs):
 
 def info(msg, **kwargs):
     kwargs["logger"] = kwargs.get("logger", default_logger)
+    kwargs["label"] = kwargs.get("label", get_caller())
     _info(msg, **kwargs)
 
 
 def warn(msg, **kwargs):
     kwargs["logger"] = kwargs.get("logger", default_logger)
+    kwargs["label"] = kwargs.get("label", get_caller())
     _warn(msg, **kwargs)
 
 
 def error(msg, **kwargs):
     kwargs["logger"] = kwargs.get("logger", default_logger)
+    kwargs["label"] = kwargs.get("label", get_caller())
     _error(msg, **kwargs)

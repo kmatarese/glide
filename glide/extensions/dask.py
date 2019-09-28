@@ -12,7 +12,7 @@ except ImportError:
     dask_as_completed = None
 from tlbx import st, set_missing_key
 
-from glide.core import Node, DefaultNode, FuturesPushNode, Glider, consume
+from glide.core import Node, DefaultNode, FuturesPushNode, ParaGlider, consume
 from glide.utils import dbg
 
 
@@ -51,34 +51,39 @@ class DaskDelayedPush(DefaultNode):
         result = compute(lazy)
 
 
-class DaskParaGlider(Glider):
-    """A parallel Glider that uses a dask Client to execute parallel calls to
+class DaskParaGlider(ParaGlider):
+    """A ParaGlider that uses a dask Client to execute parallel calls to
     consume()"""
 
-    def consume(self, data, **node_contexts):
+    def consume(self, data, clean=None, **node_contexts):
         """Setup node contexts and consume data with the pipeline
 
         Parameters
         ----------
         data
             Iterable of data to consume
+        clean : dict, optional
+            A mapping of arg names to clean up functions to be run after
+            data processing is complete.
         **node_contexts
             Keyword arguments that are node_name->param_dict
 
         """
         assert Client, "Please install dask (Client) to use DaskParaGlider"
 
-        with Client() as client:  # Local multi-processor for now
+        with Client(**self.options) as client:  # Local multi-processor for now
             worker_count = len(client.ncores())
             splits = np.array_split(data, min(len(data), worker_count))
             futures = []
             dbg(
-                "%s: %d worker(s), %d split(s)"
-                % (self.__class__.__name__, worker_count, len(splits))
+                "%s: data len: %s, %d worker(s), %d split(s)"
+                % (self.__class__.__name__, len(data), worker_count, len(splits))
             )
             for split in splits:
                 futures.append(
-                    client.submit(consume, self.pipeline, split, **node_contexts)
+                    client.submit(
+                        consume, self.pipeline, split, clean=clean, **node_contexts
+                    )
                 )
             for future in dask_as_completed(futures):
                 result = future.result()

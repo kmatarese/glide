@@ -21,7 +21,7 @@ from glide.sql_utils import (
     is_sqlalchemy_conn,
     get_bulk_statement,
 )
-from glide.utils import dbg, repr, iterize, is_function, is_pandas, closer
+from glide.utils import dbg, info, repr, iterize, is_function, is_pandas, closer
 
 SCRIPT_DATA_ARG = "data"
 
@@ -725,74 +725,88 @@ class Glider:
         return decorator
 
 
-class ProcessPoolParaGlider(Glider):
+class ParaGlider(Glider):
+    """
+
+    Parameters
+    ----------
+    *args
+        Arguments passed through to Glider
+    options : dict, optional
+        A dict of keyword arguments to pass to the process or thread executor
+    **kwargs
+        Keyword arguments passed through to Glider
+
+    Attributes
+    ----------
+    pipeline
+        A Consecution Pipeline
+    options
+        A dict of keyword arguments to pass to the process or thread executor
+
+    """
+
+    def __init__(self, *args, options=None, **kwargs):
+        self.options = options or {}
+        super().__init__(*args, **kwargs)
+
+    def get_executor(self):
+        raise NotImplementedError
+
+    def consume(self, data, clean=None, timeout=None, **node_contexts):
+        """Setup node contexts and consume data with the pipeline
+
+        Parameters
+        ----------
+        data
+            Iterable of data to consume
+        clean : dict, optional
+            A mapping of arg names to clean up functions to be run after
+            data processing is complete.
+        timeout : int or float, optional
+            Raises a concurrent.futures.TimeoutError if __next__() is called
+            and the result isn’t available after timeout seconds from the
+            original call to as_completed()
+        **node_contexts
+            Keyword arguments that are node_name->param_dict
+
+        """
+        with self.get_executor() as executor:
+            splits = np.array_split(data, min(len(data), executor._max_workers))
+            futures = []
+            info(
+                "%s: data len: %s, %d worker(s), %d split(s)"
+                % (
+                    self.__class__.__name__,
+                    len(data),
+                    executor._max_workers,
+                    len(splits),
+                )
+            )
+            for split in splits:
+                futures.append(
+                    executor.submit(
+                        consume, self.pipeline, split, clean=clean, **node_contexts
+                    )
+                )
+            for future in as_completed(futures, timeout=timeout):
+                result = future.result()
+
+
+class ProcessPoolParaGlider(ParaGlider):
     """A parallel Glider that uses a ProcessPoolExecutor to execute parallel calls to
     consume()"""
 
-    def consume(self, data, clean=None, **node_contexts):
-        """Setup node contexts and consume data with the pipeline
-
-        Parameters
-        ----------
-        data
-            Iterable of data to consume
-        clean : dict, optional
-            A mapping of arg names to clean up functions to be run after
-            data processing is complete.
-        **node_contexts
-            Keyword arguments that are node_name->param_dict
-
-        """
-        with ProcessPoolExecutor() as executor:
-            splits = np.array_split(data, min(len(data), executor._max_workers))
-            futures = []
-            dbg(
-                "%s: %d worker(s), %d split(s)"
-                % (self.__class__.__name__, executor._max_workers, len(splits))
-            )
-            for split in splits:
-                futures.append(
-                    executor.submit(
-                        consume, self.pipeline, split, clean=clean, **node_contexts
-                    )
-                )
-            for future in as_completed(futures):
-                result = future.result()
+    def get_executor(self):
+        return ProcessPoolExecutor(**self.options)
 
 
-class ThreadPoolParaGlider(Glider):
+class ThreadPoolParaGlider(ParaGlider):
     """A parallel Glider that uses a ThreadPoolExecutor to execute parallel calls to
     consume()"""
 
-    def consume(self, data, clean=None, **node_contexts):
-        """Setup node contexts and consume data with the pipeline
-
-        Parameters
-        ----------
-        data
-            Iterable of data to consume
-        clean : dict, optional
-            A mapping of arg names to clean up functions to be run after
-            data processing is complete.
-        **node_contexts
-            Keyword arguments that are node_name->param_dict
-
-        """
-        with ThreadPoolExecutor() as executor:
-            splits = np.array_split(data, min(len(data), executor._max_workers))
-            futures = []
-            dbg(
-                "%s: %d worker(s), %d split(s)"
-                % (self.__class__.__name__, executor._max_workers, len(splits))
-            )
-            for split in splits:
-                futures.append(
-                    executor.submit(
-                        consume, self.pipeline, split, clean=clean, **node_contexts
-                    )
-                )
-            for future in as_completed(futures):
-                result = future.result()
+    def get_executor(self):
+        return ThreadPoolExecutor(**self.options)
 
 
 class GliderScript(Script):
