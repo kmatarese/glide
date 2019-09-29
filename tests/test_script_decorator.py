@@ -96,7 +96,7 @@ def test_help():
 
 @glider.cli(inject=dict(data=get_data, conn=RuntimeContext(get_pymysql_conn)))
 def _test_injected_args(data, conn, node_contexts):
-    glider.consume(data, clean=dict(conn=lambda x: x.close()), **node_contexts)
+    glider.consume(data, cleanup=dict(conn=lambda x: x.close()), **node_contexts)
 
 
 def test_injected_args():
@@ -111,7 +111,7 @@ def test_injected_args():
         load_conn=get_pymysql_conn,
         cursor_type=pymysql.cursors.DictCursor,
     ),
-    clean=dict(extract_conn=lambda x: x.close(), load_conn=lambda x: x.close()),
+    cleanup=dict(extract_conn=lambda x: x.close(), load_conn=lambda x: x.close()),
 )
 def _test_injected_args_with_node_prefix(data, node_contexts, **kwargs):
     glider.consume(data, **node_contexts)

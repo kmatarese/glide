@@ -28,7 +28,7 @@ def test_sql_process_pool_paraglider(rootdir):
     glider = ProcessPoolParaGlider(RowSQLExtractor("extract") | PrettyPrinter("load"))
     glider.consume(
         [sql],
-        clean=dict(extract_conn=closer),
+        cleanup=dict(extract_conn=closer),
         extract=dict(conn=RuntimeContext(get_sqlalchemy_conn), zip="01000"),
     )
 
@@ -41,7 +41,7 @@ def test_sql_dataframe_process_pool_paraglider(rootdir):
     )
     glider.consume(
         [sql],
-        clean=dict(extract_conn=closer),
+        cleanup=dict(extract_conn=closer),
         timeout=5,
         extract=dict(
             conn=RuntimeContext(get_sqlalchemy_conn), params=dict(zip="01000")

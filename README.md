@@ -46,7 +46,7 @@ Table of Contents
 Installation
 ------------
 
-> ⚠️ **Warning**: This project is still in an alpha state and should probably not be used in production.
+> ⚠️ **Warning**: This project is in an alpha state and is rapidly changing. It should not be used in production.
 
 ```shell
 $ pip install glide
@@ -322,7 +322,8 @@ glider.consume(
 ```
 
 In this case it is also necessary to specify the cursor_type so
-`RowSQLExtractor` can create a dict-based cursor for query execution.
+`RowSQLExtractor` can create a dict-based cursor for query execution within
+the subprocess as required by `RowSQLExtractor`.
 
 > **Note:** any args/kwargs passed to RuntimeContext will be passed to the
 function when called.
@@ -332,7 +333,7 @@ function when called.
 Sometimes it is necessary to call clean up functionality after processing is
 complete. Sticking with the example above that utilizes SQL-based nodes in a
 parallel processing context, you'll want to explicitly close your database
-connections in each subprocess. The `consume` method accepts a `clean`
+connections in each subprocess. The `consume` method accepts a `cleanup`
 argument that is a dictionary mapping argument names to cleaner functions. The
 following example tells the `Glider` to call the function `closer` with the
 value from `extract_conn` once `consume` is finished. Note that `closer` is a
@@ -346,7 +347,7 @@ glider = ProcessPoolParaGlider(
 )
 glider.consume(
     [sql],
-    clean=dict(extract_conn=closer),
+    cleanup=dict(extract_conn=closer),
     extract=dict(
         conn=RuntimeContext(get_pymysql_conn),
         cursor_type=pymysql.cursors.DictCursor,
@@ -354,7 +355,7 @@ glider.consume(
 )
 ```
 
-The keys of the `clean` dict can either be explicit (node name prefixed) or
+The keys of the `cleanup` dict can either be explicit (node name prefixed) or
 more generic arg names that will map that function to every node that has that
 arg in its `run` method signature (so just "conn=" would have worked
 too). It's often better to be explicit as shown here.
@@ -527,9 +528,10 @@ $ python my_script.py "select * from input_table limit 10" \
 
 ### Blacklisting Args
 
-In the previous example it is no longer necessary to even have the node-specific connection
-arguments show up on the command line. You can blacklist the arg from ever getting put
-into the CLI as follows:
+In the previous example it is no longer necessary to even have the
+node-specific connection arguments show up on the command line (such as in
+--help output). You can blacklist the arg from ever getting put into the CLI
+as follows:
 
 ```python
 @glider.cli(blacklist=["conn"])
@@ -619,7 +621,7 @@ def get_data():
 @glider.cli(
     Arg("--load_table", required=False, default="output_table")
     inject=dict(data=get_data, conn=get_my_db_conn),
-    clean=dict(conn=lambda x: x.close()),
+    cleanup=dict(conn=lambda x: x.close()),
 )
 def main(data, node_contexts, **kwargs):
     glider.consume(data, **node_contexts)
@@ -646,7 +648,7 @@ executed once the decorated function is actually called. Injected
 RuntimeContexts and other objects that are not a `types.FunctionType` or
 `functools.partial` are passed through as-is.
 
-The `clean` decorator argument takes a dictionary that maps argument names to
+The `cleanup` decorator argument takes a dictionary that maps argument names to
 callables that accept the argument value to perform some clean up. In this
 case, it closes the database connection after the wrapped method is complete.
 
@@ -680,6 +682,7 @@ New extensions are welcome! To add an extension:
 
 Here are some current ideas for extensions/endpoints in case you need inspiration:
 
+- Celery support (in progress)
 - NoSQL databases
 - Google Analytics
 - Google Ads

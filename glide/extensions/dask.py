@@ -55,14 +55,14 @@ class DaskParaGlider(ParaGlider):
     """A ParaGlider that uses a dask Client to execute parallel calls to
     consume()"""
 
-    def consume(self, data, clean=None, **node_contexts):
+    def consume(self, data, cleanup=None, **node_contexts):
         """Setup node contexts and consume data with the pipeline
 
         Parameters
         ----------
         data
             Iterable of data to consume
-        clean : dict, optional
+        cleanup : dict, optional
             A mapping of arg names to clean up functions to be run after
             data processing is complete.
         **node_contexts
@@ -82,7 +82,7 @@ class DaskParaGlider(ParaGlider):
             for split in splits:
                 futures.append(
                     client.submit(
-                        consume, self.pipeline, split, clean=clean, **node_contexts
+                        consume, self.pipeline, split, cleanup=cleanup, **node_contexts
                     )
                 )
             for future in dask_as_completed(futures):

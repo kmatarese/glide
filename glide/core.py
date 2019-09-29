@@ -26,6 +26,9 @@ from glide.utils import dbg, info, repr, iterize, is_function, is_pandas, closer
 SCRIPT_DATA_ARG = "data"
 
 
+RESERVED_NODE_NAMES = set(["cleanup"])
+
+
 class GlobalState(MappingMixin, ConsecutionGlobalState):
     """Consecution GlobalState with more dict-like behavior"""
 
@@ -536,7 +539,7 @@ def reset_node_contexts(pipeline, node_contexts):
         pipeline[k].reset_context()
 
 
-def clean_up_nodes(clean, contexts):
+def clean_up_nodes(cleanup, contexts):
     """Call clean up functions for node context objects"""
     errors = []
     cleaned = set()
@@ -545,20 +548,20 @@ def clean_up_nodes(clean, contexts):
     removes = set()
     for node_name, context in contexts.items():
         for arg_name, arg_value in context.items():
-            if arg_name in clean:
+            if arg_name in cleanup:
                 cleaned.add((node_name, arg_name))
                 removes.add(arg_name)
-                func = clean[arg_name]
+                func = cleanup[arg_name]
                 try:
                     func(arg_value)
                 except Exception as e:
                     dbg("Exception during clean up: %s" % str(e))
 
     for key in removes:
-        del clean[key]
+        del cleanup[key]
 
     # This block handles specific node_name/arg_name pairs
-    for key, func in clean.items():
+    for key, func in cleanup.items():
         parts = key.split("_")
         node_name = parts[0]
         arg_name = "_".join(parts[1:])
@@ -596,7 +599,7 @@ def clean_up_nodes(clean, contexts):
         raise Exception("Errors during clean_up: %s" % errors)
 
 
-def consume(pipeline, data, clean=None, **node_contexts):
+def consume(pipeline, data, cleanup=None, **node_contexts):
     """Handles node contexts before/after calling pipeline.consume()
 
     Note
@@ -613,8 +616,8 @@ def consume(pipeline, data, clean=None, **node_contexts):
         try:
             pipeline.consume(iterize(data))
         finally:
-            if clean:
-                clean_up_nodes(clean, contexts)
+            if cleanup:
+                clean_up_nodes(cleanup, contexts)
     finally:
         reset_node_contexts(pipeline, node_contexts)
 
@@ -643,6 +646,11 @@ class Glider:
             kwargs, "global_state", GlobalState()
         )  # Ensure our version is default
         self.pipeline = Pipeline(*args, **kwargs)
+        node_lookup = self.get_node_lookup()
+        for key in node_lookup:
+            assert key not in RESERVED_NODE_NAMES, (
+                "Can not use reserved node name: %s" % key
+            )
 
     def __getitem__(self, name):
         """Passthrough to Consecution Pipeline"""
@@ -664,14 +672,14 @@ class Glider:
     def global_state(self, value):
         self.pipeline.global_state = value
 
-    def consume(self, data, clean=None, **node_contexts):
+    def consume(self, data, cleanup=None, **node_contexts):
         """Setup node contexts and consume data with the pipeline
 
         Parameters
         ----------
         data
             Iterable of data to consume
-        clean : dict, optional
+        cleanup : dict, optional
             A mapping of arg names to clean up functions to be run after
             data processing is complete.
         **node_contexts
@@ -679,7 +687,7 @@ class Glider:
         """
 
         """Setup node contexts and consume data with the pipeline"""
-        consume(self.pipeline, data, clean=clean, **node_contexts)
+        consume(self.pipeline, data, cleanup=cleanup, **node_contexts)
 
     def plot(self, *args, **kwargs):
         """Passthrough to Consecution Pipeline.plot"""
@@ -689,7 +697,9 @@ class Glider:
         """Passthrough to Consecution Pipeline._node_lookup"""
         return self.pipeline._node_lookup
 
-    def cli(self, *script_args, blacklist=None, parents=None, inject=None, clean=None):
+    def cli(
+        self, *script_args, blacklist=None, parents=None, inject=None, cleanup=None
+    ):
         """Generate a decorator for this Glider that can be used to expose a CLI
 
         Parameters
@@ -704,7 +714,7 @@ class Glider:
             A dictionary of arg names to functions/values that inject a value
             for that arg. Those args will be passed as context to nodes that
             can accept them in their run() method.
-        clean : dict, optional
+        cleanup : dict, optional
             A dictionary of arg names to callables that will be used to perform
             clean up when the CLI script is complete.
 
@@ -720,7 +730,7 @@ class Glider:
             blacklist=blacklist,
             parents=parents,
             inject=inject,
-            clean=clean
+            cleanup=cleanup
         )
         return decorator
 
@@ -753,14 +763,14 @@ class ParaGlider(Glider):
     def get_executor(self):
         raise NotImplementedError
 
-    def consume(self, data, clean=None, timeout=None, **node_contexts):
+    def consume(self, data, cleanup=None, timeout=None, **node_contexts):
         """Setup node contexts and consume data with the pipeline
 
         Parameters
         ----------
         data
             Iterable of data to consume
-        clean : dict, optional
+        cleanup : dict, optional
             A mapping of arg names to clean up functions to be run after
             data processing is complete.
         timeout : int or float, optional
@@ -786,7 +796,7 @@ class ParaGlider(Glider):
             for split in splits:
                 futures.append(
                     executor.submit(
-                        consume, self.pipeline, split, clean=clean, **node_contexts
+                        consume, self.pipeline, split, cleanup=cleanup, **node_contexts
                     )
                 )
             for future in as_completed(futures, timeout=timeout):
@@ -826,7 +836,7 @@ class GliderScript(Script):
         A dictionary of arg names to functions/values that inject a value for
         that arg. Those args will be passed as context to nodes that can
         accept them in their run() method.
-    clean : dict, optional
+    cleanup : dict, optional
         A dictionary of arg names to callables that will be used to perform
         clean up when the CLI script is complete.
 
@@ -839,7 +849,7 @@ class GliderScript(Script):
         blacklist=None,
         parents=None,
         inject=None,
-        clean=None
+        cleanup=None
     ):
         """Generate the script args for the given Glider and return a decorator"""
         self.glider = glider
@@ -858,11 +868,11 @@ class GliderScript(Script):
             for injected_arg in inject:
                 self.blacklist.add(injected_arg)
 
-        self.clean = clean or {}
-        if clean:
+        self.cleanup = cleanup or {}
+        if self.cleanup:
             assert isinstance(
-                self.clean, dict
-            ), "clean must be a dict of argname->func mappings"
+                self.cleanup, dict
+            ), "cleanup must be a dict of argname->func mappings"
 
         script_args = self._get_script_args(script_args)
         return super().__init__(*script_args)
@@ -885,11 +895,11 @@ class GliderScript(Script):
 
     def clean_up(self, **kwargs):
         """Override Script method to do any required clean up"""
-        if not self.clean:
+        if not self.cleanup:
             return
 
         errors = []
-        for key, func in self.clean.items():
+        for key, func in self.cleanup.items():
             try:
                 if key not in kwargs:
                     errors.append("Could not clean up %s, no arg found" % key)
