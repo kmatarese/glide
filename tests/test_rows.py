@@ -40,7 +40,7 @@ def test_csv_row_process_pool_lowercase(rootdir):
 def test_csv_row_thread_pool_lowercase(rootdir):
     nodes = (
         RowCSVExtractor("extract")
-        | RowThreadPoolTransformer("transform")
+        | RowThreadPoolTransformer("transform", executor_kwargs=dict(max_workers=4))
         | RowCSVLoader("load")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)

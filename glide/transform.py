@@ -7,7 +7,7 @@ import pandas as pd
 from tlbx import st, json, set_missing_key, update_email
 
 from glide.core import Node
-from glide.utils import find_class_in_dict, get_class_list_docstring
+from glide.utils import info, find_class_in_dict, get_class_list_docstring
 
 
 class DummyTransformer(Node):
@@ -44,7 +44,7 @@ class DataFrameApplyMapTransformer(Node):
 class DataFrameProcessPoolTransformer(Node):
     """Apply a transform to a Pandas DataFrame using parallel processes"""
 
-    def run(self, df, func, **kwargs):
+    def run(self, df, func, executor_kwargs=None, **kwargs):
         """Split the DataFrame and call func() in parallel processes, concat results
 
         Parameters
@@ -54,20 +54,32 @@ class DataFrameProcessPoolTransformer(Node):
         func : callable
             A callable that will be passed a split of the df to operate on in
             a parallel process
+        executor_kwargs : dict, optional
+            Keyword arguments to pass to ProcessPoolExecutor
         **kwargs
             Keyword arguments passed to executor.map
 
         """
-        with ProcessPoolExecutor() as executor:
-            df_split = np.array_split(df, executor._max_workers)
-            df = pd.concat(executor.map(func, df_split, **kwargs))
+        executor_kwargs = executor_kwargs or {}
+        with ProcessPoolExecutor(**executor_kwargs) as executor:
+            df_splits = np.array_split(df, executor._max_workers)
+            info(
+                "%s: data len: %s, %d worker(s), %d split(s)"
+                % (
+                    self.__class__.__name__,
+                    len(df),
+                    executor._max_workers,
+                    len(df_splits),
+                )
+            )
+            df = pd.concat(executor.map(func, df_splits, **kwargs))
         self.push(df)
 
 
 class DataFrameThreadPoolTransformer(Node):
     """Apply a transform to a Pandas DataFrame using parallel threads"""
 
-    def run(self, df, func, **kwargs):
+    def run(self, df, func, executor_kwargs=None, **kwargs):
         """Split the DataFrame and call func() in parallel threads, concat results
 
         Parameters
@@ -77,13 +89,25 @@ class DataFrameThreadPoolTransformer(Node):
         func : callable
             A callable that will be passed a split of the df to operate on in
             a parallel threads
+        executor_kwargs : dict, optional
+            Keyword arguments to pass to ThreadPoolExecutor
         **kwargs
             Keyword arguments passed to executor.map
 
         """
-        with ThreadPoolExecutor() as executor:
-            df_split = np.array_split(df, executor._max_workers)
-            df = pd.concat(executor.map(func, df_split, **kwargs))
+        executor_kwargs = executor_kwargs or {}
+        with ThreadPoolExecutor(**executor_kwargs) as executor:
+            df_splits = np.array_split(df, executor._max_workers)
+            info(
+                "%s: data len: %s, %d worker(s), %d split(s)"
+                % (
+                    self.__class__.__name__,
+                    len(df),
+                    executor._max_workers,
+                    len(df_splits),
+                )
+            )
+            df = pd.concat(executor.map(func, df_splits, **kwargs))
         self.push(df)
 
 
@@ -93,7 +117,7 @@ class DataFrameThreadPoolTransformer(Node):
 class RowProcessPoolTransformer(Node):
     """Apply a transform function to a set of rows in parallel processes"""
 
-    def run(self, rows, func, **kwargs):
+    def run(self, rows, func, executor_kwargs=None, **kwargs):
         """Use a ProcessPoolExecutor to map() func over input rows
 
         Parameters
@@ -103,14 +127,21 @@ class RowProcessPoolTransformer(Node):
         func : callable
             A callable that will be passed rows to operate on in parallel
             processes
+        executor_kwargs : dict, optional
+            Keyword arguments to pass to ProcessPoolExecutor
         **kwargs
             Keyword arguments passed to executor.map
 
         """
         result_rows = []
-        with ProcessPoolExecutor() as executor:
+        executor_kwargs = executor_kwargs or {}
+        with ProcessPoolExecutor(**executor_kwargs) as executor:
             set_missing_key(
                 kwargs, "chunksize", int(max(len(rows) / executor._max_workers, 1))
+            )
+            info(
+                "%s: data len: %s, %d worker(s)"
+                % (self.__class__.__name__, len(rows), executor._max_workers)
             )
             rows = [x for x in executor.map(func, rows, **kwargs)]
         self.push(rows)
@@ -119,7 +150,7 @@ class RowProcessPoolTransformer(Node):
 class RowThreadPoolTransformer(Node):
     """Apply a transform function to a set of rows in parallel threads"""
 
-    def run(self, rows, func, **kwargs):
+    def run(self, rows, func, executor_kwargs=None, **kwargs):
         """Use a ThreadPoolExecutor to map() func over input rows
 
         Parameters
@@ -129,12 +160,19 @@ class RowThreadPoolTransformer(Node):
         func : callable
             A callable that will be passed rows to operate on in parallel
             threads
+        executor_kwargs : dict, optional
+            Keyword arguments to pass to ThreadPoolExecutor
         **kwargs
             Keyword arguments passed to executor.map
 
         """
         result_rows = []
-        with ThreadPoolExecutor() as executor:
+        executor_kwargs = executor_kwargs or {}
+        with ThreadPoolExecutor(**executor_kwargs) as executor:
+            info(
+                "%s: data len: %s, %d worker(s)"
+                % (self.__class__.__name__, len(rows), executor._max_workers)
+            )
             rows = [x for x in executor.map(func, rows, **kwargs)]
         self.push(rows)
 

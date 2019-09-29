@@ -53,7 +53,8 @@ def test_sql_thread_pool_paraglider(rootdir):
     in_table, out_table = db_tables()
     sql = "select * from %s where Zip_Code < %%(zip)s" % in_table
     glider = ThreadPoolParaGlider(
-        RowSQLExtractor("extract") | PrettyPrinter("load"), options=dict(max_workers=4)
+        RowSQLExtractor("extract") | PrettyPrinter("load"),
+        executor_kwargs=dict(max_workers=4),
     )
     glider.consume(
         [sql],

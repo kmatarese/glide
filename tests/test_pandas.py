@@ -88,7 +88,9 @@ def test_csv_process_pool_lowercase(rootdir):
 def test_csv_thread_pool_lowercase(rootdir):
     nodes = (
         DataFrameCSVExtractor("extract")
-        | DataFrameThreadPoolTransformer("transform")
+        | DataFrameThreadPoolTransformer(
+            "transform", executor_kwargs=dict(max_workers=4)
+        )
         | DataFrameCSVLoader("load", index=False, mode="a")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)

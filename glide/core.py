@@ -441,7 +441,8 @@ class ThreadReducer(Reducer):
 class FuturesPushNode(DefaultNode):
     """A node that either splits or duplicates its input to pass to multiple
     downstream nodes in parallel according to the executor_class that supports
-    the futures interface.
+    the futures interface. If an executor_kwargs dict is in the context of
+    this node it will be passed to the parallel executor.
 
     Parameters
     ----------
@@ -470,11 +471,25 @@ class FuturesPushNode(DefaultNode):
         with self.executor_class(**executor_kwargs) as executor:
             futures = []
 
-            if self.context.get("split", False):
+            do_split = self.context.get("split", False)
+            info(
+                "%s: data len: %s, split=%s, %d downstream nodes"
+                % (
+                    self.__class__.__name__,
+                    len(item),
+                    do_split,
+                    len(self._downstream_nodes),
+                ),
+                label="push",
+            )
+
+            if do_split:
+                # Split the data among the downstream nodes
                 splits = np.array_split(item, len(self._downstream_nodes))
                 for i, downstream in enumerate(self._downstream_nodes):
                     futures.append(executor.submit(downstream._process, splits[i]))
             else:
+                # Pass complete data to each downstream node
                 for downstream in self._downstream_nodes:
                     futures.append(executor.submit(downstream._process, item))
 
@@ -742,7 +757,7 @@ class ParaGlider(Glider):
     ----------
     *args
         Arguments passed through to Glider
-    options : dict, optional
+    executor_kwargs : dict, optional
         A dict of keyword arguments to pass to the process or thread executor
     **kwargs
         Keyword arguments passed through to Glider
@@ -751,13 +766,13 @@ class ParaGlider(Glider):
     ----------
     pipeline
         A Consecution Pipeline
-    options
+    executor_kwargs
         A dict of keyword arguments to pass to the process or thread executor
 
     """
 
-    def __init__(self, *args, options=None, **kwargs):
-        self.options = options or {}
+    def __init__(self, *args, executor_kwargs=None, **kwargs):
+        self.executor_kwargs = executor_kwargs or {}
         super().__init__(*args, **kwargs)
 
     def get_executor(self):
@@ -808,7 +823,7 @@ class ProcessPoolParaGlider(ParaGlider):
     consume()"""
 
     def get_executor(self):
-        return ProcessPoolExecutor(**self.options)
+        return ProcessPoolExecutor(**self.executor_kwargs)
 
 
 class ThreadPoolParaGlider(ParaGlider):
@@ -816,7 +831,7 @@ class ThreadPoolParaGlider(ParaGlider):
     consume()"""
 
     def get_executor(self):
-        return ThreadPoolExecutor(**self.options)
+        return ThreadPoolExecutor(**self.executor_kwargs)
 
 
 class GliderScript(Script):

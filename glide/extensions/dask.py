@@ -71,7 +71,7 @@ class DaskParaGlider(ParaGlider):
         """
         assert Client, "Please install dask (Client) to use DaskParaGlider"
 
-        with Client(**self.options) as client:  # Local multi-processor for now
+        with Client(**self.executor_kwargs) as client:  # Local multi-processor for now
             worker_count = len(client.ncores())
             splits = np.array_split(data, min(len(data), worker_count))
             futures = []
@@ -101,7 +101,7 @@ class DataFrameDaskClientTransformer(Node):
             The pandas DataFrame to split and apply func to
         func : callable
             A callable that will be passed to Dask Client.map
-        executor_kwargs : optional
+        executor_kwargs : dict, optional
             Keyword arguments to pass to Client
         **kwargs
             Keyword arguments passed to Client.map
