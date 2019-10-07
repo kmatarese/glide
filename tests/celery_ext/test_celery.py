@@ -70,7 +70,7 @@ def send_celery_task(name, *args, **kwargs):
 def test_lower(redis_server, celery_worker):
     # XXX: sometimes celery registers it as just app.lower_task?
     # result = send_celery_task('app.lower_task', [dict(x="TEST")])
-    result = send_celery_task("tests.celery.app.lower_task", [dict(x="TEST")])
+    result = send_celery_task("tests.celery_ext.app.lower_task", [dict(x="TEST")])
     dbg(result)
 
 

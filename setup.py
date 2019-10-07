@@ -44,8 +44,9 @@ extras_require = {
     "swifter": ["swifter>=0.289"],
     "celery": [
         "celery[redis]>=4.3",
+        # Downgrade kombu due to https://github.com/celery/kombu/issues/1063
         "kombu==4.5.0",
-    ],  # Downgrade kombu due to https://github.com/celery/kombu/issues/1063
+    ],
     "dev": [
         "black",
         "pre-commit",

@@ -1,6 +1,5 @@
 from .test_utils import *
 from glide import *
-from glide.extensions import *
 
 # -------- File-based gliders
 
@@ -45,36 +44,6 @@ def test_csv_chunked_lowercase(rootdir):
     )
 
 
-def test_csv_chunked_swifter_lowercase(rootdir):
-    nodes = (
-        DataFrameCSVExtractor("extract")
-        | SwifterApplyTransformer("transform")
-        | DataFrameCSVLoader("load", index=False, mode="a")
-    )
-    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
-    glider.consume(
-        [infile],
-        extract=dict(chunksize=500),
-        transform=dict(func=lower),
-        load=dict(f=outfile),
-    )
-
-
-def test_csv_chunked_swifter_threads_lowercase(rootdir):
-    nodes = (
-        DataFrameCSVExtractor("extract")
-        | SwifterApplyTransformer("transform")
-        | DataFrameCSVLoader("load", index=False, mode="a")
-    )
-    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
-    glider.consume(
-        [infile],
-        extract=dict(chunksize=500),
-        transform=dict(func=lower, processes=False),
-        load=dict(f=outfile),
-    )
-
-
 def test_csv_process_pool_lowercase(rootdir):
     nodes = (
         DataFrameCSVExtractor("extract")
@@ -95,40 +64,6 @@ def test_csv_thread_pool_lowercase(rootdir):
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     glider.consume([infile], transform=dict(func=df_lower), load=dict(f=outfile))
-
-
-def test_csv_dask_client_lowercase(rootdir):
-    nodes = (
-        DataFrameCSVExtractor("extract")
-        | DataFrameDaskClientTransformer("transform")
-        | DataFrameCSVLoader("load", index=False, mode="a")
-    )
-    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
-    glider.consume([infile], transform=dict(func=df_lower), load=dict(f=outfile))
-
-
-def test_csv_dask_client_threads_lowercase(rootdir):
-    nodes = (
-        DataFrameCSVExtractor("extract")
-        | DataFrameDaskClientTransformer("transform")
-        | DataFrameCSVLoader("load", index=False, mode="a")
-    )
-    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
-    glider.consume(
-        [infile],
-        transform=dict(func=df_lower, executor_kwargs=dict(processes=False)),
-        load=dict(f=outfile),
-    )
-
-
-def test_csv_dask_dataframe_lowercase(rootdir):
-    nodes = (
-        DataFrameCSVExtractor("extract")
-        | DaskDataFrameApplyTransformer("transform")
-        | DataFrameCSVLoader("load", index=False, mode="a")
-    )
-    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
-    glider.consume([infile], transform=dict(func=lower), load=dict(f=outfile))
 
 
 # -------- SQL-based gliders
