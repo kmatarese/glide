@@ -778,7 +778,9 @@ class ParaGlider(Glider):
     def get_executor(self):
         raise NotImplementedError
 
-    def consume(self, data, cleanup=None, timeout=None, **node_contexts):
+    def consume(
+        self, data, cleanup=None, split_count=None, timeout=None, **node_contexts
+    ):
         """Setup node contexts and consume data with the pipeline
 
         Parameters
@@ -788,6 +790,9 @@ class ParaGlider(Glider):
         cleanup : dict, optional
             A mapping of arg names to clean up functions to be run after
             data processing is complete.
+        split_count : int, optional
+            How many slices to split the data into for parallel processing. Default
+            is to use executor._max_workers.
         timeout : int or float, optional
             Raises a concurrent.futures.TimeoutError if __next__() is called
             and the result isn’t available after timeout seconds from the
@@ -797,7 +802,8 @@ class ParaGlider(Glider):
 
         """
         with self.get_executor() as executor:
-            splits = np.array_split(data, min(len(data), executor._max_workers))
+            split_count = split_count or executor._max_workers
+            splits = np.array_split(data, min(len(data), split_count))
             futures = []
             info(
                 "%s: data len: %s, %d worker(s), %d split(s)"

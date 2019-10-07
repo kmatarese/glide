@@ -1,6 +1,3 @@
-import pandas as pd
-import numpy as np
-
 try:
     from dask import compute, delayed
     from dask.dataframe import from_pandas
@@ -10,6 +7,8 @@ except ImportError:
     delayed = None
     Client = None
     dask_as_completed = None
+import pandas as pd
+import numpy as np
 from tlbx import st, set_missing_key
 
 from glide.core import Node, DefaultNode, FuturesPushNode, ParaGlider, consume
@@ -55,7 +54,7 @@ class DaskParaGlider(ParaGlider):
     """A ParaGlider that uses a dask Client to execute parallel calls to
     consume()"""
 
-    def consume(self, data, cleanup=None, **node_contexts):
+    def consume(self, data, cleanup=None, split_count=None, **node_contexts):
         """Setup node contexts and consume data with the pipeline
 
         Parameters
@@ -65,6 +64,9 @@ class DaskParaGlider(ParaGlider):
         cleanup : dict, optional
             A mapping of arg names to clean up functions to be run after
             data processing is complete.
+        split_count : int, optional
+            How many slices to split the data into for parallel processing. Default
+            is to use ncores() from the dask Client.
         **node_contexts
             Keyword arguments that are node_name->param_dict
 
@@ -72,7 +74,7 @@ class DaskParaGlider(ParaGlider):
         assert Client, "Please install dask (Client) to use DaskParaGlider"
 
         with Client(**self.executor_kwargs) as client:  # Local multi-processor for now
-            worker_count = len(client.ncores())
+            worker_count = split_count or len(client.ncores())
             splits = np.array_split(data, min(len(data), worker_count))
             futures = []
             dbg(

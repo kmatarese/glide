@@ -33,7 +33,9 @@ class GliderTemplate:
     """A 'partial' for a Glider. It must be passed functools.partial nodes
     that it will create when __call__'d.
 
-    NOTE: this currently does not support lists of lists for node levels.
+    Note
+    ----
+    This currently does not support lists of lists for node levels.
 
     Parameters
     ----------

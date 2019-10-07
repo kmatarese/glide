@@ -1,0 +1,249 @@
+"""Glide extension providing basic Celery support. This extension assumes you
+have setup your own celery app and imported/added provided tasks to your app
+as necessary. Any code used by your Celery workers must be importable by those
+workers, and you may need to make sure your app allows pickle for
+serialization"""
+
+try:
+    from celery import Task, Celery
+except:
+    Celery = None
+    Task = None
+import numpy as np
+from tlbx import st, set_missing_key, import_object
+
+from glide import *
+
+
+if Task:
+
+    class CeleryGliderTask(Task):
+        """A Celery Task that takes a Glider object and calls its consume()
+        method in the worker."""
+
+        serializer = "pickle"
+
+        def run(self, data, glider, consume_kwargs=None):
+            """Consume data with the given glider in the Celery worker.
+
+            Parameters
+            ----------
+            data
+                data to process with the glider
+            glider : Glider
+                Glider pipeline to consume data with
+            consume_kwargs : dict, optional
+                Keyword arguments to pass to consume()
+
+            """
+            glider.consume(data, **(consume_kwargs or {}))
+
+    class CeleryGliderTemplateTask(Task):
+        """A Celery Task that takes a GliderTemplate object, then builds a
+        glider from that template and calls its consume() method in the
+        worker."""
+
+        serializer = "pickle"
+
+        def run(self, data, glider_template, consume_kwargs=None):
+            """Create a Glider from the given template and consume data
+
+            Parameters
+            ----------
+            data
+                data to process with the glider
+            glider_template : GliderTemplate
+                A template for building a glider
+            consume_kwargs : dict, optional
+                Keyword arguments to pass to consume()
+
+            """
+            glider = glider_template()
+            glider.consume(data, **(consume_kwargs or {}))
+
+    class CeleryConsumeTask(Task):
+        """A Celery Task that mimics the consume() function. In order to use a
+        CeleryParaGlider you must have a CeleryConsumeTask registered on your
+        Celery app that you pass to CeleryParaGlider at init time."""
+
+        serializer = "pickle"
+
+        def run(self, pipeline, data, cleanup=None, **node_contexts):
+            """Call the consume() function as a Celery Task
+
+            Parameters
+            ----------
+            pipeline
+                A Consecution Pipeline that will be passed the data
+            data
+                The data to consume with the pipeline
+            cleanup : dict, optional
+                A mapping of arg names to clean up functions to be run after
+                data processing is complete.
+            **node_contexts
+                Keyword arguments that are node_name->param_dict
+
+            """
+            consume(pipeline, data, cleanup=cleanup, **node_contexts)
+
+    class CeleryBuildGliderTask(Task):
+        """A Celery Task that uses its arguments to build a Glider and call
+        consume() within the celery worker. The main purpose of this is to
+        provide a method to run pipelines in workers via a broker that only
+        supports JSON serialization, as many Glide objects are not JSON
+        serializable. If your Celery setup allows pickle you should probably
+        stick to other options as this has limitations in DAG structure"""
+
+        def run(self, data, node_init, glider_kwargs=None, consume_kwargs=None):
+            """Build a Glider from the input parameters and call consume
+
+            Note
+            ----
+            Currently node_init is limited in the types of DAGs it can
+            represent. Grouping nodes as sublists to form a layer is
+            supported.
+
+            Parameters
+            ----------
+            data
+                data to process with the built glider
+            node_init
+                An iterable of nodes, where nodes are represented as
+                JSON-serializable dicts and optionally grouped as layers with
+                sublists.
+            glider_kwargs : dict, optional
+                Keyword arguments to pass to the constructed Glider.
+            consume_kwargs : type, optional
+                Keyword arguments to pass to consume()
+
+            """
+            nodes = None
+
+            for node_init_layer in node_init:
+                if not isinstance(node_init_layer, (list, tuple)):
+                    node_init_layer = [node_init_layer]
+
+                node_layer = []
+                for node_info in node_init_layer:
+                    # TODO: this only supports a single level of node tree evaluation
+                    assert isinstance(
+                        node_info, dict
+                    ), "Node info must be in dict format"
+                    node_args = node_info["args"]
+                    node_kwargs = node_info.get("kwargs", {})
+                    cls = import_object(node_info["class_name"])
+                    node = cls(*node_args, **node_kwargs)
+                    node_layer.append(node)
+
+                if len(node_layer) == 1:
+                    node_layer = node_layer[0]
+
+                if nodes is None:
+                    nodes = node_layer
+                    continue
+                nodes = nodes | node_layer
+
+            glider = Glider(nodes, **(glider_kwargs or {}))
+            glider.consume(data, **(consume_kwargs or {}))
+
+
+class CeleryParaGlider(ParaGlider):
+    """A ParaGlider that uses Celery to execute parallel calls to consume()
+
+    Parameters
+    ----------
+    consume_task
+        A Celery Task that will behave like consume()
+    *args
+        Arguments passed through to ParaGlider init
+    **kwargs
+        Keyword arguments passed through to ParaGlider init
+
+    Attributes
+    ----------
+    consume_task
+        A Celery Task that behaves like consume(), such as CeleryConsumeTask.
+    See ParaGlider for additional attributes.
+
+    """
+
+    def __init__(self, consume_task, *args, **kwargs):
+        assert isinstance(
+            consume_task, Task
+        ), "The first argument to CeleryParaGlider must be a registered celery task that mirrors consume()"
+        self.consume_task = consume_task
+        super().__init__(*args, **kwargs)
+
+    def consume(self, data, cleanup=None, split_count=None, **node_contexts):
+        """Setup node contexts and consume data with the pipeline
+
+        Parameters
+        ----------
+        data
+            Iterable of data to consume
+        cleanup : dict, optional
+            A mapping of arg names to clean up functions to be run after
+            data processing is complete.
+        split_count : int, optional
+            How many slices to split the data into for parallel processing. Default
+            is to inspect the celery app and set split_count = worker count.
+        **node_contexts
+            Keyword arguments that are node_name->param_dict
+
+        """
+        assert Celery, "Please install Celery to use CeleryParaGlider"
+
+        if not split_count:
+            dbg("determining split count from app celery worker count")
+            app_stats = self.consume_task.app.control.inspect().stats()
+            split_count = len(app_stats.keys())
+
+        splits = np.array_split(data, min(len(data), split_count))
+        dbg(
+            "%s: data len: %s, %d split(s)"
+            % (self.__class__.__name__, len(data), len(splits))
+        )
+        async_results = []
+        for split in splits:
+            async_results.append(
+                self.consume_task.delay(
+                    self.pipeline, split, cleanup=cleanup, **node_contexts
+                )
+            )
+        return async_results
+
+
+class CeleryApplyAsync(Node):
+    """A Node that calls apply_async on a given Celery Task"""
+
+    def run(self, data, task, timeout=None, push_type="async_result", **kwargs):
+        """Call task.apply_async with the given data as the first task argument
+
+        Parameters
+        ----------
+        data
+            Data to process
+        task
+            A Celery Task registered with your app.
+        timeout : int, optional
+            A timeout to use if waiting for results via AsyncResult.get()
+        push_type : str, optional
+            If "async_result", push the AsyncResult immediately.
+            If "input", push the input data immediately after task submission.
+            If "result", collect the task result synchronously and push it.
+        **kwargs
+            Keyword arguments pass to task.apply_async
+
+        """
+        async_result = task.apply_async(args=(data,), **kwargs)
+
+        if push_type == "async_result":
+            self.push(async_result)
+        elif push_type == "input":
+            self.push(data)
+        elif push_type == "result":
+            result = async_result.get(timeout=timeout)
+            async_result.forget()
+            self.push(result)
+        else:
+            assert False, "Invalid push_type: %s" % push_type

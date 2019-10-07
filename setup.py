@@ -42,7 +42,19 @@ for repo in git_requires:
 
 extras_require = {
     "swifter": ["swifter>=0.289"],
-    "dev": ["black", "pre-commit", "pytest", "sphinx", "twine", "wheel"],
+    "celery": [
+        "celery[redis]>=4.3",
+        "kombu==4.5.0",
+    ],  # Downgrade kombu due to https://github.com/celery/kombu/issues/1063
+    "dev": [
+        "black",
+        "pre-commit",
+        "pytest",
+        "pytest-redis",
+        "sphinx",
+        "twine",
+        "wheel",
+    ],
     "dask": ["dask[complete]>=2.1.0"],
 }
 extras_require["complete"] = sorted(set(sum(extras_require.values(), [])))
@@ -67,7 +79,7 @@ setup(
     ],
     python_requires=">=3.6",
     scripts=find_deploy_scripts("glide", ["\\*.py", "\\*.sh", "\\*.sql"], ["__init__"]),
-    packages=find_packages(),
+    packages=find_packages(exclude=["tests.*", "tests"]),
     include_package_data=True,
     install_requires=non_git_requires,
     dependency_links=git_requires,

@@ -27,7 +27,10 @@ Glide also has:
     - Raw/generic files
   - Emails
 - Built-in nodes for Pandas DataFrame-based pipelines, including optional support for DataFrame transformation via [Dask](https://dask.org/) or [Swifter](https://github.com/jmcarpenter2/swifter)
-- A variety of node and DAG parallel processing strategies via concurrent.futures Executors or optional [Dask](https://dask.org/) support
+- A variety of node and DAG parallel/distributed processing strategies including:
+  - concurrent.futures Executors
+  - [Dask](https://dask.org/) (optional extension)
+  - [Celery](http://www.celeryproject.org/) (optional extension)
 - A simple decorator to generate a command line interface from a pipeline in ~one line of code
 - The ability to control node contexts via defaults and/or simple runtime overrides
 
@@ -682,7 +685,6 @@ New extensions are welcome! To add an extension:
 
 Here are some current ideas for extensions/endpoints in case you need inspiration:
 
-- Celery support (in progress)
 - NoSQL databases
 - Google Analytics
 - Google Ads
