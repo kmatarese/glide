@@ -72,6 +72,11 @@ def is_file_obj(o):
     return isinstance(o, (io.TextIOBase, io.BufferedIOBase, io.RawIOBase, io.IOBase))
 
 
+def nchunks(a, n):
+    k, m = divmod(len(a), n)
+    return (a[i * k + min(i, m) : (i + 1) * k + min(i + 1, m)] for i in range(n))
+
+
 def iterize(o):
     """Automatically wrap certain objects that you would not normally process item by item"""
     if (

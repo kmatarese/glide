@@ -11,12 +11,12 @@ Introduction
 
 Glide was inspired by and uses a similar syntax to [Consecution](https://github.com/robdmc/consecution), which is an easy-to-use
 pipeline abstraction tool inspired by [Apache Storm Topologies](http://storm.apache.org/releases/current/Tutorial.html).
-Like those libraries, Glide is:
+Like those libraries, **Glide is:**
 
 - A simple, reusable approach to building robust ETL pipelines
 - A system for wiring together processing nodes to form a DAG
 
-Glide also has: 
+**Glide also has:**
 
 - An expanding suite of built-in nodes and pipelines that extract, transform, and load data from/to any combination of:
   - SQL databases (SQLite, DBAPI, and SQLAlchemy support)
@@ -31,6 +31,7 @@ Glide also has:
   - concurrent.futures Executors
   - [Dask](https://dask.org/) (optional extension)
   - [Celery](http://www.celeryproject.org/) (optional extension)
+  - [Redis Queue](http://python-rq.org/) (optional extension)
 - A simple decorator to generate a command line interface from a pipeline in ~one line of code
 - The ability to control node contexts via defaults and/or simple runtime overrides
 
@@ -167,9 +168,6 @@ glider.consume(
 )
 ```
 
-> **Note:** there are transformer nodes for using Swifter and Dask as well if
-you install those extensions.
-
 ### Example: Placeholder Nodes
 
 You can also easily drop replacement nodes into a templated pipeline. In this
@@ -253,10 +251,10 @@ to the logging nodes in parallel processes. Using `split=False` (default)
 would have passed the entire 60 rows to each logging node in parallel
 processes. 
 
-> **Note:** Once you branch off into processes there is currently no way to
-reduce/join the pipeline back into the original process and resume
-single-process operation on the multiprocessed results. However, that can be
-achieved with threads if necessary as shown in the next example.
+> **Note:** Once you branch off into processes there is no way to reduce/join
+the pipeline back into the original process and resume single-process
+operation on the multiprocessed results. However, that can be achieved with
+threads if necessary as shown in the next example.
 
 ### Example: Thread Reducers
 
@@ -281,7 +279,7 @@ results.
 At this point it's worth summarizing the various ways you can attempt parallel processing
 using Glide:
 
-- Method 1: Parallelization *within* nodes such as `DataFrameProcessPoolTransformer`
+- Method 1: Parallelization *within* nodes such as `DataFrameProcessPoolTransformer` or a distributed processing extension such as Dask/Celery/Redis Queue
 - Method 2: Completely parallel pipelines via `ParaGliders` (each process executes the entire pipeline)
 - Method 3: Branched parallelism using parallel push nodes such as `ProcessPoolPush` or `ThreadPoolPush`
 
@@ -294,10 +292,9 @@ complex/confusing flows and should likely only be used towards the end of
 pipelines to branch the output in parallel, such as if writing to several
 databases in parallel as a final step.
 
-> **Note:** combining the approaches may not work and has not been tested.
-
-> **Also Note:** standard limitations apply regarding what types of data can
-be serialized and passed to a parallel process.
+> **Note:** Combining the approaches may not work and has not been
+tested. Standard limitations apply regarding what types of data can be
+serialized and passed to a parallel process.
 
 ### Runtime Context Generation
 
@@ -326,10 +323,8 @@ glider.consume(
 
 In this case it is also necessary to specify the cursor_type so
 `RowSQLExtractor` can create a dict-based cursor for query execution within
-the subprocess as required by `RowSQLExtractor`.
-
-> **Note:** any args/kwargs passed to RuntimeContext will be passed to the
-function when called.
+the subprocess as required by `RowSQLExtractor`. Any args/kwargs passed to
+RuntimeContext will be passed to the function when called.
 
 ### Cleaning Up
 
@@ -340,7 +335,7 @@ connections in each subprocess. The `consume` method accepts a `cleanup`
 argument that is a dictionary mapping argument names to cleaner functions. The
 following example tells the `Glider` to call the function `closer` with the
 value from `extract_conn` once `consume` is finished. Note that `closer` is a
-convenience function provided by glide that just calls `close` on the given
+convenience function provided by Glide that just calls `close` on the given
 object.
 
 ```python
@@ -399,16 +394,14 @@ for more info.
 Creating Nodes
 --------------
 
-Creating nodes is quite simple. You must inherit from the Glide `Node` class
-and you must define a `run` method that takes at least one positional argument
-for the data being pushed to it. The `run` method should call
-`self.push(data)` with the data it wants to push downstream.
+To create a custom node you simply inherit from the Glide `Node` class and
+define a `run` method that takes at least one positional argument for the data
+being pushed to it. The `run` method should call `self.push(data)` with the
+data it wants to push downstream.
 
 Here is an example of a simple transformer node:
 
 ```python
-from glide import Node
-
 class ExampleTransformer(Node):
     def run(self, data):
         # Do something to the data here
@@ -673,7 +666,10 @@ To just install Glide plus a specific extension, such as Dask:
 $ pip install glide[dask]
 ```
 
-To access installed extensions import from the `glide.extensions` submodules as necessary.
+To access installed extensions import from the `glide.extensions` submodules
+as necessary.  Review the documentation and tests for current extensions for
+help getting started. There are currently basic extensions for Dask, Swifter,
+Celery, and Redis Queue, with more on the way.
 
 ### Extensions
 

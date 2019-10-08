@@ -9,6 +9,7 @@ dist
 tests/dask-worker-space/
 *.lock
 __pycache__
+.xprocess
 dask-worker-space
 docs/_build
 docs/_static

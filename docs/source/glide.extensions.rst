@@ -11,5 +11,7 @@ Submodules
 
 .. toctree::
 
+   glide.extensions.celery
    glide.extensions.dask
+   glide.extensions.rq
    glide.extensions.swifter

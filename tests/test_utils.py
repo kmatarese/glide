@@ -1,7 +1,6 @@
 import configparser
 import logging
 import os
-import pytest
 from shutil import copyfile
 
 try:
@@ -39,6 +38,14 @@ def row_lower(row):
     for k, v in row.items():
         row[k] = lower(v)
     return row
+
+
+def lower_rows(data):
+    for row in data:
+        for k, v in row.items():
+            if isinstance(v, str):
+                row[k] = v.lower()
+    return data
 
 
 def get_filenames(rootdir, extension):
@@ -133,44 +140,3 @@ def file_glider(rootdir, extension, nodes):
 
 def get_current_dir():
     return os.path.dirname(os.path.abspath(__file__))
-
-
-@pytest.fixture
-def rootdir():
-    return get_current_dir()
-
-
-@pytest.fixture
-def sqlalchemy_conn():
-    engine = get_sqlalchemy_mysql_engine()
-    conn = engine.connect()
-    conn.execute("use %s" % test_config["MySQLTestSchema"])
-    yield conn
-    conn.close()
-
-
-@pytest.fixture
-def pymysql_conn():
-    conn = get_pymysql_conn()
-    yield conn
-    conn.close()
-
-
-@pytest.fixture
-def sqlite_in_conn():
-    rootdir = get_current_dir()
-    _, in_db_file, _ = get_db_filenames(rootdir)
-    conn = sqlite3.connect(in_db_file)
-    conn.row_factory = sqlite3.Row
-    yield conn
-    conn.close()
-
-
-@pytest.fixture
-def sqlite_out_conn():
-    rootdir = get_current_dir()
-    _, _, out_db_file = get_db_filenames(rootdir)
-    conn = sqlite3.connect(out_db_file)
-    conn.row_factory = sqlite3.Row
-    yield conn
-    conn.close()

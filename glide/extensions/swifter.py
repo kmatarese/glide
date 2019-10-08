@@ -1,3 +1,5 @@
+"""https://github.com/jmcarpenter2/swifter"""
+
 try:
     import swifter
 except ImportError:

@@ -21,11 +21,18 @@ from glide.sql_utils import (
     is_sqlalchemy_conn,
     get_bulk_statement,
 )
-from glide.utils import dbg, info, repr, iterize, is_function, is_pandas, closer
+from glide.utils import (
+    dbg,
+    info,
+    repr,
+    iterize,
+    nchunks,
+    is_function,
+    is_pandas,
+    closer,
+)
 
 SCRIPT_DATA_ARG = "data"
-
-
 RESERVED_NODE_NAMES = set(["cleanup"])
 
 
@@ -168,14 +175,6 @@ class DefaultNode(Node):
         self.push(item)
 
 
-class IterPushNode(Node):
-    """A node that pushes each item of an iterable individually"""
-
-    def run(self, data, **kwargs):
-        for row in data:
-            self.push(row)
-
-
 class PlaceholderNode(DefaultNode):
     """Used as a placeholder in pipelines. Will pass values through by default"""
 
@@ -196,6 +195,164 @@ class SkipFalseNode(Node):
                 self.push(item)
                 return
         self.run(item, *args, **kwargs)
+
+
+class IterPush(Node):
+    """A node that pushes each item of an iterable individually"""
+
+    def run(self, data, **kwargs):
+        for row in data:
+            self.push(row)
+
+
+class SplitPush(Node):
+    """A node that splits the data before pushing.
+
+    If the data is a Pandas object it will use np.array_split, otherwise it
+    will split the iterator into chunks of roughly equal size.
+
+    """
+
+    def get_splits(self, data, split_count):
+        if is_pandas(data):
+            return np.array_split(data, split_count)
+        else:
+            return nchunks(data, split_count)
+
+    def run(self, data, split_count, **kwargs):
+        splits = self.get_splits(data, min(len(data), split_count))
+        for split in splits:
+            self.push(split)
+
+
+class SplitByNode(DefaultNode):
+    """A node that splits the data based on the number of immediate downstream
+    nodes.
+
+    If the data is a Pandas object it will use np.array_split, otherwise it
+    will split the iterator into chunks of roughly equal size.
+
+    """
+
+    def get_splits(self, data, split_count):
+        if is_pandas(data):
+            return np.array_split(data, split_count)
+        else:
+            return nchunks(data, split_count)
+
+    def _push(self, item):
+        """Override Consecution's push such that we can push split data"""
+        splits = self.get_splits(item, len(self._downstream_nodes))
+        for i, split in enumerate(splits):
+            self._downstream_nodes[i]._process(split)
+
+
+class ArraySplitPush(SplitPush):
+    """A node that splits the data before pushing"""
+
+    def get_splits(self, data, split_count):
+        return np.array_split(data, split_count)
+
+
+class ArraySplitByNode(SplitByNode):
+    """A node that splits the data before pushing"""
+
+    def get_splits(self, data, split_count):
+        return np.array_split(data, split_count)
+
+
+class FuturesPushNode(DefaultNode):
+    """A node that either splits or duplicates its input to pass to multiple
+    downstream nodes in parallel according to the executor_class that supports
+    the futures interface. If an executor_kwargs dict is in the context of
+    this node it will be passed to the parallel executor.
+
+    Parameters
+    ----------
+    See Node documentation for parameters
+
+    Attributes
+    ----------
+    executor_class
+        An Executor that will be used to parallelize the push
+    as_completed_func
+        A callable used to get the Futures results as completed
+
+    See Node documentation for additional attributes
+
+    """
+
+    executor_class = ProcessPoolExecutor
+    as_completed_func = as_completed
+
+    def _push(self, item):
+        """Override Consecution's push such that we can push in parallel"""
+        if self._logging == "output":
+            self._write_log(item)
+
+        executor_kwargs = self.context.get("executor_kwargs", None) or {}
+        with self.executor_class(**executor_kwargs) as executor:
+            futures = []
+
+            do_split = self.context.get("split", False)
+            info(
+                "%s: data len: %s, split=%s, %d downstream nodes"
+                % (
+                    self.__class__.__name__,
+                    len(item),
+                    do_split,
+                    len(self._downstream_nodes),
+                ),
+                label="push",
+            )
+
+            if do_split:
+                # Split the data among the downstream nodes
+                splits = np.array_split(item, len(self._downstream_nodes))
+                for i, downstream in enumerate(self._downstream_nodes):
+                    futures.append(executor.submit(downstream._process, splits[i]))
+            else:
+                # Pass complete data to each downstream node
+                for downstream in self._downstream_nodes:
+                    futures.append(executor.submit(downstream._process, item))
+
+            for future in self.__class__.as_completed_func(futures):
+                result = future.result()
+
+
+class ProcessPoolPush(FuturesPushNode):
+    """A multi-process FuturesPushNode"""
+
+    pass
+
+
+class ThreadPoolPush(FuturesPushNode):
+    """A multi-threaded FuturesPushNode"""
+
+    executor_class = ThreadPoolExecutor
+
+
+class Reducer(Node):
+    """Waits until end() to call push(), effectively waiting for all nodes before
+    it to finish before continuing the pipeline"""
+
+    def begin(self):
+        """Setup a place for results to be collected"""
+        self.results = []
+
+    def run(self, item, **kwargs):
+        """Collect results from previous nodes"""
+        self.results.append(item)
+
+    def end(self):
+        """Do the push once all results are in"""
+        self.push(self.results)
+
+
+class ThreadReducer(Reducer):
+    """A plain-old Reducer with a name that makes it clear it works with threads"""
+
+    pass
 
 
 class DataFramePushMixin:
@@ -415,100 +572,6 @@ class SQLNode(BaseSQLNode, SQLCursorPushMixin):
         )
 
 
-class Reducer(Node):
-    """Waits until end() to call push(), effectively waiting for all nodes before
-    it to finish before continuing the pipeline"""
-
-    def begin(self):
-        """Setup a place for results to be collected"""
-        self.results = []
-
-    def run(self, item, **kwargs):
-        """Collect results from previous nodes"""
-        self.results.append(item)
-
-    def end(self):
-        """Do the push once all results are in"""
-        self.push(self.results)
-
-
-class ThreadReducer(Reducer):
-    """A plain-old Reducer with a name that makes it clear it works with threads"""
-
-    pass
-
-
-class FuturesPushNode(DefaultNode):
-    """A node that either splits or duplicates its input to pass to multiple
-    downstream nodes in parallel according to the executor_class that supports
-    the futures interface. If an executor_kwargs dict is in the context of
-    this node it will be passed to the parallel executor.
-
-    Parameters
-    ----------
-    See Node documentation for parameters
-
-    Attributes
-    ----------
-    executor_class
-        An Executor that will be used to parallelize the push
-    as_completed_func
-        A callable used to get the Futures results as completed
-
-    See Node documentation for additional attributes
-
-    """
-
-    executor_class = ProcessPoolExecutor
-    as_completed_func = as_completed
-
-    def _push(self, item):
-        """Override Consecution's push such that we can push in parallel"""
-        if self._logging == "output":
-            self._write_log(item)
-
-        executor_kwargs = self.context.get("executor_kwargs", None) or {}
-        with self.executor_class(**executor_kwargs) as executor:
-            futures = []
-
-            do_split = self.context.get("split", False)
-            info(
-                "%s: data len: %s, split=%s, %d downstream nodes"
-                % (
-                    self.__class__.__name__,
-                    len(item),
-                    do_split,
-                    len(self._downstream_nodes),
-                ),
-                label="push",
-            )
-
-            if do_split:
-                # Split the data among the downstream nodes
-                splits = np.array_split(item, len(self._downstream_nodes))
-                for i, downstream in enumerate(self._downstream_nodes):
-                    futures.append(executor.submit(downstream._process, splits[i]))
-            else:
-                # Pass complete data to each downstream node
-                for downstream in self._downstream_nodes:
-                    futures.append(executor.submit(downstream._process, item))
-
-            for future in self.__class__.as_completed_func(futures):
-                result = future.result()
-
-
-class ProcessPoolPush(FuturesPushNode):
-    """A multi-process FuturesPushNode"""
-
-    pass
-
-
-class ThreadPoolPush(FuturesPushNode):
-    """A multi-threaded FuturesPushNode"""
-
-    executor_class = ThreadPoolExecutor
-
-
 class RuntimeContext:
     """A function to be executed at runtime to populate context values
 
@@ -629,7 +692,7 @@ def consume(pipeline, data, cleanup=None, **node_contexts):
         contexts = get_node_contexts(pipeline)
         dbg("size=%s\n%s" % (len(data), pformat(contexts)), indent="label")
         try:
-            pipeline.consume(iterize(data))
+            return pipeline.consume(iterize(data))
         finally:
             if cleanup:
                 clean_up_nodes(cleanup, contexts)

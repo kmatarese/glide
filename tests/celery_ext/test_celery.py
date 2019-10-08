@@ -1,6 +1,7 @@
 from functools import partial
 
 from celery.contrib.testing import worker
+import pytest
 from tlbx import st
 
 from .app import (
@@ -13,13 +14,7 @@ from .app import (
 )
 from glide import *
 from glide.extensions.celery import *
-from pytest_redis import factories
 from ..test_utils import *
-
-
-redis_server = factories.redis_proc(
-    host=test_config["RedisHost"], port=test_config["RedisPort"]
-)
 
 
 @pytest.fixture(scope="session")
@@ -42,12 +37,13 @@ def celery_worker_pool():
     return "solo"
 
 
-@pytest.fixture(scope="session")
-def celery_worker_parameters():
-    return dict(
-        # logfile='/tmp/worker.log',
-        # loglevel='info'
-    )
+# For debugging
+# @pytest.fixture(scope="session")
+# def celery_worker_parameters():
+#     return dict(
+#         logfile='/tmp/worker.log',
+#         loglevel='info'
+#     )
 
 
 def get_async_result(async_result):
@@ -79,6 +75,19 @@ def test_celery_task_node(redis_server, celery_worker, rootdir):
     nodes = (
         RowCSVExtractor("extract", nrows=20)
         | CeleryApplyAsync("apply", task=lower_task, push_type="result", retry=False)
+        | Printer("load")
+    )
+    infile, _ = get_filenames(rootdir, "csv")
+    glider = Glider(nodes)
+    glider.consume([infile])
+
+
+def test_celery_reducer(redis_server, celery_worker, rootdir):
+    nodes = (
+        RowCSVExtractor("extract", nrows=20)
+        | SplitPush("split", split_count=2)
+        | CeleryApplyAsync("apply", task=lower_task)
+        | CeleryReducer("reduce")
         | Printer("load")
     )
     infile, _ = get_filenames(rootdir, "csv")

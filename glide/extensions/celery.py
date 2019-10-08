@@ -1,19 +1,23 @@
-"""Glide extension providing basic Celery support. This extension assumes you
-have setup your own celery app and imported/added provided tasks to your app
-as necessary. Any code used by your Celery workers must be importable by those
-workers, and you may need to make sure your app allows pickle for
-serialization"""
+"""http://www.celeryproject.org/
+
+This extension assumes you have setup your own celery app and imported/added
+provided tasks to your app as necessary. Any code used by your Celery workers
+must be importable by those workers, and you may need to make sure your app
+allows pickle for serialization
+"""
 
 try:
     from celery import Task, Celery
+    from celery.result import ResultSet
 except:
     Celery = None
     Task = None
+    ResultSet = None
 import numpy as np
-from tlbx import st, set_missing_key, import_object
+from tlbx import st, import_object
 
 from glide import *
-
+from glide.utils import dbg
 
 if Task:
 
@@ -247,3 +251,17 @@ class CeleryApplyAsync(Node):
             self.push(result)
         else:
             assert False, "Invalid push_type: %s" % push_type
+
+
+class CeleryReducer(Reducer):
+    def end(self):
+        """Do the push once all results are in"""
+        dbg("Waiting for %d celery task(s)..." % len(self.results))
+        result_set = ResultSet(self.results)
+        results = result_set.get(
+            timeout=self.context.get("timeout", None),
+            propagate=self.context.get("propagate", True),
+            interval=self.context.get("interval", 0.5),
+        )
+        result_set.forget()
+        self.push(results)

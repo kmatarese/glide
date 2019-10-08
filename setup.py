@@ -42,6 +42,7 @@ for repo in git_requires:
 
 extras_require = {
     "swifter": ["swifter>=0.289"],
+    "rq": ["rq>=1.1.0"],
     "celery": [
         "celery[redis]>=4.3",
         # Downgrade kombu due to https://github.com/celery/kombu/issues/1063
@@ -52,6 +53,7 @@ extras_require = {
         "pre-commit",
         "pytest",
         "pytest-redis",
+        "pytest-xprocess",
         "sphinx",
         "twine",
         "wheel",
