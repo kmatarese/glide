@@ -87,7 +87,7 @@ def test_celery_reducer(redis_server, celery_worker, rootdir):
         RowCSVExtractor("extract", nrows=20)
         | SplitPush("split", split_count=2)
         | CeleryApplyAsync("apply", task=lower_task)
-        | CeleryReducer("reduce")
+        | CeleryReduce("reduce")
         | Printer("load")
     )
     infile, _ = get_filenames(rootdir, "csv")

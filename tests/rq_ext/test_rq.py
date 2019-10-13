@@ -39,7 +39,7 @@ def test_rq_reducer(redis_server, rq_worker, rootdir):
         RowCSVExtractor("extract", nrows=20)
         | SplitPush("split", split_count=4)
         | RQJob("apply", func=lower_rows)
-        | RQReducer("reduce")
+        | RQReduce("reduce")
         | Printer("load")
     )
     infile, _ = get_filenames(rootdir, "csv")

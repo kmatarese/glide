@@ -8,7 +8,7 @@ except ImportError:
 from glide.core import Node
 
 
-class SwifterApplyTransformer(Node):
+class SwifterApply(Node):
     """Apply a Swifter transform to a Pandas DataFrame"""
 
     def run(self, df, func, processes=True, **kwargs):

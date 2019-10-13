@@ -32,7 +32,7 @@ def test_excel_extract_and_load(rootdir):
 def test_csv_chunked_lowercase(rootdir):
     nodes = (
         DataFrameCSVExtractor("extract")
-        | DataFrameApplyMapTransformer("transform")
+        | DataFrameApplyMap("transform")
         | DataFrameCSVLoader("load", index=False, mode="a")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
@@ -47,7 +47,7 @@ def test_csv_chunked_lowercase(rootdir):
 def test_csv_process_pool_lowercase(rootdir):
     nodes = (
         DataFrameCSVExtractor("extract")
-        | DataFrameProcessPoolTransformer("transform")
+        | ProcessPoolSubmit("transform", push_type=PushTypes.Result)
         | DataFrameCSVLoader("load", index=False, mode="a")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
@@ -57,8 +57,8 @@ def test_csv_process_pool_lowercase(rootdir):
 def test_csv_thread_pool_lowercase(rootdir):
     nodes = (
         DataFrameCSVExtractor("extract")
-        | DataFrameThreadPoolTransformer(
-            "transform", executor_kwargs=dict(max_workers=4)
+        | ThreadPoolSubmit(
+            "transform", executor_kwargs=dict(max_workers=4), push_type=PushTypes.Result
         )
         | DataFrameCSVLoader("load", index=False, mode="a")
     )

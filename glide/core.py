@@ -26,14 +26,24 @@ from glide.utils import (
     info,
     repr,
     iterize,
-    nchunks,
+    size,
+    divide_data,
+    flatten,
     is_function,
     is_pandas,
     closer,
 )
 
 SCRIPT_DATA_ARG = "data"
-RESERVED_NODE_NAMES = set(["cleanup"])
+RESERVED_NODE_NAMES = set(["cleanup", "split_count", "synchronous", "timeout"])
+
+
+class PushTypes:
+    """The names of push strategies for nodes that support asynchronous execution"""
+
+    Async = "async"
+    Input = "input"
+    Result = "result"
 
 
 class GlobalState(MappingMixin, ConsecutionGlobalState):
@@ -168,20 +178,20 @@ class Node(ConsecutionNode):
         raise NotImplementedError
 
 
-class DefaultNode(Node):
-    """A default node that just passes all items through"""
+class PushNode(Node):
+    """A node that just passes all items through in run()"""
 
     def run(self, item, **kwargs):
         self.push(item)
 
 
-class PlaceholderNode(DefaultNode):
+class PlaceholderNode(PushNode):
     """Used as a placeholder in pipelines. Will pass values through by default"""
 
     pass
 
 
-class SkipFalseNode(Node):
+class SkipFalse(Node):
     """This overrides the behavior of calling run() such that if a "false"
     object is pushed it will never call run, just push to next node instead"""
 
@@ -205,6 +215,12 @@ class IterPush(Node):
             self.push(row)
 
 
+def split_count_helper(data, split_count):
+    if hasattr(data, "__len__"):
+        return min(len(data), split_count)
+    return split_count
+
+
 class SplitPush(Node):
     """A node that splits the data before pushing.
 
@@ -214,18 +230,15 @@ class SplitPush(Node):
     """
 
     def get_splits(self, data, split_count):
-        if is_pandas(data):
-            return np.array_split(data, split_count)
-        else:
-            return nchunks(data, split_count)
+        return divide_data(data, split_count)
 
     def run(self, data, split_count, **kwargs):
-        splits = self.get_splits(data, min(len(data), split_count))
+        splits = self.get_splits(data, split_count_helper(data, split_count))
         for split in splits:
             self.push(split)
 
 
-class SplitByNode(DefaultNode):
+class SplitByNode(PushNode):
     """A node that splits the data based on the number of immediate downstream
     nodes.
 
@@ -235,10 +248,7 @@ class SplitByNode(DefaultNode):
     """
 
     def get_splits(self, data, split_count):
-        if is_pandas(data):
-            return np.array_split(data, split_count)
-        else:
-            return nchunks(data, split_count)
+        return divide_data(data, split_count)
 
     def _push(self, item):
         """Override Consecution's push such that we can push split data"""
@@ -261,7 +271,7 @@ class ArraySplitByNode(SplitByNode):
         return np.array_split(data, split_count)
 
 
-class FuturesPushNode(DefaultNode):
+class FuturesPush(PushNode):
     """A node that either splits or duplicates its input to pass to multiple
     downstream nodes in parallel according to the executor_class that supports
     the futures interface. If an executor_kwargs dict is in the context of
@@ -296,21 +306,17 @@ class FuturesPushNode(DefaultNode):
 
             do_split = self.context.get("split", False)
             info(
-                "%s: data len: %s, split=%s, %d downstream nodes"
-                % (
-                    self.__class__.__name__,
-                    len(item),
-                    do_split,
-                    len(self._downstream_nodes),
-                ),
+                "%s: split=%s, %d downstream nodes"
+                % (self.__class__.__name__, do_split, len(self._downstream_nodes)),
                 label="push",
             )
 
             if do_split:
                 # Split the data among the downstream nodes
-                splits = np.array_split(item, len(self._downstream_nodes))
-                for i, downstream in enumerate(self._downstream_nodes):
-                    futures.append(executor.submit(downstream._process, splits[i]))
+                splits = divide_data(item, len(self._downstream_nodes))
+                for i, split in enumerate(splits):
+                    node = self._downstream_nodes[i]
+                    futures.append(executor.submit(node._process, split))
             else:
                 # Pass complete data to each downstream node
                 for downstream in self._downstream_nodes:
@@ -320,19 +326,148 @@ class FuturesPushNode(DefaultNode):
                 result = future.result()
 
 
-class ProcessPoolPush(FuturesPushNode):
+class ProcessPoolPush(FuturesPush):
     """A multi-process FuturesPushNode"""
 
     pass
 
 
-class ThreadPoolPush(FuturesPushNode):
+class ThreadPoolPush(FuturesPush):
     """A multi-threaded FuturesPushNode"""
 
     executor_class = ThreadPoolExecutor
 
 
-class Reducer(Node):
+class PoolSubmit(Node):
+    """Apply a function to the data in parallel"""
+
+    def check_data(self, data):
+        return
+
+    def get_executor(self, **executor_kwargs):
+        raise NotImplementedError
+
+    def get_worker_count(self, executor):
+        raise NotImplementedError
+
+    def submit(self, executor, func, splits, **kwargs):
+        raise NotImplementedError
+
+    def get_results(self, futures, timeout=None):
+        raise NotImplementedError
+
+    def shutdown_executor(self, executor):
+        raise NotImplementedError
+
+    def run(
+        self,
+        data,
+        func,
+        executor=None,
+        executor_kwargs=None,
+        split_count=None,
+        timeout=None,
+        push_type=PushTypes.Async,
+        **kwargs
+    ):
+        """Use a parallel executor to apply func to data
+
+        Parameters
+        ----------
+        data
+            An iterable to process
+        func : callable
+            A callable that will be passed data to operate on in parallel
+        executor : Executor, optional
+            If passed use this executor instead of creating one.
+        executor_kwargs : dict, optional
+            Keyword arguments to pass when initalizing an executor.
+        split_count : int, optional
+            How many slices to split the data into for parallel processing. Default
+            is to set split_count = number of workers
+        timeout : int or float, optional
+            Time to wait for jobs to complete before raising an error. Ignored
+            unless using a push_type that waits for results.
+        push_type : type, optional
+            If "async", push the Futures immediately.
+            If "input", push the input data immediately after task submission.
+            If "result", collect the result synchronously and push it.
+        **kwargs
+            Keyword arguments passed to the executor when submitting work
+
+        """
+        self.check_data(data)
+
+        shutdown = True
+        if executor:
+            shutdown = False
+        else:
+            executor_kwargs = executor_kwargs or {}
+            executor = self.get_executor(**executor_kwargs)
+
+        try:
+            worker_count = self.get_worker_count(executor)
+            split_count = split_count or worker_count
+            splits = divide_data(data, split_count)
+            info(
+                "%s: data len: %s, splits: %s, workers: %d"
+                % (
+                    self.__class__.__name__,
+                    size(data, "n/a"),
+                    split_count,
+                    worker_count,
+                )
+            )
+            futures = self.submit(executor, func, splits, **kwargs)
+
+            if push_type == PushTypes.Async:
+                for future in futures:
+                    self.push(future)
+            elif push_type == PushTypes.Input:
+                self.push(data)
+            elif push_type == PushTypes.Result:
+                self.push(self.get_results(futures, timeout=timeout))
+            else:
+                assert False, "Invalid push_type: %s" % push_type
+
+        finally:
+            if shutdown:
+                self.shutdown_executor(executor)
+
+
+class ProcessPoolSubmit(PoolSubmit):
+    """A PoolExecutor that uses ProcessPoolExecutor"""
+
+    def get_executor(self, **executor_kwargs):
+        return ProcessPoolExecutor(**executor_kwargs)
+
+    def get_worker_count(self, executor):
+        return executor._max_workers
+
+    def submit(self, executor, func, splits, **kwargs):
+        futures = []
+        for split in splits:
+            futures.append(executor.submit(func, split, **kwargs))
+        return futures
+
+    def get_results(self, futures, timeout=None):
+        results = []
+        for future in as_completed(futures, timeout=timeout):
+            results.append(future.result())
+        return flatten(results)
+
+    def shutdown_executor(self, executor, **kwargs):
+        executor.shutdown(**kwargs)
+
+
+class ThreadPoolSubmit(ProcessPoolSubmit):
+    """A PoolExecutor that uses ThreadPoolExecutor"""
+
+    def get_executor(self, **executor_kwargs):
+        return ThreadPoolExecutor(**executor_kwargs)
+
+
+class Reduce(Node):
     """Waits until end() to call push(), effectively waiting for all nodes before
     it to finish before continuing the pipeline"""
 
@@ -346,13 +481,34 @@ class Reducer(Node):
 
     def end(self):
         """Do the push once all results are in"""
-        self.push(self.results)
+        results = self.results
+        if self.context.get("flatten", False):
+            results = flatten(results)
+        self.push(results)
 
 
-class ThreadReducer(Reducer):
+class ThreadReduce(Reduce):
     """A plain-old Reducer with a name that makes it clear it works with threads"""
 
     pass
+
+
+class FuturesReduce(Reduce):
+    def end(self):
+        """Do the push once all Futures results are in"""
+        dbg("Waiting for %d futures..." % len(self.results))
+        timeout = self.context.get("timeout", None)
+        results = []
+        for future in as_completed(self.results, timeout=timeout):
+            results.append(future.result())
+        if self.context.get("flatten", False):
+            results = flatten(results)
+        self.push(results)
+
+
+class Flatten(Node):
+    def run(self, data):
+        self.push(flatten(data))
 
 
 class DataFramePushMixin:
@@ -402,13 +558,13 @@ class SQLCursorPushMixin:
             self.push(data)
 
 
-class DataFramePushNode(Node, DataFramePushMixin):
+class DataFramePush(Node, DataFramePushMixin):
     """Base class for DataFrame-based nodes"""
 
     pass
 
 
-class BaseSQLNode(SkipFalseNode):
+class BaseSQLNode(SkipFalse):
     """Base class for SQL-based nodes, checks for valid connection types on init
 
     Attributes
@@ -690,7 +846,7 @@ def consume(pipeline, data, cleanup=None, **node_contexts):
     update_node_contexts(pipeline, node_contexts)
     try:
         contexts = get_node_contexts(pipeline)
-        dbg("size=%s\n%s" % (len(data), pformat(contexts)), indent="label")
+        dbg("size=%s\n%s" % (size(data, "n/a"), pformat(contexts)), indent="label")
         try:
             return pipeline.consume(iterize(data))
         finally:
@@ -841,8 +997,20 @@ class ParaGlider(Glider):
     def get_executor(self):
         raise NotImplementedError
 
+    def get_worker_count(self, executor):
+        raise NotImplementedError
+
+    def get_results(self, futures, timeout=None):
+        raise NotImplementedError
+
     def consume(
-        self, data, cleanup=None, split_count=None, timeout=None, **node_contexts
+        self,
+        data,
+        cleanup=None,
+        split_count=None,
+        synchronous=False,
+        timeout=None,
+        **node_contexts
     ):
         """Setup node contexts and consume data with the pipeline
 
@@ -856,35 +1024,44 @@ class ParaGlider(Glider):
         split_count : int, optional
             How many slices to split the data into for parallel processing. Default
             is to use executor._max_workers.
+        synchronous : bool, optional
+            If False, return Futures. If True, wait for futures to complete and
+            return their results, if any.
         timeout : int or float, optional
             Raises a concurrent.futures.TimeoutError if __next__() is called
             and the result isn’t available after timeout seconds from the
-            original call to as_completed()
+            original call to as_completed(). Ignored if synchronous=False.
         **node_contexts
             Keyword arguments that are node_name->param_dict
 
         """
         with self.get_executor() as executor:
-            split_count = split_count or executor._max_workers
-            splits = np.array_split(data, min(len(data), split_count))
+            worker_count = self.get_worker_count(executor)
+            split_count = split_count_helper(data, split_count or worker_count)
+            splits = divide_data(data, split_count)
             futures = []
+
             info(
-                "%s: data len: %s, %d worker(s), %d split(s)"
+                "%s: data len: %s, splits: %d, workers: %d"
                 % (
                     self.__class__.__name__,
-                    len(data),
-                    executor._max_workers,
-                    len(splits),
+                    size(data, "n/a"),
+                    worker_count,
+                    split_count,
                 )
             )
+
             for split in splits:
                 futures.append(
                     executor.submit(
                         consume, self.pipeline, split, cleanup=cleanup, **node_contexts
                     )
                 )
-            for future in as_completed(futures, timeout=timeout):
-                result = future.result()
+
+            if synchronous:
+                return self.get_results(futures, timeout=timeout)
+            else:
+                return futures
 
 
 class ProcessPoolParaGlider(ParaGlider):
@@ -894,8 +1071,17 @@ class ProcessPoolParaGlider(ParaGlider):
     def get_executor(self):
         return ProcessPoolExecutor(**self.executor_kwargs)
 
+    def get_worker_count(self, executor):
+        return executor._max_workers
 
-class ThreadPoolParaGlider(ParaGlider):
+    def get_results(self, futures, timeout=None):
+        results = []
+        for future in as_completed(futures, timeout=timeout):
+            results.append(future.result())
+        return results
+
+
+class ThreadPoolParaGlider(ProcessPoolParaGlider):
     """A parallel Glider that uses a ThreadPoolExecutor to execute parallel calls to
     consume()"""
 

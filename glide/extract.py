@@ -13,7 +13,7 @@ from pandas.io.common import get_filepath_or_buffer
 import requests
 from tlbx import st, read_chunks, extract_email_payload
 
-from glide.core import Node, DataFramePushNode, SQLNode, PandasSQLNode
+from glide.core import Node, DataFramePush, SQLNode, PandasSQLNode
 from glide.sql_utils import build_table_select
 from glide.utils import dbg, read_excel, find_class_in_dict, get_class_list_docstring
 
@@ -21,7 +21,7 @@ from glide.utils import dbg, read_excel, find_class_in_dict, get_class_list_docs
 # -------- Pandas Extractors
 
 
-class DataFrameCSVExtractor(DataFramePushNode):
+class DataFrameCSVExtractor(DataFramePush):
     """Extract data from a CSV using Pandas"""
 
     def run(self, f, **kwargs):
@@ -39,7 +39,7 @@ class DataFrameCSVExtractor(DataFramePushNode):
         self.do_push(df, chunksize=kwargs.get("chunksize", None))
 
 
-class DataFrameExcelExtractor(DataFramePushNode):
+class DataFrameExcelExtractor(DataFramePush):
     """Extract data from an Excel file using Pandas"""
 
     def run(self, f, **kwargs):
@@ -570,6 +570,6 @@ class EmailExtractor(Node):
                 self.push(row)
 
 
-node_names = find_class_in_dict(Node, locals(), "Extract")
+node_names = find_class_in_dict(Node, locals(), include="Extract")
 if node_names:
     __doc__ = __doc__ + get_class_list_docstring("Nodes", node_names)

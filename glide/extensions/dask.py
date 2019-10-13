@@ -13,11 +13,19 @@ import pandas as pd
 import numpy as np
 from tlbx import st, set_missing_key
 
-from glide.core import Node, DefaultNode, FuturesPushNode, ParaGlider, consume
-from glide.utils import dbg
+from glide.core import (
+    Node,
+    PushNode,
+    FuturesPush,
+    ParaGlider,
+    PoolSubmit,
+    Reduce,
+    consume,
+)
+from glide.utils import dbg, is_pandas, flatten
 
 
-class DaskClientPush(FuturesPushNode):
+class DaskClientPush(FuturesPush):
     """Use a dask Client to do a parallel push"""
 
     executor_class = Client
@@ -28,7 +36,7 @@ class DaskClientPush(FuturesPushNode):
         super().run(*args, **kwargs)
 
 
-class DaskDelayedPush(DefaultNode):
+class DaskDelayedPush(PushNode):
     """Use dask delayed to do a parallel push"""
 
     def _push(self, item):
@@ -56,75 +64,70 @@ class DaskParaGlider(ParaGlider):
     """A ParaGlider that uses a dask Client to execute parallel calls to
     consume()"""
 
-    def consume(self, data, cleanup=None, split_count=None, **node_contexts):
-        """Setup node contexts and consume data with the pipeline
-
-        Parameters
-        ----------
-        data
-            Iterable of data to consume
-        cleanup : dict, optional
-            A mapping of arg names to clean up functions to be run after
-            data processing is complete.
-        split_count : int, optional
-            How many slices to split the data into for parallel processing. Default
-            is to use ncores() from the dask Client.
-        **node_contexts
-            Keyword arguments that are node_name->param_dict
-
-        """
+    def get_executor(self):
         assert Client, "Please install dask (Client) to use DaskParaGlider"
+        return Client(**self.executor_kwargs)
 
-        with Client(**self.executor_kwargs) as client:  # Local multi-processor for now
-            worker_count = split_count or len(client.ncores())
-            splits = np.array_split(data, min(len(data), worker_count))
-            futures = []
-            dbg(
-                "%s: data len: %s, %d worker(s), %d split(s)"
-                % (self.__class__.__name__, len(data), worker_count, len(splits))
-            )
-            for split in splits:
-                futures.append(
-                    client.submit(
-                        consume, self.pipeline, split, cleanup=cleanup, **node_contexts
-                    )
-                )
-            for future in dask_as_completed(futures):
-                result = future.result()
+    def get_worker_count(self, executor):
+        return len(executor.ncores())
+
+    def get_results(self, futures, timeout=None):
+        assert not timeout, "timeout argument is not supported for Dask Client"
+        dfs = []
+        for future, result in dask_as_completed(futures, with_results=True):
+            dfs.append(result)
+        return dfs
 
 
-class DataFrameDaskClientTransformer(Node):
+class DaskClientMap(PoolSubmit):
     """Apply a transform to a Pandas DataFrame using dask Client"""
 
-    def run(self, df, func, executor_kwargs=None, **kwargs):
-        """Split the DataFrame and call func() using dask Client, concat results
+    def check_data(self, data):
+        assert is_pandas(data), "DaskClientMap expects a Pandas object, got %s" % type(
+            data
+        )
 
-        Parameters
-        ----------
-        df : pandas.DataFrame
-            The pandas DataFrame to split and apply func to
-        func : callable
-            A callable that will be passed to Dask Client.map
-        executor_kwargs : dict, optional
-            Keyword arguments to pass to Client
-        **kwargs
-            Keyword arguments passed to Client.map
+    def get_executor(self, **executor_kwargs):
+        assert Client, "The dask (Client) package is not installed"
+        return Client(**executor_kwargs)
+
+    def get_worker_count(self, executor):
+        return len(executor.ncores())
+
+    def submit(self, executor, func, splits, **kwargs):
+        futures = executor.map(func, splits, **kwargs)
+        return futures
+
+    def get_results(self, futures, timeout=None):
+        assert not timeout, "timeout argument is not supported for Dask Client"
+        dfs = []
+        for future, result in dask_as_completed(futures, with_results=True):
+            dfs.append(result)
+        return pd.concat(dfs)
+
+    def shutdown_executor(self, executor):
+        executor.close()
+
+
+class DaskFuturesReduce(Reduce):
+    def end(self):
+        """Do the push once all Futures results are in.
+
+        Warnings
+        --------
+        Dask futures will not work if you have closed your client connection!
 
         """
-        assert Client, "The dask (Client) package is not installed"
-        # https://distributed.dask.org/en/latest/api.html
-        dfs = []
-        executor_kwargs = executor_kwargs or {}
-        with Client(**executor_kwargs) as client:
-            df_split = np.array_split(df, len(client.ncores()))
-            futures = client.map(func, df_split, **kwargs)
-            for future, result in dask_as_completed(futures, with_results=True):
-                dfs.append(result)
-        df = pd.concat(dfs)
-        self.push(df)
+        dbg("Waiting for %d Dask futures..." % len(self.results))
+        results = []
+        for future, result in dask_as_completed(self.results, with_results=True):
+            results.append(result)
+        if self.context.get("flatten", False):
+            results = pd.concat(results)
+        self.push(results)
 
 
-class DaskDataFrameApplyTransformer(Node):
+class DaskDataFrameApply(Node):
     """Apply a transform to a Pandas DataFrame using dask dataframe"""
 
     def run(self, df, func, from_pandas_kwargs=None, **kwargs):

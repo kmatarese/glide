@@ -38,6 +38,6 @@ class AttributeFilterNode(Node):
         self.push(getattr(item, attribute))
 
 
-node_names = find_class_in_dict(Node, locals(), "Filter")
+node_names = find_class_in_dict(Node, locals(), include="Filter")
 if node_names:
     __doc__ = __doc__ + get_class_list_docstring("Nodes", node_names)

@@ -5,7 +5,7 @@ from ..test_utils import *
 def test_swifter_csv_chunked_lowercase(rootdir):
     nodes = (
         DataFrameCSVExtractor("extract")
-        | SwifterApplyTransformer("transform")
+        | SwifterApply("transform")
         | DataFrameCSVLoader("load", index=False, mode="a")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
@@ -20,7 +20,7 @@ def test_swifter_csv_chunked_lowercase(rootdir):
 def test_swifter_chunked_threads_lowercase(rootdir):
     nodes = (
         DataFrameCSVExtractor("extract")
-        | SwifterApplyTransformer("transform")
+        | SwifterApply("transform")
         | DataFrameCSVLoader("load", index=False, mode="a")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)

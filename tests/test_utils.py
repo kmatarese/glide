@@ -42,9 +42,7 @@ def row_lower(row):
 
 def lower_rows(data):
     for row in data:
-        for k, v in row.items():
-            if isinstance(v, str):
-                row[k] = v.lower()
+        row_lower(row)
     return data
 
 

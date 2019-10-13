@@ -16,8 +16,10 @@ except:
 import numpy as np
 from tlbx import st, import_object
 
+# We need to import * in this case because CeleryBuildGliderTask could
+# reference arbitrary Glide objects
 from glide import *
-from glide.utils import dbg
+from glide.utils import dbg, divide_data, flatten, size
 
 if Task:
 
@@ -172,13 +174,22 @@ class CeleryParaGlider(ParaGlider):
     """
 
     def __init__(self, consume_task, *args, **kwargs):
+        assert Celery, "Please install Celery to use CeleryParaGlider"
         assert isinstance(
             consume_task, Task
         ), "The first argument to CeleryParaGlider must be a registered celery task that mirrors consume()"
         self.consume_task = consume_task
         super().__init__(*args, **kwargs)
 
-    def consume(self, data, cleanup=None, split_count=None, **node_contexts):
+    def consume(
+        self,
+        data,
+        cleanup=None,
+        split_count=None,
+        synchronous=False,
+        timeout=None,
+        **node_contexts
+    ):
         """Setup node contexts and consume data with the pipeline
 
         Parameters
@@ -191,22 +202,27 @@ class CeleryParaGlider(ParaGlider):
         split_count : int, optional
             How many slices to split the data into for parallel processing. Default
             is to inspect the celery app and set split_count = worker count.
+        synchronous : bool, optional
+            If False, return AsyncResults. If True, wait for tasks to complete and
+            return their results, if any.
+        timeout : int or float, optional
+            If waiting for results, pass this as timeout to AsyncResult.get().
         **node_contexts
             Keyword arguments that are node_name->param_dict
 
         """
-        assert Celery, "Please install Celery to use CeleryParaGlider"
-
         if not split_count:
             dbg("determining split count from app celery worker count")
             app_stats = self.consume_task.app.control.inspect().stats()
             split_count = len(app_stats.keys())
 
-        splits = np.array_split(data, min(len(data), split_count))
+        split_count = split_count_helper(data, split_count)
+        splits = divide_data(data, split_count)
         dbg(
-            "%s: data len: %s, %d split(s)"
-            % (self.__class__.__name__, len(data), len(splits))
+            "%s: data len: %s, splits: %d"
+            % (self.__class__.__name__, size(data, "n/a"), split_count)
         )
+
         async_results = []
         for split in splits:
             async_results.append(
@@ -214,13 +230,23 @@ class CeleryParaGlider(ParaGlider):
                     self.pipeline, split, cleanup=cleanup, **node_contexts
                 )
             )
-        return async_results
+
+        if synchronous:
+            results = []
+            for async_result in async_results:
+                try:
+                    results.append(async_result.get(timeout=timeout))
+                finally:
+                    async_result.forget()
+            return results
+        else:
+            return async_results
 
 
 class CeleryApplyAsync(Node):
     """A Node that calls apply_async on a given Celery Task"""
 
-    def run(self, data, task, timeout=None, push_type="async_result", **kwargs):
+    def run(self, data, task, timeout=None, push_type=PushTypes.Async, **kwargs):
         """Call task.apply_async with the given data as the first task argument
 
         Parameters
@@ -232,7 +258,7 @@ class CeleryApplyAsync(Node):
         timeout : int, optional
             A timeout to use if waiting for results via AsyncResult.get()
         push_type : str, optional
-            If "async_result", push the AsyncResult immediately.
+            If "async", push the AsyncResult immediately.
             If "input", push the input data immediately after task submission.
             If "result", collect the task result synchronously and push it.
         **kwargs
@@ -241,11 +267,11 @@ class CeleryApplyAsync(Node):
         """
         async_result = task.apply_async(args=(data,), **kwargs)
 
-        if push_type == "async_result":
+        if push_type == PushTypes.Async:
             self.push(async_result)
-        elif push_type == "input":
+        elif push_type == PushTypes.Input:
             self.push(data)
-        elif push_type == "result":
+        elif push_type == PushTypes.Result:
             result = async_result.get(timeout=timeout)
             async_result.forget()
             self.push(result)
@@ -253,7 +279,7 @@ class CeleryApplyAsync(Node):
             assert False, "Invalid push_type: %s" % push_type
 
 
-class CeleryReducer(Reducer):
+class CeleryReduce(Reduce):
     def end(self):
         """Do the push once all results are in"""
         dbg("Waiting for %d celery task(s)..." % len(self.results))
@@ -264,4 +290,6 @@ class CeleryReducer(Reducer):
             interval=self.context.get("interval", 0.5),
         )
         result_set.forget()
+        if self.context.get("flatten", False):
+            results = flatten(results)
         self.push(results)

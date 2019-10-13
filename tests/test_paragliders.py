@@ -2,16 +2,23 @@ from .test_utils import *
 from glide import *
 
 
-def test_csv_process_pool_paraglider(rootdir):
+def test_process_pool_paraglider(rootdir):
     infile, outfile = get_filenames(rootdir, "csv")
     glider = ProcessPoolParaGlider(RowCSVExtractor("extract") | Printer("load"))
-    glider.consume([infile], extract=dict(nrows=10))
+    glider.consume([infile], synchronous=True, extract=dict(nrows=10))
 
 
-def test_csv_thread_pool_paraglider(rootdir):
+def test_thread_pool_paraglider(rootdir):
     infile, outfile = get_filenames(rootdir, "csv")
     glider = ThreadPoolParaGlider(RowCSVExtractor("extract") | Printer("load"))
-    glider.consume([infile], extract=dict(nrows=10))
+    glider.consume([infile], synchronous=True, extract=dict(nrows=10))
+
+
+def test_async_thread_pool_paraglider(rootdir):
+    infile, outfile = get_filenames(rootdir, "csv")
+    glider = ThreadPoolParaGlider(RowCSVExtractor("extract") | Printer("load"))
+    futures = glider.consume([infile], synchronous=False, extract=dict(nrows=10))
+    results = glider.get_results(futures)
 
 
 def test_sql_process_pool_paraglider(rootdir):
@@ -21,6 +28,7 @@ def test_sql_process_pool_paraglider(rootdir):
     glider = ProcessPoolParaGlider(RowSQLExtractor("extract") | PrettyPrinter("load"))
     glider.consume(
         [sql],
+        synchronous=True,
         cleanup=dict(extract_conn=closer),
         extract=dict(conn=RuntimeContext(get_sqlalchemy_conn), zip="01000"),
     )
@@ -34,6 +42,7 @@ def test_sql_dataframe_process_pool_paraglider(rootdir):
     )
     glider.consume(
         [sql],
+        synchronous=True,
         cleanup=dict(extract_conn=closer),
         timeout=5,
         extract=dict(
@@ -51,6 +60,7 @@ def test_sql_thread_pool_paraglider(rootdir):
     )
     glider.consume(
         [sql],
+        synchronous=True,
         extract=dict(
             conn=RuntimeContext(get_pymysql_conn),
             cursor_type=pymysql.cursors.DictCursor,

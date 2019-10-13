@@ -23,6 +23,7 @@ from glide.sql_utils import (
 from glide.utils import (
     dbg,
     warn,
+    size,
     save_excel,
     find_class_in_dict,
     get_class_list_docstring,
@@ -60,7 +61,7 @@ class LenPrinter(Printer):
         return "%s: " % self.name
 
     def print(self, item):
-        print("item length: %s" % len(item))
+        print("item length: %s" % size(item, "n/a"))
 
 
 class ReprPrinter(Printer):
@@ -414,7 +415,7 @@ class RowSQLLoader(SQLNode):
 
         """
         sql = self.get_bulk_statement(conn, stmt_type, table, rows, odku=odku)
-        dbg("Loading %d rows\n%s" % (len(rows), sqlformat(sql)), indent="label")
+        dbg("Loading %d rows\n%s" % (size(rows, "n/a"), sqlformat(sql)), indent="label")
 
         if dry_run:
             warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
@@ -455,7 +456,7 @@ class RowSQLTempLoader(SQLNode):
         """
         table = get_temp_table(conn, rows, create=True, schema=schema)
         sql = self.get_bulk_statement(conn, "REPLACE", table.name, rows)
-        dbg("Loading %d rows\n%s" % (len(rows), sqlformat(sql)), indent="label")
+        dbg("Loading %d rows\n%s" % (size(rows, "n/a"), sqlformat(sql)), indent="label")
 
         if dry_run:
             warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
@@ -706,7 +707,7 @@ class EmailLoader(Node):
         self.push(data)
 
 
-node_names = find_class_in_dict(Node, locals(), "Load")
-node_names.extend(find_class_in_dict(Node, locals(), "Print"))
+node_names = find_class_in_dict(Node, locals(), include="Load")
+node_names.extend(find_class_in_dict(Node, locals(), include="Print"))
 if node_names:
     __doc__ = __doc__ + get_class_list_docstring("Nodes", node_names)

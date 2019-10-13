@@ -11,26 +11,29 @@ except:
 import time
 from tlbx import st
 
-from glide import ParaGlider, Node, Reducer, consume
-from glide.utils import dbg
+from glide import ParaGlider, Node, Reduce, PushTypes, consume, split_count_helper
+from glide.utils import dbg, divide_data, flatten, size
 
 
 POLL_SLEEP = 1
 
 
-"""
-TODO: Would it be better to rely on the job registry instead of job.result?
-
---- Example:
-from rq import job
-from rq.registry import FinishedJobRegistry
-registry = FinishedJobRegistry('default', connection=redis_conn)
-job_ids = registry.get_job_ids()
-job_obj = job.Job.fetch("job-id-here", connection=redis_conn)
-"""
+class RQTimeoutException(Exception):
+    pass
 
 
 def complete_count(async_results):
+    """
+    TODO: Would it be better to rely on the job registry instead of job.result?
+
+    --- Example:
+    from rq import job
+    from rq.registry import FinishedJobRegistry
+    registry = FinishedJobRegistry('default', connection=redis_conn)
+    job_ids = registry.get_job_ids()
+    job_obj = job.Job.fetch("job-id-here", connection=redis_conn)
+
+    """
     count = 0
     for job in async_results:
         if job.result is not None:
@@ -38,11 +41,18 @@ def complete_count(async_results):
     return count
 
 
-def get_async_results(async_results):
+def get_async_results(async_results, timeout=None):
     # XXX: Is there a better option than polling?
+    start = time.time()
+
     while complete_count(async_results) < len(async_results):
-        dbg("Sleeping %.2fs..." % POLL_SLEEP)
+        diff = time.time() - start
+        if timeout and diff >= timeout:
+            raise RQTimeoutException("get_async_results timed out after %.3fs" % diff)
+
+        dbg("Sleeping %.3fs..." % POLL_SLEEP)
         time.sleep(POLL_SLEEP)
+
     return [job.result for job in async_results]
 
 
@@ -78,13 +88,22 @@ class RQParaGlider(ParaGlider):
     """
 
     def __init__(self, queue, *args, **kwargs):
+        assert Queue, "Please install 'rq' to use RQParaGlider"
         assert isinstance(
             queue, Queue
         ), "The first argument to RQParaGlider must be a Queue"
         self.queue = queue
         super().__init__(*args, **kwargs)
 
-    def consume(self, data, cleanup=None, split_count=None, **node_contexts):
+    def consume(
+        self,
+        data,
+        cleanup=None,
+        split_count=None,
+        synchronous=False,
+        timeout=None,
+        **node_contexts
+    ):
         """Setup node contexts and consume data with the pipeline
 
         Parameters
@@ -97,22 +116,28 @@ class RQParaGlider(ParaGlider):
         split_count : int, optional
             How many slices to split the data into for parallel processing. Default
             is the number of workers in the provided queue.
+        synchronous : bool, optional
+            If False, return Jobs. If True, wait for jobs to complete and
+            return their results, if any.
+        timeout : int or float, optional
+            If waiting for results, raise an exception if polling for all
+            results takes longer than timeout seconds.
         **node_contexts
             Keyword arguments that are node_name->param_dict
 
         """
-        assert Queue, "Please install 'rq' to use RQParaGlider"
-
         if not split_count:
             dbg("determining split count from rq worker count")
             workers = Worker.all(queue=self.queue)
             split_count = len(workers)
 
-        splits = np.array_split(data, min(len(data), split_count))
+        split_count = split_count_helper(data, split_count)
+        splits = divide_data(data, split_count)
         dbg(
-            "%s: data len: %s, %d split(s)"
-            % (self.__class__.__name__, len(data), len(splits))
+            "%s: data len: %s, splits: %d"
+            % (self.__class__.__name__, size(data, "n/a"), split_count)
         )
+
         async_results = []
         for split in splits:
             async_results.append(
@@ -122,7 +147,11 @@ class RQParaGlider(ParaGlider):
                     kwargs=dict(cleanup=cleanup, **node_contexts),
                 )
             )
-        return async_results
+
+        if synchronous:
+            return get_async_results(async_results, timeout=timeout)
+        else:
+            return async_results
 
 
 class RQJob(Node):
@@ -142,7 +171,7 @@ class RQJob(Node):
         queue=None,
         queue_name="default",
         redis_conn=None,
-        push_type="async_result",
+        push_type=PushTypes.Async,
         poll_sleep=POLL_SLEEP,
         **kwargs
     ):
@@ -161,7 +190,7 @@ class RQJob(Node):
         redis_conn : type, optional
             When creating a queue, the redis connection to use
         push_type : type, optional
-            If "async_result", push the Job immediately.
+            If "async", push the Job immediately.
             If "input", push the input data immediately after task submission.
             If "result", collect the task result synchronously and push it.
         poll_sleep : int or float, optional
@@ -176,19 +205,21 @@ class RQJob(Node):
 
         job = queue.enqueue(func, args=(data,), **kwargs)
 
-        if push_type == "async_result":
+        if push_type == PushTypes.Async:
             self.push(job)
-        elif push_type == "input":
+        elif push_type == PushTypes.Input:
             self.push(data)
-        elif push_type == "result":
+        elif push_type == PushTypes.Result:
             self.push(get_async_result(job))
         else:
             assert False, "Invalid push_type: %s" % push_type
 
 
-class RQReducer(Reducer):
+class RQReduce(Reduce):
     def end(self):
         """Do the push once all results are in"""
         dbg("Waiting for %d RQ job(s)..." % len(self.results))
         results = get_async_results(self.results)
+        if self.context.get("flatten", False):
+            results = flatten(results)
         self.push(results)

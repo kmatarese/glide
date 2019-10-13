@@ -2,10 +2,12 @@
 
 import functools
 from inspect import isgenerator
+import itertools
 import io
 import logging
 import types
 
+import numpy as np
 import pandas as pd
 from pyexcel.internal import SOURCE
 from pyexcel_xlsx import get_data as get_xlsx, save_data as save_xlsx
@@ -37,13 +39,15 @@ _CLASS_LIST_DOCSTRING_TEMPLATE = """
 """
 
 
-def find_class_in_dict(cls, d, filter=None):
+def find_class_in_dict(cls, d, include=None, exclude=None):
     names = []
     for key, value in d.copy().items():
         if not isinstance(value, type):
             continue
         if issubclass(value, cls):
-            if filter and filter not in key:
+            if include and include not in key:
+                continue
+            if exclude and exclude in key:
                 continue
             names.append(key)
     return names
@@ -75,6 +79,29 @@ def is_file_obj(o):
 def nchunks(a, n):
     k, m = divmod(len(a), n)
     return (a[i * k + min(i, m) : (i + 1) * k + min(i + 1, m)] for i in range(n))
+
+
+def divide_data(data, n):
+    if is_pandas(data):
+        return np.array_split(data, n)
+    else:
+        return nchunks(data, n)
+
+
+def flatten(l):
+    assert (
+        l and len(l) > 0
+    ), "flatten requires a list of lists or list of pandas objects"
+    if is_pandas(l[0]):
+        return pd.concat(l)
+    else:
+        return list(itertools.chain.from_iterable(l))
+
+
+def size(o, default=None):
+    if hasattr(o, "__len__"):
+        return len(o)
+    return default
 
 
 def iterize(o):
