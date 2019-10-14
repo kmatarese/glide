@@ -6,13 +6,57 @@ from glide.core import Node
 from glide.utils import find_class_in_dict, get_class_list_docstring
 
 
+class Func(Node):
+    """Call func with data"""
+
+    def run(self, data, func):
+        """Call func with data
+
+        Parameters
+        ----------
+        data
+           Data to process
+        func : callable
+           Function to pass data to
+
+        """
+        self.push(func(data))
+
+
+class Map(Node):
+    """Call the built-in map() function with func and data"""
+
+    def run(self, data, func, as_list=False):
+        """Call the built-in map() function with func and data
+
+        Parameters
+        ----------
+        data
+            Data to process
+        func : callable
+            Function to pass to map()
+        as_list : bool, optional
+            If True, read the map() result into a list before pushing
+        """
+        result = map(func, data)
+        if as_list:
+            result = [x for x in result]
+        self.push(result)
+
+
 class JSONDumps(Node):
+    """Call json.dumps on the data"""
+
     def run(self, data):
+        """Call json.dumps on the data and push"""
         self.push(json.dumps(data))
 
 
 class JSONLoads(Node):
+    """Call json.loads on the data"""
+
     def run(self, data):
+        """Call json.loads on the data and push"""
         self.push(json.loads(data))
 
 

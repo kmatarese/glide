@@ -138,9 +138,15 @@ class CSVLoad(Node):
                 warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
             else:
                 if not self.writer:
-                    self.writer = csv.DictWriter(
-                        fo, fieldnames=rows[0].keys(), **kwargs
-                    )
+                    if not kwargs.get("fieldnames", None):
+                        try:
+                            kwargs["fieldnames"] = rows[0].keys()
+                        except TypeError as e:
+                            raise TypeError(
+                                "Unable to determine fieldnames from rows. "
+                                "Either specify fieldnames or pass subscriptable data rows with keys()."
+                            )
+                    self.writer = csv.DictWriter(fo, **kwargs)
                     self.writer.writeheader()
                 self.writer.writerows(rows)
         finally:

@@ -3,8 +3,7 @@ Common Pipelines
 
 ``Glide`` comes with some common, templated ETL pipelines that connect
 combinations of common nodes. The names are generally of the format
-"Source2Destination", occasionally with more descriptive names for different
-data types such as DataFrames. The names of the available pipelines are listed
+"Source2Destination". The names of the available pipelines are listed
 in the :py:mod:`glide.pipelines` module documentation.
 
 To use these pipelines, simply call the template to get an instance of a
@@ -13,7 +12,7 @@ Glider, such as::
     glider = File2Email()
     glider.consume([file1, file2], load=dict(client=my_smtp_cient))
 
-By default these templated pipelines have a ``Placeholder`` node named
+By default these templated pipelines have a ``PlaceholderNode`` named
 "transform" that you can easily replace once the glider is created::
 
     glider["transform"] = MyTransformerNode("transform")

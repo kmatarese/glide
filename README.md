@@ -9,12 +9,11 @@ Glide: Easy ETL
 Introduction
 ------------
 
-Glide was inspired by and uses a similar syntax to [Consecution](https://github.com/robdmc/consecution), which is an easy-to-use
-pipeline abstraction tool inspired by [Apache Storm Topologies](http://storm.apache.org/releases/current/Tutorial.html).
-Like those libraries, **Glide is:**
+Glide is an easy-to-use data pipelining tool inspired by [Consecution](https://github.com/robdmc/consecution) and 
+[Apache Storm Topologies](http://storm.apache.org/releases/current/Tutorial.html). Like those libraries, **Glide is:**
 
 - A simple, reusable approach to building robust ETL pipelines
-- A system for wiring together processing nodes to form a DAG
+- A system for wiring together processing nodes to form a directed acyclic graph (DAG)
 
 **Glide also has:**
 
@@ -26,14 +25,15 @@ Like those libraries, **Glide is:**
     - Excel files (including multi-sheet support)
     - Raw/generic files
   - Emails
-- Built-in nodes for Pandas DataFrame-based pipelines, including optional support for DataFrame transformation via [Dask](https://dask.org/) or [Swifter](https://github.com/jmcarpenter2/swifter)
-- A variety of node and DAG parallel/distributed processing strategies including:
-  - concurrent.futures Executors
-  - [Dask](https://dask.org/) (optional extension)
-  - [Celery](http://www.celeryproject.org/) (optional extension)
-  - [Redis Queue](http://python-rq.org/) (optional extension)
+- Extensions for [Pandas](https://pandas.pydata.org/), [Dask](https://dask.org/), [Celery](http://www.celeryproject.org/), [Redis Queue](http://python-rq.org/) and more
+- A variety of node and DAG parallel/distributed processing strategies including concurrent.futures Executors, Dask, Celery, or Redis Queue.
 - A simple decorator to generate a command line interface from a pipeline in ~one line of code
 - The ability to control node contexts via defaults and/or simple runtime overrides
+
+**Glide is not** a task orchestration and/or dependency management tool like
+Airflow. Use Glide to define your easily developed/contained/reusable/testable
+data processing pipelines and then rely on a tool like Airflow to do what it's
+good at, namely scheduling and complex task dependency management.
 
 Table of Contents
 -----------------
@@ -61,136 +61,55 @@ Examples
 --------
 
 The following examples serve as a quickstart to illustrate some core features
-and built-in nodes. More complete documentation is in progress and can be
-viewed [here](https://glide-etl.readthedocs.io/en/latest/index.html).
+and built-in nodes. More complete documentation can be viewed
+[here](https://glide-etl.readthedocs.io/en/latest/index.html).
 
 `Glider` is the main pipeline class that takes a DAG of `Nodes` as input and
-then accepts data to process in its `consume` method. In most cases `consume`
-will iterate over its input as-is passing each item to the DAG to be
-processed.
-
-> **Note:** Some inputs, such as Pandas objects, strings, file objects, dicts,
-and callables are automatically wrapped in a list to prevent them from being
-broken up, as iteration is often inefficient or nonsensical in those cases.
-
-The examples below assume you have used the following (taboo) shortcut to
-import all necessary node and pipeline classes:
+then accepts data to process in its `consume` method. The examples below
+assume you have used the following shortcut to import all necessary node and
+pipeline classes:
 
 ```python
 from glide import *
 ```
 
-The names of the built-in classes aim to be explicit and therefore can end up
-a bit longer given the many combinations of ways to process data with Glide. As
-a convention, nodes prefixed with "Row" expect to operate on plain old python
-iterables, while nodes prefixed with "DataFrame" propagate Pandas DataFrames.
-
 Let's build some pipelines to explore Glide further...
 
-### Example: Read a CSV
+### Example: CSV Extract, Transform, Load
 
-Here is a trivial example that reads a CSV and passes all rows to a `PrettyPrinter`
-node in a single push to be pretty-printed:
-
-```python
-glider = Glider(
-    RowCSVExtractor("extract")
-    | PrettyPrinter("load")
-)
-glider.consume(["/path/to/file.csv"])
-```
-
-### Example: DataFrame Transformation
-
-Here is a slightly more realistic example applying a transformation to a
-DataFrame read from a CSV, in this case lowercasing all strings before loading
-into an output CSV:
+Here is a simple example applying a transformation to data from a CSV, in this
+case using an existing function to lowercase all strings before loading into
+an output CSV:
 
 ```python
-def lower(s):
-    return s.lower() if type(s) == str else s
+def lower_rows(data):
+    for row in data:
+        for k, v in row.items():
+            row[k] = v.lower() if type(v) == str else v
+    return data
 
 glider = Glider(
-    DataFrameCSVExtractor("extract")
-    | DataFrameApplyMapTransformer("transform")
-    | DataFrameCSVLoader("load", index=False, mode="a")
+    CSVExtract("extract")
+    | Func("transform", func=lower_rows)
+    | CSVLoad("load")
 )
 glider.consume(
     ["/path/to/infile.csv"],
     extract=dict(chunksize=100),
-    transform=dict(func=lower),
     load=dict(outfile="/path/to/outfile.csv"),
 )
 ```
 
 ### Node Context
 
-The above example also demonstrates two separate ways to pass context to nodes:
+The above examples demonstrates two separate ways to pass context to nodes:
         
 1. Passing kwargs when instantiating the node. This becomes a default context
 for the node any time it is used/reused.
 2. Passing kwargs to `consume` that are node_name->node_context pairs. This context
 lasts only for the `consume` call. 
 
-> **Note:** Further details can be found in the node creation documentation.
-
-> **Also Note:** Many of the provided nodes pass their context to
-well-documented functions, such as `DataFrame.to_csv` in the case of
-`DataFrameCSVLoader`. Review the documentation/code for each node for more
-detail on how args are processed and which are required.
-
-### Example: Parallel DataFrame Transformation
-
-Let's do the same thing with the data split in parallel processes using a
-`ProcessPoolExecutor` at the transformation step. Note that we instead use a
-`DataFrameProcessPoolTransformer` and adjusted the `func` argument to the
-transformer since it operates on a chunk of the DataFrame instead of being fed
-individual elements from the DataFrame as `apply_map` does under the hood in
-the previous example:
-
-```python
-def lower(s):
-    return s.lower() if type(s) == str else s
-
-def df_lower(df):
-    df = df.applymap(lower)
-    return df
-
-glider = Glider(
-    DataFrameCSVExtractor("extract")
-    | DataFrameProcessPoolTransformer("transform")
-    | DataFrameCSVLoader("load", index=False, mode="a")
-)
-glider.consume(
-    ["infile.csv"],
-    transform=dict(func=df_lower),
-    load=dict(outfile="outfile.csv"),
-)
-```
-
-### Example: Placeholder Nodes
-
-You can also easily drop replacement nodes into a templated pipeline. In this
-case we use a `PlaceholderNode` for the extract node in the pipeline
-definition and then replace that with a `DataFrameCSVExtractor`. The result is
-a pipeline that can extract a CSV from one file, perform some custom
-transformation on the DataFrame, and then load it to another CSV.
-
-```python
-glider = Glider(
-    PlaceholderNode("extract")
-    | MyTransformer("transform")
-    | DataFrameCSVLoader("load", index=False, mode="a")
-)
-glider["extract"] = DataFrameCSVExtractor("extract")
-glider.consume(
-    ["/path/to/infile.csv"],
-    extract=dict(chunksize=100),
-    load=dict(outfile="/path/to/outfile.csv")
-)
-```
-
-> **Note:** Any node can be replaced by name. `PlaceholderNode` is just a convenience.
+> **Note:** Further details can be found in the Creating Nodes section.
 
 ### Example: Global State
 
@@ -202,8 +121,8 @@ conn = get_my_sqlalchemy_conn()
 sql = "select * from in_table limit 10"
 
 glider = Glider(
-    DataFrameSQLExtractor("extract")
-    | DataFrameSQLLoader("load", if_exists="replace", index=False),
+    SQLExtract("extract")
+    | SQLLoad("load"),
     global_state=dict(conn=conn) # conn will automagically be passed to any nodes that require it
 )
 glider.consume(
@@ -212,18 +131,74 @@ glider.consume(
 )
 ```
 
+### Example: Placeholder Nodes
+
+You can easily drop replacement nodes into a pipeline:
+
+```python
+glider = Glider(
+    PlaceholderNode("extract")
+    | MyTransformer("transform")
+    | CSVLoad("load")
+)
+glider["extract"] = CSVExtract("extract")
+glider.consume(...)
+```
+
+This is one basic approach to make reusable, templated pipelines.
+
+> **Note:** Any node can be replaced by name. `PlaceholderNode` is just a convenience.
+
+### Example: Parallel Transformation
+
+Let's redo the earlier example with the data transformed in parallel processes
+using a `ProcessPoolSubmit` node. In this case, `lower_rows` will be called on
+equal splits of the data read from the CSV:
+
+```python
+glider = Glider(
+    CSVExtract("extract")
+    | ProcessPoolSubmit("transform", push_type=PushTypes.Result)
+    | CSVLoad("load")
+)
+glider.consume(
+    ["infile.csv"],
+    transform=dict(func=lower_rows),
+    load=dict(outfile="outfile.csv"),
+)
+```
+
+We passed `push_type=PushTypes.Result` to force `ProcessPoolSubmit` to fetch
+and combine the asynchronous results before pushing to the downstream
+node. The default is to just pass the asynchronous task/futures objects
+forward, so the following would be equivalent:
+
+```python
+glider = Glider(
+    CSVExtract("extract")
+    | ProcessPoolSubmit("transform")
+    | FuturesReduce("reducer")
+    | Flatten("flatten")
+    | CSVLoad("load")
+)
+```
+
+The `FuturesReduce` node waits for the results from each futures object, and
+then `Flatten` will combine each subresult back together into a single result
+to be loaded in the final `CSVLoad` node.
+
 ### Example: Parallel Pipelines via ParaGlider
 
 Glide also has support for completely parallelizing pipelines using a
 `ParaGlider` (who said ETL isn't fun?!?) instead of a `Glider`. The following
-code will create a process pool and split processing of the inputs over the
-pool, with each process running the entire pipeline on part of the consumed
-data:
+code will create a `ProcessPoolParaGlider` and split processing of the inputs (two files
+in this case) over the pool, with each process running the entire pipeline on
+part of the consumed data:
 
 ```python
 glider = ProcessPoolParaGlider(
-    RowCSVExtractor('extract')
-    | Printer('load')
+    CSVExtract('extract')
+    | Print('load')
 )
 glider.consume(
     ["/path/to/infile1.csv", "/path/to/infile2.csv"],
@@ -233,15 +208,15 @@ glider.consume(
 
 ### Example: Parallel Branching
 
-If you don't want to execute the entire pipeline in parallel, you can also
-branch into parallel execution in the middle of the DAG utilizing a parallel
-push node as in the following example:
+If you only want to execute part of the pipeline in parallel, you can branch
+into parallel execution in the middle of the DAG utilizing a parallel push
+node as in the following example:
 
 ```python
 glider = Glider(
-    RowCSVExtractor("extract", nrows=60)
+    CSVExtract("extract", nrows=60)
     | ProcessPoolPush("push", split=True)
-    | [Printer("load1"), Printer("load2"), Printer("load3")]
+    | [Print("load1"), Print("load2"), Print("load3")]
 )
 glider.consume(["/path/to/infile.csv"])
 ```
@@ -251,26 +226,27 @@ to the logging nodes in parallel processes. Using `split=False` (default)
 would have passed the entire 60 rows to each logging node in parallel
 processes. 
 
-> **Note:** Once you branch off into processes there is no way to reduce/join
-the pipeline back into the original process and resume single-process
-operation on the multiprocessed results. However, that can be achieved with
-threads if necessary as shown in the next example.
+Once you branch off into processes with a parallel push node there is no way
+to reduce/join the pipeline back into the original process and resume
+single-process operation. The entire remainder of the pipeline is executed in
+each subprocess. However, that can be achieved with threads if necessary as
+shown in the next example.
 
 ### Example: Thread Reducers
 
 ```python
 glider = Glider(
-    RowCSVExtractor("extract", nrows=60)
+    CSVExtract("extract", nrows=60)
     | ThreadPoolPush("push", split=True)
-    | [Printer("load1"), Printer("load2"), Printer("load3")]
-    | ThreadReducer("reducer")
-    | Printer("loadall")
+    | [Print("load1"), Print("load2"), Print("load3")]
+    | ThreadReduce("reducer")
+    | Print("loadall")
 )
 glider.consume(["/path/to/infile.csv"])
 ```
 
 The above code will split the data and push to the first 3 logging nodes in
-multiple threads. The `ThreadReducer` won't push until all of the previous
+multiple threads. The `ThreadReduce` node won't push until all of the previous
 nodes have finished, and then the final logging node will print all of the
 results.
 
@@ -279,18 +255,17 @@ results.
 At this point it's worth summarizing the various ways you can attempt parallel processing
 using Glide:
 
-- Method 1: Parallelization *within* nodes such as `DataFrameProcessPoolTransformer` or a distributed processing extension such as Dask/Celery/Redis Queue
+- Method 1: Parallelization *within* nodes such as `ProcessPoolSubmit` or a distributed processing extension such as Dask/Celery/Redis Queue
 - Method 2: Completely parallel pipelines via `ParaGliders` (each process executes the entire pipeline)
 - Method 3: Branched parallelism using parallel push nodes such as `ProcessPoolPush` or `ThreadPoolPush`
 
-Each has its own utility and/or quirks. Method 1 is perhaps the most
-straightforward since you return to single process operation after the node is
-done doing whatever it needed to do in parallel, though the shuffling of data
-to/from subprocesses is not without cost. Method 2 may be useful and easy to
-understand in certain cases as well. Method 3 can lead to more
-complex/confusing flows and should likely only be used towards the end of
-pipelines to branch the output in parallel, such as if writing to several
-databases in parallel as a final step.
+Each has its own use cases. Method 1 is perhaps the most straightforward since
+you can return to single process operation after the node is done doing whatever
+it needed to do in parallel. Method 2 may be useful and easy to understand in
+certain cases as well. Method 3 can lead to more complex/confusing flows and
+should probably only be used towards the end of pipelines to branch the output
+in parallel, such as if writing to several databases in parallel as a final
+step.
 
 > **Note:** Combining the approaches may not work and has not been
 tested. Standard limitations apply regarding what types of data can be
@@ -309,8 +284,8 @@ in a subprocess to fill in the "conn" context variable for the "extract" node:
 
 ```python
 glider = ProcessPoolParaGlider(
-    RowSQLExtractor("extract")
-    | PrettyPrinter("load")
+    SQLExtract("extract")
+    | PrettyPrint("load")
 )
 glider.consume(
     [sql],
@@ -321,16 +296,16 @@ glider.consume(
 )
 ```
 
-In this case it is also necessary to specify the cursor_type so
-`RowSQLExtractor` can create a dict-based cursor for query execution within
-the subprocess as required by `RowSQLExtractor`. Any args/kwargs passed to
-RuntimeContext will be passed to the function when called.
+In this case it is also necessary to specify the cursor_type so `SQLExtract`
+can create a dict-based cursor for query execution within the subprocess as
+required by `wSQLExtract`. Any args/kwargs passed to RuntimeContext will be
+passed to the function when called.
 
 ### Cleaning Up
 
-Sometimes it is necessary to call clean up functionality after processing is
-complete. Sticking with the example above that utilizes SQL-based nodes in a
-parallel processing context, you'll want to explicitly close your database
+Sometimes it is also necessary to call clean up functionality after processing
+is complete. Sticking with the example above that utilizes SQL-based nodes in
+a parallel processing context, you'll want to explicitly close your database
 connections in each subprocess. The `consume` method accepts a `cleanup`
 argument that is a dictionary mapping argument names to cleaner functions. The
 following example tells the `Glider` to call the function `closer` with the
@@ -340,8 +315,8 @@ object.
 
 ```python
 glider = ProcessPoolParaGlider(
-    RowSQLExtractor("extract")
-    | PrettyPrinter("load")
+    SQLExtract("extract")
+    | PrettyPrint("load")
 )
 glider.consume(
     [sql],
@@ -358,10 +333,10 @@ more generic arg names that will map that function to every node that has that
 arg in its `run` method signature (so just "conn=" would have worked
 too). It's often better to be explicit as shown here.
 
-> **Note:** In single-process cases this is usually not necessary, as you
-often have access to the objects you need to clean up in the main process and
-can just do normal clean up there with context managers or explicit calls to
-`close` methods.
+> **Note:** In single-process cases the use of `cleanup` is usually not
+necessary, as you often have access to the objects you need to clean up in the
+main process and can just do normal clean up there with context managers or
+explicit calls to `close` methods.
 
 ### Debug Logging
 
@@ -380,15 +355,14 @@ of processed items:
 
 ```python
 glider = Glider(
-    RowSQLExtractor("extract", log=True)
+    SQLExtract("extract", log=True)
     ...
 )
 ```
 
-Finally, there are a variety of print nodes you can place in your pipeline
-for general logging or debugging, such as `Printer`, `PrettyPrinter`,
-`LenPrinter`, `ReprPrinter`, and `FormatPrinter`. See the node documentation
-for more info.
+Finally, there are a variety of print nodes you can place in your pipeline for
+general logging or debugging, such as `Print`, `PrettyPrint`, `LenPrint`,
+`ReprPrint`, and `FormatPrint`. See the node documentation for more info.
 
 <a name="creatingnodes"></a>
 Creating Nodes
@@ -459,8 +433,8 @@ SQL extract and load pipeline:
 
 ```python
 glider = Glider(
-    RowSQLExtractor("extract")
-    | RowSQLLoader("load")
+    SQLExtract("extract")
+    | SQLLoad("load")
 )
 ```
 
@@ -477,7 +451,7 @@ if __name__ == "__main__":
 
 The script arguments, their types, and whether they are required or not is all
 inferred by inspecting the `run` arguments on the nodes of the pipeline and
-prefixing the node name. For example, `RowSQLLoader` requires a `conn` and a
+prefixing the node name. For example, `SQLLoad` requires a `conn` and a
 `table` argument, as well as having a few optional arguments. Since the node
 is named "load", the CLI will automatically generate required args called
 `--load_conn` and `--load_table`. 
@@ -494,7 +468,7 @@ $ python my_script.py "select * from input_table limit 10" \
 --load_table output_table 
 ```
 
-To pass multiple inputs to `data` you would simply do use space-separated
+To pass multiple inputs to `data` you would simply use space-separated
 positional arguments:
 
 ```shell
@@ -511,8 +485,8 @@ would work:
 
 ```python
 glider = Glider(
-    RowSQLExtractor("extract")
-    | RowSQLLoader("load"),
+    SQLExtract("extract")
+    | SQLLoad("load"),
     global_state=dict(conn=get_my_db_conn())
 )
 ```
@@ -660,35 +634,49 @@ To install all extensions and dev dependencies:
 $ pip install glide[complete]
 ```
 
-To just install Glide plus a specific extension, such as Dask:
+You can also just install Glide plus a specific extension:
 
 ```shell
+$ pip install glide[pandas]
 $ pip install glide[dask]
+$ pip install glide[celery]
+$ pip install glide[rq]
+$ pip install glide[swifter]
 ```
 
 To access installed extensions import from the `glide.extensions` submodules
 as necessary.  Review the documentation and tests for current extensions for
-help getting started. There are currently basic extensions for Dask, Swifter,
-Celery, and Redis Queue, with more on the way.
+help getting started.
 
 ### Extensions
 
-New extensions are welcome! To add an extension:
+New extensions are encouraged! To add an extension:
 
 1. Review the examples of other extensions in `glide.extensions`
 2. Add tests for your extensions and don't forget to add support in `setup.py`
 3. Review and follow the steps in [How to Contribute](#howtocontribute)
 
-Here are some current ideas for extensions/endpoints in case you need inspiration:
+For inspiration, here are some ideas for extensions:
 
 - NoSQL databases
-- Google Analytics
-- Google Ads
-- Facebook Ads
 - HTML Tables
+- Google Ads
+- Google Analytics
+- Facebook Ads
+- Bing Ads
 - Salesforce
 
-You get the idea.
+The idea is make it dead simple to extract data from X and load it to Y, and
+reduce the amount of reinventing of the wheel that happens nowadays when it
+comes to writing integrations with various data sources and destinations.
+
+Note that some of the existing nodes/extensions may have the ability to
+read/write data from more locations than you think. For example, some Pandas
+extension nodes use read_csv/read_sql under the hood which can read from a
+variety of source types. The SQL nodes can use SQLAlchemy, which also has its
+own extensions to read from BigQuery, Redshift, or Spark SQL. Please consider
+using the existing functionality and only add an extension if it is necessary
+to overcome limitations.
 
 <a name="documentation"></a>
 Documentation

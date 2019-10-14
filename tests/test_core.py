@@ -17,15 +17,36 @@ def test_placeholder_node(rootdir):
     )
 
 
-def test_process_pool_submit(rootdir):
+def test_map(rootdir):
     nodes = (
         CSVExtract("extract", nrows=10)
-        | ProcessPoolSubmit("transform", push_type=PushTypes.Result)
-        | Print("load")
+        | Map("transform", func=row_lower, as_list=True)
+        | CSVLoad("load")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     with open(outfile, "w") as f:
-        glider.consume([infile], transform=dict(func=lower_rows))
+        glider.consume([infile], load=dict(f=f))
+
+
+def test_func(rootdir):
+    nodes = (
+        CSVExtract("extract", nrows=10)
+        | Func("transform", func=lower_rows)
+        | Print("load")
+    )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile])
+
+
+def test_process_pool_submit(rootdir):
+    nodes = (
+        CSVExtract("extract", nrows=100)
+        | ProcessPoolSubmit("transform", push_type=PushTypes.Result)
+        | CSVLoad("load")
+    )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    with open(outfile, "w") as f:
+        glider.consume([infile], transform=dict(func=lower_rows), load=dict(f=f))
 
 
 def test_process_pool_reducer(rootdir):
@@ -36,8 +57,7 @@ def test_process_pool_reducer(rootdir):
         | Print("load")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
-    with open(outfile, "w") as f:
-        glider.consume([infile], transform=dict(func=lower_rows))
+    glider.consume([infile], transform=dict(func=lower_rows))
 
 
 def test_thread_pool_submit(rootdir):
@@ -49,8 +69,7 @@ def test_thread_pool_submit(rootdir):
         | Print("load")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
-    with open(outfile, "w") as f:
-        glider.consume([infile], transform=dict(func=lower_rows))
+    glider.consume([infile], transform=dict(func=lower_rows))
 
 
 def test_pool_submit_executor_param(rootdir):
@@ -95,5 +114,4 @@ def test_flatten(rootdir):
         | Print("load")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
-    with open(outfile, "w") as f:
-        glider.consume([infile], transform=dict(func=lower_rows))
+    glider.consume([infile], transform=dict(func=lower_rows))

@@ -13,5 +13,6 @@ Submodules
 
    glide.extensions.celery
    glide.extensions.dask
+   glide.extensions.pandas
    glide.extensions.rq
    glide.extensions.swifter
