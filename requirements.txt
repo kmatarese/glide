@@ -1,6 +1,7 @@
 consecution
 imapclient
 m2r
+numpy
 openpyxl
 pyexcel
 pyexcel-xls
