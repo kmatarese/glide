@@ -177,7 +177,7 @@ forward, so the following would be equivalent:
 glider = Glider(
     CSVExtract("extract")
     | ProcessPoolSubmit("transform")
-    | FuturesReduce("reducer")
+    | FuturesReduce("reduce")
     | Flatten("flatten")
     | CSVLoad("load")
 )
@@ -239,7 +239,7 @@ glider = Glider(
     CSVExtract("extract", nrows=60)
     | ThreadPoolPush("push", split=True)
     | [Print("load1"), Print("load2"), Print("load3")]
-    | ThreadReduce("reducer")
+    | ThreadReduce("reduce")
     | Print("loadall")
 )
 glider.consume(["/path/to/infile.csv"])
@@ -298,7 +298,7 @@ glider.consume(
 
 In this case it is also necessary to specify the cursor_type so `SQLExtract`
 can create a dict-based cursor for query execution within the subprocess as
-required by `wSQLExtract`. Any args/kwargs passed to RuntimeContext will be
+required by `SQLExtract`. Any args/kwargs passed to RuntimeContext will be
 passed to the function when called.
 
 ### Cleaning Up
@@ -637,7 +637,6 @@ $ pip install glide[complete]
 You can also just install Glide plus a specific extension:
 
 ```shell
-$ pip install glide[pandas]
 $ pip install glide[dask]
 $ pip install glide[celery]
 $ pip install glide[rq]
@@ -645,10 +644,11 @@ $ pip install glide[swifter]
 ```
 
 To access installed extensions import from the `glide.extensions` submodules
-as necessary.  Review the documentation and tests for current extensions for
-help getting started.
+as necessary. Review the documentation and tests for current extensions for
+help getting started. Note that the Pandas extension is currently included in
+all Glide installs.
 
-### Extensions
+### Contributing Extensions
 
 New extensions are encouraged! To add an extension:
 
