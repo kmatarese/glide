@@ -6,9 +6,6 @@ from tlbx import st
 
 from glide.core import Glider, PlaceholderNode
 from glide.extract import (
-    DataFrameSQLExtractor,
-    DataFrameCSVExtractor,
-    DataFrameExcelExtractor,
     RowSQLExtractor,
     RowSQLParamExtractor,
     RowCSVExtractor,
@@ -16,16 +13,7 @@ from glide.extract import (
     FileExtractor,
     URLExtractor,
 )
-from glide.load import (
-    DataFrameSQLLoader,
-    DataFrameCSVLoader,
-    DataFrameExcelLoader,
-    RowSQLLoader,
-    RowCSVLoader,
-    EmailLoader,
-    FileLoader,
-    URLLoader,
-)
+from glide.load import RowSQLLoader, RowCSVLoader, EmailLoader, FileLoader, URLLoader
 from glide.utils import iterize, get_class_list_docstring
 
 
@@ -125,19 +113,7 @@ GLIDER_TEMPLATE_DATA = {
             ("CSV", RowCSVExtractor),
         ],
         "load": [("SQL", RowSQLLoader), ("CSV", RowCSVLoader)],
-    },
-    "DataFrame": {
-        "extract": [
-            ("SQL", DataFrameSQLExtractor),
-            ("CSV", DataFrameCSVExtractor),
-            ("Excel", DataFrameExcelExtractor),
-        ],
-        "load": [
-            ("SQL", DataFrameSQLLoader),
-            ("CSV", DataFrameCSVLoader),
-            ("Excel", DataFrameExcelLoader),
-        ],
-    },
+    }
 }
 
 # This will create local GliderTemplate 'partials' for all combinations of

@@ -1,3 +1,4 @@
+from glide.extensions.pandas import *
 from glide.extensions.swifter import *
 from ..test_utils import *
 

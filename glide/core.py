@@ -511,29 +511,6 @@ class Flatten(Node):
         self.push(flatten(data))
 
 
-class DataFramePushMixin:
-    """Shared logic for DataFrame-based nodes"""
-
-    def do_push(self, df, chunksize=None):
-        """Push the DataFrame to the next node, obeying chunksize if passed
-
-        Parameters
-        ----------
-        df : pandas.DataFrame
-            DataFrame to push, or chunks of a DataFrame if the chunksize
-            argument is passed and truthy.
-        chunksize : int, optional
-            If truthy the df argument is expected to be chunks of a DataFrame
-            that will be pushed individually.
-        """
-
-        if chunksize:
-            for chunk in df:
-                self.push(chunk)
-        else:
-            self.push(df)
-
-
 class SQLCursorPushMixin:
     """Shared logic for SQL cursor-based nodes"""
 
@@ -556,12 +533,6 @@ class SQLCursorPushMixin:
         else:
             data = cursor.fetchall()
             self.push(data)
-
-
-class DataFramePush(Node, DataFramePushMixin):
-    """Base class for DataFrame-based nodes"""
-
-    pass
 
 
 class BaseSQLNode(SkipFalse):
@@ -707,12 +678,6 @@ class BaseSQLNode(SkipFalse):
             rows[0], tuple
         ), "Dict rows expected, got tuple. Please use a dict cursor."
         return get_bulk_statement(stmt_type, table, rows[0].keys(), odku=odku)
-
-
-class PandasSQLNode(BaseSQLNode, DataFramePushMixin):
-    """Captures the connection types allowed to work with Pandas to_sql/from_sql"""
-
-    allowed_conn_types = SQLALCHEMY_CONN_TYPES + [sqlite3.Connection]
 
 
 class SQLNode(BaseSQLNode, SQLCursorPushMixin):

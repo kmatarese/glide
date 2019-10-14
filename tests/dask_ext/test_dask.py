@@ -1,4 +1,5 @@
 from glide.extensions.dask import *
+from glide.extensions.pandas import *
 from ..test_utils import *
 
 

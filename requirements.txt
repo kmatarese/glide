@@ -2,7 +2,6 @@ consecution
 imapclient
 m2r
 openpyxl
-pandas==0.24
 pyexcel
 pyexcel-xls
 pyexcel-xlsx

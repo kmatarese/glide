@@ -34,23 +34,6 @@ def test_sql_process_pool_paraglider(rootdir):
     )
 
 
-def test_sql_dataframe_process_pool_paraglider(rootdir):
-    in_table, out_table = db_tables()
-    sql = "select * from %s where Zip_Code < %%(zip)s" % in_table
-    glider = ProcessPoolParaGlider(
-        DataFrameSQLExtractor("extract") | PrettyPrinter("load")
-    )
-    glider.consume(
-        [sql],
-        synchronous=True,
-        cleanup=dict(extract_conn=closer),
-        timeout=5,
-        extract=dict(
-            conn=RuntimeContext(get_sqlalchemy_conn), params=dict(zip="01000")
-        ),
-    )
-
-
 def test_sql_thread_pool_paraglider(rootdir):
     in_table, out_table = db_tables()
     sql = "select * from %s where Zip_Code < %%(zip)s" % in_table

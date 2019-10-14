@@ -8,103 +8,13 @@ from email import parser, policy
 from io import BytesIO
 
 from imapclient import IMAPClient
-import pandas as pd
 from pandas.io.common import get_filepath_or_buffer
 import requests
 from tlbx import st, read_chunks, extract_email_payload
 
-from glide.core import Node, DataFramePush, SQLNode, PandasSQLNode
+from glide.core import Node, SQLNode
 from glide.sql_utils import build_table_select
 from glide.utils import dbg, read_excel, find_class_in_dict, get_class_list_docstring
-
-
-# -------- Pandas Extractors
-
-
-class DataFrameCSVExtractor(DataFramePush):
-    """Extract data from a CSV using Pandas"""
-
-    def run(self, f, **kwargs):
-        """Extract data for input file and push as a DataFrame
-
-        Parameters
-        ----------
-        f
-            file or buffer to be passed to pandas.read_csv
-        **kwargs
-            kwargs to be passed to pandas.read_csv
-
-        """
-        df = pd.read_csv(f, **kwargs)
-        self.do_push(df, chunksize=kwargs.get("chunksize", None))
-
-
-class DataFrameExcelExtractor(DataFramePush):
-    """Extract data from an Excel file using Pandas"""
-
-    def run(self, f, **kwargs):
-        """Extract data for input file and push as a DataFrame. This will push a
-        DataFrame or dict of DataFrames in the case of reading multiple sheets
-        from an Excel file.
-
-        Parameters
-        ----------
-        f
-            file or buffer to be passed to pandas.read_excel
-        **kwargs
-            kwargs to be passed to pandas.read_excel
-
-        """
-        df_or_dict = pd.read_excel(f, **kwargs)
-        self.do_push(df_or_dict)
-
-
-class DataFrameSQLExtractor(PandasSQLNode):
-    """Extract data from a SQL db using Pandas"""
-
-    def run(self, sql, conn, **kwargs):
-        """Extract data for input query and push as a DataFrame
-
-        Parameters
-        ----------
-        sql
-            SQL query to pass to pandas.read_sql
-        conn
-            A SQL database connection
-        **kwargs
-            kwargs to be passed to pandas.read_sql
-
-        """
-        df = pd.read_sql(sql, conn, **kwargs)
-        self.do_push(df, kwargs.get("chunksize", None))
-
-
-class DataFrameSQLTableExtractor(PandasSQLNode):
-    """Extract data from a SQL table using Pandas"""
-
-    def run(self, table, conn, where=None, limit=None, **kwargs):
-        """Extract data for input table and push as a DataFrame
-
-        Parameters
-        ----------
-        table : str
-            SQL table to query
-        conn
-            A SQL database connection
-        where : str, optional
-            A SQL where clause
-        limit : int, optional
-            Limit to put in SQL limit clause
-        **kwargs
-            kwargs to be passed to pandas.read_sql
-
-        """
-        sql = build_table_select(table, where=where, limit=limit)
-        df = pd.read_sql(sql, conn, **kwargs)
-        self.do_push(df, kwargs.get("chunksize", None))
-
-
-# -------- Row-based Extractors
 
 
 class RowCSVExtractor(Node):

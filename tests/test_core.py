@@ -8,6 +8,15 @@ from .test_utils import *
 from glide import *
 
 
+def test_placeholder_node(rootdir):
+    nodes = PlaceholderNode("extract") | RowCSVLoader("load")
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider["extract"] = RowCSVExtractor("extract")
+    glider.consume(
+        [infile], extract=dict(chunksize=100, nrows=20), load=dict(f=outfile)
+    )
+
+
 def test_process_pool_submit(rootdir):
     nodes = (
         RowCSVExtractor("extract", nrows=10)

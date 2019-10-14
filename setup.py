@@ -59,6 +59,7 @@ extras_require = {
         "wheel",
     ],
     "dask": ["dask[complete]>=2.1.0"],
+    "pandas": ["pandas>=0.25.1"],
 }
 extras_require["complete"] = sorted(set(sum(extras_require.values(), [])))
 

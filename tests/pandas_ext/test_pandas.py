@@ -1,19 +1,11 @@
-from .test_utils import *
+from ..test_utils import *
 from glide import *
+from glide.extensions.pandas import *
 
 # -------- File-based gliders
 
 
-def test_placeholder_node(rootdir):
-    nodes = PlaceholderNode("extract") | DataFrameCSVLoader(
-        "load", index=False, mode=RuntimeContext(lambda: "a")
-    )
-    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
-    glider["extract"] = DataFrameCSVExtractor("extract")
-    glider.consume([infile], extract=dict(chunksize=100), load=dict(f=outfile))
-
-
-def test_csv_extract_and_load(rootdir):
+def test_dataframe_csv_extract_and_load(rootdir):
     nodes = DataFrameCSVExtractor("extract") | DataFrameCSVLoader(
         "load", index=False, mode="a"
     )
@@ -21,7 +13,7 @@ def test_csv_extract_and_load(rootdir):
     glider.consume([infile], extract=dict(chunksize=100), load=dict(f=outfile))
 
 
-def test_excel_extract_and_load(rootdir):
+def test_dataframe_excel_extract_and_load(rootdir):
     nodes = DataFrameExcelExtractor("extract") | DataFrameExcelLoader(
         "load", index=False
     )
@@ -29,7 +21,7 @@ def test_excel_extract_and_load(rootdir):
     glider.consume([infile], load=dict(f=outfile))
 
 
-def test_csv_chunked_lowercase(rootdir):
+def test_dataframe_chunked_lowercase(rootdir):
     nodes = (
         DataFrameCSVExtractor("extract")
         | DataFrameApplyMap("transform")
@@ -44,7 +36,7 @@ def test_csv_chunked_lowercase(rootdir):
     )
 
 
-def test_csv_process_pool_lowercase(rootdir):
+def test_dataframe_process_pool_lowercase(rootdir):
     nodes = (
         DataFrameCSVExtractor("extract")
         | ProcessPoolSubmit("transform", push_type=PushTypes.Result)
@@ -54,7 +46,7 @@ def test_csv_process_pool_lowercase(rootdir):
     glider.consume([infile], transform=dict(func=df_lower), load=dict(f=outfile))
 
 
-def test_csv_thread_pool_lowercase(rootdir):
+def test_dataframe_thread_pool_lowercase(rootdir):
     nodes = (
         DataFrameCSVExtractor("extract")
         | ThreadPoolSubmit(
@@ -69,7 +61,7 @@ def test_csv_thread_pool_lowercase(rootdir):
 # -------- SQL-based gliders
 
 
-def test_sqlite_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
+def test_dataframe_sqlite_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     nodes = DataFrameSQLExtractor("extract") | DataFrameSQLLoader("load")
     glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
     sql = "select * from %s where Zip_Code < :zip" % table
@@ -80,7 +72,7 @@ def test_sqlite_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     )
 
 
-def test_sqlalchemy_temp_load(rootdir, sqlalchemy_conn):
+def test_dataframe_sqlalchemy_temp_load(rootdir, sqlalchemy_conn):
     in_table, out_table = sqlalchemy_setup(rootdir, sqlalchemy_conn)
     sql = "select * from %s limit 10" % in_table
     glider = Glider(
@@ -93,7 +85,7 @@ def test_sqlalchemy_temp_load(rootdir, sqlalchemy_conn):
     )
 
 
-def test_sqlalchemy_extract_and_load(rootdir, sqlalchemy_conn):
+def test_dataframe_sqlalchemy_extract_and_load(rootdir, sqlalchemy_conn):
     in_table, out_table = sqlalchemy_setup(rootdir, sqlalchemy_conn, truncate=True)
     sql = "select * from %s limit 100" % in_table
     glider = Glider(
@@ -107,7 +99,24 @@ def test_sqlalchemy_extract_and_load(rootdir, sqlalchemy_conn):
     )
 
 
-def test_sqlalchemy_table_extract(rootdir, sqlalchemy_conn):
+def test_dataframe_sqlalchemy_table_extract(rootdir, sqlalchemy_conn):
     in_table, _ = sqlalchemy_setup(rootdir, sqlalchemy_conn)
     glider = Glider(DataFrameSQLTableExtractor("extract", limit=100) | Printer("load"))
     glider.consume([in_table], extract=dict(conn=sqlalchemy_conn))
+
+
+def test_dataframe_sql_process_pool_paraglider(rootdir):
+    in_table, out_table = db_tables()
+    sql = "select * from %s where Zip_Code < %%(zip)s" % in_table
+    glider = ProcessPoolParaGlider(
+        DataFrameSQLExtractor("extract") | PrettyPrinter("load")
+    )
+    glider.consume(
+        [sql],
+        synchronous=True,
+        cleanup=dict(extract_conn=closer),
+        timeout=5,
+        extract=dict(
+            conn=RuntimeContext(get_sqlalchemy_conn), params=dict(zip="01000")
+        ),
+    )

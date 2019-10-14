@@ -61,26 +61,6 @@ class EmailMessageTransformer(Node):
         self.push(msg)
 
 
-class DataFrameApplyMap(Node):
-    """Apply a transform to a Pandas DataFrame"""
-
-    def run(self, df, func, **kwargs):
-        """Use applymap() on a DataFrame
-
-        Parameters
-        ----------
-        df : pandas.DataFrame
-            The pandas DataFrame to apply func to
-        func : callable
-            A callable that will be passed to df.applymap
-        **kwargs
-            Keyword arguments passed to applymap
-
-        """
-        df = df.applymap(func, **kwargs)
-        self.push(df)
-
-
 node_names = find_class_in_dict(Node, locals(), exclude="Node")
 if node_names:
     __doc__ = __doc__ + get_class_list_docstring("Nodes", node_names)
