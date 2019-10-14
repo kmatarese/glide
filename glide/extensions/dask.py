@@ -13,16 +13,8 @@ import pandas as pd
 import numpy as np
 from tlbx import st, set_missing_key
 
-from glide.core import (
-    Node,
-    PushNode,
-    FuturesPush,
-    ParaGlider,
-    PoolSubmit,
-    Reduce,
-    consume,
-)
-from glide.utils import dbg, is_pandas, flatten
+from glide.core import Node, PushNode, FuturesPush, ParaGlider, PoolSubmit, Reduce
+from glide.utils import dbg, is_pandas
 
 
 class DaskClientPush(FuturesPush):
@@ -45,7 +37,7 @@ class DaskDelayedPush(PushNode):
         if self._logging == "output":
             self._write_log(item)
 
-        assert not "executor_kwargs" in self.context, (
+        assert "executor_kwargs" not in self.context, (
             "%s does not currently support executor_kwargs" % self.__class__
         )
 
@@ -53,11 +45,12 @@ class DaskDelayedPush(PushNode):
         if self.context.get("split", False):
             splits = np.array_split(item, len(self._downstream_nodes))
             for i, downstream in enumerate(self._downstream_nodes):
-                lazy.append(delayed(downstream._process)(split[i]))
+                lazy.append(delayed(downstream._process)(splits[i]))
         else:
             for downstream in self._downstream_nodes:
                 lazy.append(delayed(downstream._process)(item))
-        result = compute(lazy)
+
+        compute(lazy)
 
 
 class DaskParaGlider(ParaGlider):
@@ -74,7 +67,7 @@ class DaskParaGlider(ParaGlider):
     def get_results(self, futures, timeout=None):
         assert not timeout, "timeout argument is not supported for Dask Client"
         dfs = []
-        for future, result in dask_as_completed(futures, with_results=True):
+        for _, result in dask_as_completed(futures, with_results=True):
             dfs.append(result)
         return dfs
 
@@ -101,7 +94,7 @@ class DaskClientMap(PoolSubmit):
     def get_results(self, futures, timeout=None):
         assert not timeout, "timeout argument is not supported for Dask Client"
         dfs = []
-        for future, result in dask_as_completed(futures, with_results=True):
+        for _, result in dask_as_completed(futures, with_results=True):
             dfs.append(result)
         return pd.concat(dfs)
 
@@ -110,6 +103,8 @@ class DaskClientMap(PoolSubmit):
 
 
 class DaskFuturesReduce(Reduce):
+    """Collect the asynchronous results before pushing"""
+
     def end(self):
         """Do the push once all Futures results are in.
 
@@ -120,7 +115,7 @@ class DaskFuturesReduce(Reduce):
         """
         dbg("Waiting for %d Dask futures..." % len(self.results))
         results = []
-        for future, result in dask_as_completed(self.results, with_results=True):
+        for _, result in dask_as_completed(self.results, with_results=True):
             results.append(result)
         if self.context.get("flatten", False):
             results = pd.concat(results)

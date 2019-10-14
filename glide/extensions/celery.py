@@ -13,7 +13,6 @@ except:
     Celery = None
     Task = None
     ResultSet = None
-import numpy as np
 from tlbx import st, import_object
 
 # We need to import * in this case because CeleryBuildGliderTask could
@@ -175,9 +174,10 @@ class CeleryParaGlider(ParaGlider):
 
     def __init__(self, consume_task, *args, **kwargs):
         assert Celery, "Please install Celery to use CeleryParaGlider"
-        assert isinstance(
-            consume_task, Task
-        ), "The first argument to CeleryParaGlider must be a registered celery task that mirrors consume()"
+        assert isinstance(consume_task, Task), (
+            "The first argument to CeleryParaGlider must be a registered "
+            "celery task that mirrors consume()"
+        )
         self.consume_task = consume_task
         super().__init__(*args, **kwargs)
 
@@ -239,8 +239,8 @@ class CeleryParaGlider(ParaGlider):
                 finally:
                     async_result.forget()
             return results
-        else:
-            return async_results
+
+        return async_results
 
 
 class CeleryApplyAsync(Node):
@@ -280,6 +280,8 @@ class CeleryApplyAsync(Node):
 
 
 class CeleryReduce(Reduce):
+    """Collect the asynchronous results before pushing"""
+
     def end(self):
         """Do the push once all results are in"""
         dbg("Waiting for %d celery task(s)..." % len(self.results))

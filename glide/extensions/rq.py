@@ -1,6 +1,6 @@
 """http://python-rq.org/docs/"""
 
-import numpy as np
+import time
 
 try:
     from rq import Queue, Worker
@@ -8,7 +8,6 @@ except:
     Redis = None
     Queue = None
     Worker = None
-import time
 from tlbx import st
 
 from glide import ParaGlider, Node, Reduce, PushTypes, consume, split_count_helper
@@ -19,6 +18,8 @@ POLL_SLEEP = 1
 
 
 class RQTimeoutException(Exception):
+    """Exception for timeouts polling for results"""
+
     pass
 
 
@@ -42,7 +43,8 @@ def complete_count(async_results):
 
 
 def get_async_results(async_results, timeout=None):
-    # XXX: Is there a better option than polling?
+    """Poll for results """
+    # TODO: Is there a better option than polling?
     start = time.time()
 
     while complete_count(async_results) < len(async_results):
@@ -57,13 +59,15 @@ def get_async_results(async_results, timeout=None):
 
 
 def get_async_result(async_result):
+    """Poll for a result"""
     results = get_async_results([async_result])
     return results[0]
 
 
-# Hack: RQ only seems to update the job status if your function returns
-# a non-None value. To force that, we use this simple wrapper around consume().
 def rq_consume(*args, **kwargs):
+    """Hack: RQ only seems to update the job status if your function returns
+    a non-None value. To force that, we use this simple wrapper around consume().
+    """
     return consume(*args, **kwargs) or True
 
 
@@ -150,8 +154,8 @@ class RQParaGlider(ParaGlider):
 
         if synchronous:
             return get_async_results(async_results, timeout=timeout)
-        else:
-            return async_results
+
+        return async_results
 
 
 class RQJob(Node):
@@ -216,6 +220,8 @@ class RQJob(Node):
 
 
 class RQReduce(Reduce):
+    """Collect asynchronous results before pushing"""
+
     def end(self):
         """Do the push once all results are in"""
         dbg("Waiting for %d RQ job(s)..." % len(self.results))

@@ -9,7 +9,7 @@ from tlbx import st
 
 from glide.core import Node, BaseSQLNode
 from glide.sql_utils import build_table_select, get_temp_table, SQLALCHEMY_CONN_TYPES
-from glide.utils import dbg
+from glide.utils import warn
 
 
 class DataFramePushMixin:

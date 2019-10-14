@@ -1,7 +1,6 @@
 """Common utilities"""
 
 import functools
-from inspect import isgenerator
 import itertools
 import io
 import logging
@@ -9,7 +8,6 @@ import types
 
 import numpy as np
 import pandas as pd
-from pyexcel.internal import SOURCE
 from pyexcel_xlsx import get_data as get_xlsx, save_data as save_xlsx
 from pyexcel_xls import get_data as get_xls, save_data as save_xls
 from tlbx import (
@@ -20,9 +18,7 @@ from tlbx import (
     warn as _warn,
     error as _error,
     get_caller,
-    repr,
     is_str,
-    MappingMixin,
 )
 
 default_logger = logging.getLogger("glide")
@@ -40,6 +36,7 @@ _CLASS_LIST_DOCSTRING_TEMPLATE = """
 
 
 def find_class_in_dict(cls, d, include=None, exclude=None):
+    """Get a list of keys that are an instance of a class in a dict"""
     names = []
     for key, value in d.copy().items():
         if not isinstance(value, type):
@@ -54,6 +51,7 @@ def find_class_in_dict(cls, d, include=None, exclude=None):
 
 
 def get_class_list_docstring(heading, classes):
+    """Helper to generate a part of a module docstring from a list of classes"""
     classes_str = "- " + "\n- ".join(classes)
     return _CLASS_LIST_DOCSTRING_TEMPLATE.format(
         heading=heading, classes_str=classes_str
@@ -61,27 +59,33 @@ def get_class_list_docstring(heading, classes):
 
 
 def closer(x):
+    """Helper to call close on x"""
     x.close()
 
 
 def is_function(f):
+    """Test if f is a function"""
     return isinstance(f, (types.FunctionType, functools.partial))
 
 
 def is_pandas(o):
+    """Test if an object is a Pandas object"""
     return isinstance(o, (pd.DataFrame, pd.Series, pd.Panel))
 
 
 def is_file_obj(o):
+    """Test if an object is a file object"""
     return isinstance(o, (io.TextIOBase, io.BufferedIOBase, io.RawIOBase, io.IOBase))
 
 
 def nchunks(a, n):
+    """Divide iterable a into n chunks"""
     k, m = divmod(len(a), n)
     return (a[i * k + min(i, m) : (i + 1) * k + min(i + 1, m)] for i in range(n))
 
 
 def divide_data(data, n):
+    """Divide data into n chunks, with special handling for pandas objects"""
     if is_pandas(data):
         return np.array_split(data, n)
     else:
@@ -89,6 +93,7 @@ def divide_data(data, n):
 
 
 def flatten(l):
+    """Flatten a list of lists"""
     assert (
         l and len(l) > 0
     ), "flatten requires a list of lists or list of pandas objects"
@@ -99,6 +104,7 @@ def flatten(l):
 
 
 def size(o, default=None):
+    """Helper to return the len() of an object if it is available"""
     if hasattr(o, "__len__"):
         return len(o)
     return default
@@ -181,30 +187,35 @@ def save_excel(f, data, **kwargs):
 
 
 def dbg(msg, **kwargs):
+    """Call tlbx dbg with glide logger"""
     kwargs["logger"] = kwargs.get("logger", default_logger)
     kwargs["label"] = kwargs.get("label", get_caller())
     _dbg(msg, **kwargs)
 
 
 def dbgsql(msg, **kwargs):
+    """Call tlbx dbgsql with glide logger"""
     kwargs["logger"] = kwargs.get("logger", default_logger)
     kwargs["label"] = kwargs.get("label", get_caller())
     _dbgsql(msg, **kwargs)
 
 
 def info(msg, **kwargs):
+    """Call tlbx info with glide logger"""
     kwargs["logger"] = kwargs.get("logger", default_logger)
     kwargs["label"] = kwargs.get("label", get_caller())
     _info(msg, **kwargs)
 
 
 def warn(msg, **kwargs):
+    """Call tlbx warn with glide logger"""
     kwargs["logger"] = kwargs.get("logger", default_logger)
     kwargs["label"] = kwargs.get("label", get_caller())
     _warn(msg, **kwargs)
 
 
 def error(msg, **kwargs):
+    """Call tlbx error with glide logger"""
     kwargs["logger"] = kwargs.get("logger", default_logger)
     kwargs["label"] = kwargs.get("label", get_caller())
     _error(msg, **kwargs)

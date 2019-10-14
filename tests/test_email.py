@@ -47,38 +47,38 @@ def email_pipeline(
 def test_email_extract_default():
     extract = DEFAULT_EXTRACT_ARGS.copy()
     extract.update(dict(limit=2))
-    email_pipeline(extract=extract, loader=Printer)
+    email_pipeline(extract=extract, loader=Print)
 
 
 def test_email_extract_message_ids():
     extract = DEFAULT_EXTRACT_ARGS.copy()
     extract.update(dict(push_type="message_id", limit=2))
-    email_pipeline(extract=extract, loader=Printer)
+    email_pipeline(extract=extract, loader=Print)
 
 
 def test_email_extract_bodies():
     extract = DEFAULT_EXTRACT_ARGS.copy()
     extract.update(dict(push_type="body", limit=2))
-    email_pipeline(extract=extract, loader=Printer)
+    email_pipeline(extract=extract, loader=Print)
 
 
 def test_email_extract_attachments():
     extract = DEFAULT_EXTRACT_ARGS.copy()
     extract.update(dict(push_type="attachment", limit=2))
-    email_pipeline(extract=extract, loader=Printer)
+    email_pipeline(extract=extract, loader=Print)
 
 
 def test_email_extract_all():
     extract = DEFAULT_EXTRACT_ARGS.copy()
     extract.update(dict(push_type="all", limit=2))
-    email_pipeline(extract=extract, loader=Printer)
+    email_pipeline(extract=extract, loader=Print)
 
 
 # TODO: Need to find a test client with sort capability.
 # def test_email_extract_sorted():
 #     extract = DEFAULT_EXTRACT_ARGS.copy()
 #     extract.update(dict(sort=['REVERSE DATE'], limit=2))
-#     email_pipeline(extract=extract, loader=Printer)
+#     email_pipeline(extract=extract, loader=Print)
 
 
 # -------- Load tests

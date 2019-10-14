@@ -1,28 +1,24 @@
 """SQL utilities"""
 
 import random
+import sqlite3
 import time
 
 import pandas as pd
-from pandas.io.sql import (
-    SQLTable,
-    SQLDatabase,
-    SQLiteTable,
-    SQLiteDatabase,
-    pandasSQL_builder,
-)
+from pandas.io.sql import SQLTable, SQLiteTable, pandasSQL_builder
 import sqlalchemy as sa
-import sqlite3
 from tlbx import st
 
 SQLALCHEMY_CONN_TYPES = [sa.engine.base.Connection, sa.engine.Connectable]
 
 
 def is_sqlalchemy_conn(conn):
+    """Check if conn is a sqlalchemy connection"""
     return isinstance(conn, tuple(SQLALCHEMY_CONN_TYPES))
 
 
 def get_temp_table_name():
+    """Create a unique temp table name"""
     return "temp_%s_%s" % (int(time.time()), random.randint(0, 1e6))
 
 
@@ -131,14 +127,17 @@ def get_bulk_statement(
 
 
 def get_bulk_insert(table_name, column_names, **kwargs):
+    """Get a bulk insert statement"""
     return get_bulk_statement("INSERT", table_name, column_names, **kwargs)
 
 
 def get_bulk_insert_ignore(table_name, column_names, **kwargs):
+    """Get a bulk insert ignore statement"""
     return get_bulk_statement("INSERT IGNORE", table_name, column_names, **kwargs)
 
 
 def get_bulk_replace(table_name, column_names, **kwargs):
+    """Get a bulk replace statement"""
     return get_bulk_statement("REPLACE", table_name, column_names, **kwargs)
 
 

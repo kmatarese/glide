@@ -52,7 +52,7 @@ class CSVExtract(Node):
         # TODO: this uses urlopen under the hood. It may be more efficient to use
         # requests.get() with stream=True.
         # https://stackoverflow.com/a/42979967/10682164
-        f, encoding, compression, should_close = get_filepath_or_buffer(f)
+        f, encoding, _, should_close = get_filepath_or_buffer(f)
 
         close = False or should_close
         decode = False
@@ -260,15 +260,12 @@ class FileExtract(Node):
             chunksize and push_lines
         ), "Only one of chunksize and push_lines may be specified"
 
-        f, encoding, compression, should_close = get_filepath_or_buffer(f)
+        f, _, _, should_close = get_filepath_or_buffer(f)
 
         close = False or should_close
-        decode = False
         if isinstance(f, str):
             f = open(f, open_flags)
             close = True
-        elif isinstance(f, BytesIO) or encoding:
-            decode = True
 
         try:
             data = []
@@ -384,7 +381,8 @@ class EmailExtract(Node):
         Parameters
         ----------
         criteria : str or list
-            Criteria argument passed to IMAPClient.search. See https://tools.ietf.org/html/rfc3501.html#section-6.4.4.
+            Criteria argument passed to IMAPClient.search. See
+            https://tools.ietf.org/html/rfc3501.html#section-6.4.4.
         sort : str or list, optional
             Sort criteria passed to IMAPClient.sort. Note that SORT is an
             extension to the IMAP4 standard so it may not be supported by all
@@ -430,7 +428,7 @@ class EmailExtract(Node):
             client.login(username, password)
 
         try:
-            select_info = client.select_folder(folder)
+            client.select_folder(folder)
             if sort:
                 messages = client.sort(sort, criteria=criteria)
             else:

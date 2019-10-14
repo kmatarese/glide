@@ -51,6 +51,7 @@ extras_require = {
     "dev": [
         "black",
         "pre-commit",
+        "pylint",
         "pytest",
         "pytest-redis",
         "pytest-xprocess",

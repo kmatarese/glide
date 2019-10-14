@@ -5,26 +5,29 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 import copy
 from inspect import signature, Parameter
 from pprint import pformat
-
-import climax
-import numpy as np
 import sqlite3
-from tlbx import st, Script, Arg, Parent, MappingMixin, set_missing_key, format_msg
+
+import numpy as np
+from tlbx import (
+    st,
+    repr,
+    Script,
+    Arg,
+    Parent,
+    MappingMixin,
+    set_missing_key,
+    format_msg,
+)
 
 from consecution import (
     Pipeline,
     GlobalState as ConsecutionGlobalState,
     Node as ConsecutionNode,
 )
-from glide.sql_utils import (
-    SQLALCHEMY_CONN_TYPES,
-    is_sqlalchemy_conn,
-    get_bulk_statement,
-)
+from glide.sql_utils import is_sqlalchemy_conn, get_bulk_statement
 from glide.utils import (
     dbg,
     info,
-    repr,
     iterize,
     size,
     divide_data,
@@ -173,7 +176,7 @@ class Node(ConsecutionNode):
     def _run(self, item, *args, **kwargs):
         self.run(item, *args, **kwargs)
 
-    def run(self, item, *args, **kwargs):
+    def run(self, item, **kwargs):
         """Subclasses will override this method to implement core node logic"""
         raise NotImplementedError
 
@@ -216,6 +219,7 @@ class IterPush(Node):
 
 
 def split_count_helper(data, split_count):
+    """Helper to override the split count if data len is shorter"""
     if hasattr(data, "__len__"):
         return min(len(data), split_count)
     return split_count
@@ -230,9 +234,11 @@ class SplitPush(Node):
     """
 
     def get_splits(self, data, split_count):
+        """Split the data into split_count slices"""
         return divide_data(data, split_count)
 
     def run(self, data, split_count, **kwargs):
+        """Split the data and push each slice"""
         splits = self.get_splits(data, split_count_helper(data, split_count))
         for split in splits:
             self.push(split)
@@ -248,6 +254,7 @@ class SplitByNode(PushNode):
     """
 
     def get_splits(self, data, split_count):
+        """Split the data into split_count slices"""
         return divide_data(data, split_count)
 
     def _push(self, item):
@@ -261,6 +268,7 @@ class ArraySplitPush(SplitPush):
     """A node that splits the data before pushing"""
 
     def get_splits(self, data, split_count):
+        """Split the data into split_count slices"""
         return np.array_split(data, split_count)
 
 
@@ -268,6 +276,7 @@ class ArraySplitByNode(SplitByNode):
     """A node that splits the data before pushing"""
 
     def get_splits(self, data, split_count):
+        """Split the data into split_count slices"""
         return np.array_split(data, split_count)
 
 
@@ -322,8 +331,9 @@ class FuturesPush(PushNode):
                 for downstream in self._downstream_nodes:
                     futures.append(executor.submit(downstream._process, item))
 
+            # Wait for results
             for future in self.__class__.as_completed_func(futures):
-                result = future.result()
+                future.result()
 
 
 class ProcessPoolPush(FuturesPush):
@@ -342,21 +352,27 @@ class PoolSubmit(Node):
     """Apply a function to the data in parallel"""
 
     def check_data(self, data):
+        """Optional input data check"""
         return
 
     def get_executor(self, **executor_kwargs):
+        """Override this to return the parallel executor"""
         raise NotImplementedError
 
     def get_worker_count(self, executor):
+        """Override this to return a count of workers active in the executor"""
         raise NotImplementedError
 
     def submit(self, executor, func, splits, **kwargs):
+        """Override this to submit work to the executor"""
         raise NotImplementedError
 
     def get_results(self, futures, timeout=None):
+        """Override this to fetch results from an asynchronous task"""
         raise NotImplementedError
 
     def shutdown_executor(self, executor):
+        """Override this to shutdown the executor"""
         raise NotImplementedError
 
     def run(
@@ -494,6 +510,8 @@ class ThreadReduce(Reduce):
 
 
 class FuturesReduce(Reduce):
+    """Collect results from futures before pushing"""
+
     def end(self):
         """Do the push once all Futures results are in"""
         dbg("Waiting for %d futures..." % len(self.results))
@@ -507,7 +525,10 @@ class FuturesReduce(Reduce):
 
 
 class Flatten(Node):
+    """Flatten the input before pushing"""
+
     def run(self, data):
+        """Flatten the input before pushing. Assumes data is in ~list of ~lists format"""
         self.push(flatten(data))
 
 
@@ -567,6 +588,7 @@ class BaseSQLNode(SkipFalse):
         return isinstance(conn, tuple(self.allowed_conn_types))
 
     def check_conn(self, conn):
+        """Check the database connection"""
         assert self._is_allowed_conn(conn), (
             "Connection type %s is not in allowed types: %s"
             % (type(conn), self.allowed_conn_types)
@@ -653,9 +675,8 @@ class BaseSQLNode(SkipFalse):
         Returns
         -------
         A SQL bulk replace query
-        """
 
-        """Get a bulk replace SQL statement"""
+        """
         if is_sqlalchemy_conn(conn):
             return get_bulk_statement(
                 stmt_type, table, rows[0].keys(), dicts=False, odku=odku
@@ -716,10 +737,12 @@ class RuntimeContext:
         return self.func(*self.args, **self.kwargs)
 
     def copy(self):
+        """Create a copy of this RuntimeContext referencing the same objects"""
         return RuntimeContext(self.func, *self.args, **self.kwargs)
 
 
 def get_node_contexts(pipeline):
+    """Get a dict of node_name->node_context from pipeline"""
     contexts = {k: pipeline[k].context for k in pipeline._node_lookup}
     return contexts
 
@@ -865,10 +888,12 @@ class Glider:
 
     @property
     def global_state(self):
+        """Get the pipeline global_state attribute"""
         return self.pipeline.global_state
 
     @global_state.setter
     def global_state(self, value):
+        """Set the pipeline global_state attribute"""
         self.pipeline.global_state = value
 
     def consume(self, data, cleanup=None, **node_contexts):
@@ -884,8 +909,6 @@ class Glider:
         **node_contexts
             Keyword arguments that are node_name->param_dict
         """
-
-        """Setup node contexts and consume data with the pipeline"""
         consume(self.pipeline, data, cleanup=cleanup, **node_contexts)
 
     def plot(self, *args, **kwargs):
@@ -960,12 +983,15 @@ class ParaGlider(Glider):
         super().__init__(*args, **kwargs)
 
     def get_executor(self):
+        """Override this method to create the parallel executor"""
         raise NotImplementedError
 
     def get_worker_count(self, executor):
+        """Override this method to get the active worker count from the executor"""
         raise NotImplementedError
 
     def get_results(self, futures, timeout=None):
+        """Override this method to get the asynchronous results"""
         raise NotImplementedError
 
     def consume(
@@ -1025,8 +1051,8 @@ class ParaGlider(Glider):
 
             if synchronous:
                 return self.get_results(futures, timeout=timeout)
-            else:
-                return futures
+
+            return futures
 
 
 class ProcessPoolParaGlider(ParaGlider):
@@ -1168,7 +1194,7 @@ class GliderScript(Script):
     def _get_script_arg(self, node, arg_name, required=False, default=None):
         """Generate a tlbx Arg"""
         if self.blacklisted(node.name, arg_name):
-            return
+            return None
 
         if arg_name in self.inject:
             required = False
@@ -1245,15 +1271,18 @@ class GliderScript(Script):
         """Populate node contexts based on injected args"""
         node_contexts = {}
         node_lookup = self.glider.get_node_lookup()
+
         for node in node_lookup.values():
             for arg_name, _ in node.run_args.items():
                 if arg_name in self.inject:
                     node_contexts.setdefault(node.name, {})[arg_name] = kwargs[arg_name]
-            for kwarg_name, kwarg_default in node.run_kwargs.items():
+
+            for kwarg_name, _ in node.run_kwargs.items():
                 if kwarg_name in self.inject:
                     node_contexts.setdefault(node.name, {})[kwarg_name] = kwargs[
                         kwarg_name
                     ]
+
         return node_contexts
 
     def _convert_kwargs(self, kwargs):

@@ -7,19 +7,12 @@ import shutil
 import sqlite3
 import tempfile
 
-import pandas as pd
 from pandas.io.common import get_filepath_or_buffer
 import requests
 from tlbx import st, pp, create_email, send_email, sqlformat, repr, format_msg
 
 from glide.core import Node, SQLNode
-from glide.sql_utils import (
-    TemporaryTable,
-    SQLiteTemporaryTable,
-    get_bulk_replace,
-    get_bulk_statement,
-    get_temp_table,
-)
+from glide.sql_utils import get_temp_table
 from glide.utils import (
     dbg,
     warn,
@@ -34,9 +27,11 @@ class Print(Node):
     """Print the item"""
 
     def print(self, item):
+        """Print the item"""
         print(item)
 
     def get_label(self):
+        """Get a label for the print statement"""
         return "---- %s ----\n" % self.name
 
     def run(self, item, label=True):
@@ -202,9 +197,9 @@ class ExcelLoad(Node):
             data = {sheet_name: rows}
 
         if dict_rows:
-            for sheet_name, sheet_data in data.items():
+            for _sheet_name, sheet_data in data.items():
                 header = [list(sheet_data[0].keys())]
-                data[sheet_name] = header + [list(x.values()) for x in sheet_data]
+                data[_sheet_name] = header + [list(x.values()) for x in sheet_data]
 
         if dry_run:
             warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
@@ -335,9 +330,8 @@ class FileLoad(Node):
             If true, skip actually loading the data
 
         """
-        fo, encoding, compression, should_close = get_filepath_or_buffer(f)
+        fo, _, _, should_close = get_filepath_or_buffer(f)
         close = False or should_close
-        decode = False
         if isinstance(fo, str):
             fo = open(fo, open_flags)
             close = True
