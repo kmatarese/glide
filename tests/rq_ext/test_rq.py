@@ -24,9 +24,9 @@ def rq_worker(xprocess):
 
 def test_rq_job_node(redis_server, rq_worker, rootdir):
     nodes = (
-        RowCSVExtractor("extract", nrows=20)
+        CSVExtract("extract", nrows=20)
         | RQJob("apply", func=lower_rows, push_type="result")
-        | Printer("load")
+        | Print("load")
     )
     infile, _ = get_filenames(rootdir, "csv")
     redis_conn = Redis()
@@ -36,11 +36,11 @@ def test_rq_job_node(redis_server, rq_worker, rootdir):
 
 def test_rq_reducer(redis_server, rq_worker, rootdir):
     nodes = (
-        RowCSVExtractor("extract", nrows=20)
+        CSVExtract("extract", nrows=20)
         | SplitPush("split", split_count=4)
         | RQJob("apply", func=lower_rows)
         | RQReduce("reduce")
-        | Printer("load")
+        | Print("load")
     )
     infile, _ = get_filenames(rootdir, "csv")
     redis_conn = Redis()
@@ -52,6 +52,6 @@ def test_rq_paraglider_csv(redis_server, rq_worker, rootdir):
     infile, outfile = get_filenames(rootdir, "csv")
     redis_conn = Redis()
     queue = Queue(connection=redis_conn)
-    glider = RQParaGlider(queue, RowCSVExtractor("extract") | Printer("load"))
+    glider = RQParaGlider(queue, CSVExtract("extract") | Print("load"))
     async_results = glider.consume([infile], extract=dict(nrows=10))
     results = get_async_results(async_results)

@@ -3,7 +3,7 @@ from glide import *
 
 
 def test_url_str_extract_and_load():
-    glider = Glider(URLExtractor("extract") | URLLoader("load"))
+    glider = Glider(URLExtract("extract") | URLLoad("load"))
     urls = [
         "https://jsonplaceholder.typicode.com/todos/1",
         "https://jsonplaceholder.typicode.com/todos/2",
@@ -20,7 +20,7 @@ def test_url_str_extract_and_load():
 
 
 def test_url_dict_extract_and_load():
-    glider = Glider(URLExtractor("extract") | URLLoader("load"))
+    glider = Glider(URLExtract("extract") | URLLoad("load"))
     urls = [
         dict(method="GET", url="https://jsonplaceholder.typicode.com/todos/1"),
         dict(method="GET", url="https://jsonplaceholder.typicode.com/todos/2"),

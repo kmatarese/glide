@@ -9,9 +9,9 @@ from glide import *
 
 
 def test_placeholder_node(rootdir):
-    nodes = PlaceholderNode("extract") | RowCSVLoader("load")
+    nodes = PlaceholderNode("extract") | CSVLoad("load")
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
-    glider["extract"] = RowCSVExtractor("extract")
+    glider["extract"] = CSVExtract("extract")
     glider.consume(
         [infile], extract=dict(chunksize=100, nrows=20), load=dict(f=outfile)
     )
@@ -19,9 +19,9 @@ def test_placeholder_node(rootdir):
 
 def test_process_pool_submit(rootdir):
     nodes = (
-        RowCSVExtractor("extract", nrows=10)
+        CSVExtract("extract", nrows=10)
         | ProcessPoolSubmit("transform", push_type=PushTypes.Result)
-        | Printer("load")
+        | Print("load")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     with open(outfile, "w") as f:
@@ -30,10 +30,10 @@ def test_process_pool_submit(rootdir):
 
 def test_process_pool_reducer(rootdir):
     nodes = (
-        RowCSVExtractor("extract", nrows=10)
+        CSVExtract("extract", nrows=10)
         | ProcessPoolSubmit("transform")
         | FuturesReduce("reducer", flatten=True)
-        | Printer("load")
+        | Print("load")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     with open(outfile, "w") as f:
@@ -42,11 +42,11 @@ def test_process_pool_reducer(rootdir):
 
 def test_thread_pool_submit(rootdir):
     nodes = (
-        RowCSVExtractor("extract", nrows=10)
+        CSVExtract("extract", nrows=10)
         | ThreadPoolSubmit(
             "transform", push_type=PushTypes.Result, executor_kwargs=dict(max_workers=4)
         )
-        | Printer("load")
+        | Print("load")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     with open(outfile, "w") as f:
@@ -55,11 +55,11 @@ def test_thread_pool_submit(rootdir):
 
 def test_pool_submit_executor_param(rootdir):
     nodes = (
-        RowCSVExtractor("extract", nrows=10)
+        CSVExtract("extract", nrows=10)
         | ThreadPoolSubmit(
             "transform", push_type=PushTypes.Result, executor_kwargs=dict(max_workers=4)
         )
-        | Printer("load")
+        | Print("load")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     with ThreadPoolExecutor(max_workers=4) as executor, open(outfile, "w") as f:
@@ -72,14 +72,14 @@ def sleep2(x):
 
 def test_pool_timeout(rootdir):
     nodes = (
-        RowCSVExtractor("extract", nrows=10)
+        CSVExtract("extract", nrows=10)
         | ProcessPoolSubmit(
             "transform",
             push_type=PushTypes.Result,
             executor_kwargs=dict(max_workers=4),
             timeout=0.5,
         )
-        | Printer("load")
+        | Print("load")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     with pytest.raises(TimeoutError), open(outfile, "w") as f:
@@ -88,11 +88,11 @@ def test_pool_timeout(rootdir):
 
 def test_flatten(rootdir):
     nodes = (
-        RowCSVExtractor("extract", nrows=10)
+        CSVExtract("extract", nrows=10)
         | ProcessPoolSubmit("transform")
         | FuturesReduce("reducer", flatten=False)
         | Flatten("flatten")
-        | Printer("load")
+        | Print("load")
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     with open(outfile, "w") as f:

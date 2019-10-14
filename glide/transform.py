@@ -16,7 +16,7 @@ class JSONLoads(Node):
         self.push(json.loads(data))
 
 
-class EmailMessageTransformer(Node):
+class EmailMessageTransform(Node):
     """Update EmailMessage objects"""
 
     def run(

@@ -6,14 +6,14 @@ from tlbx import st
 
 from glide.core import Glider, PlaceholderNode
 from glide.extract import (
-    RowSQLExtractor,
-    RowSQLParamExtractor,
-    RowCSVExtractor,
-    EmailExtractor,
-    FileExtractor,
-    URLExtractor,
+    SQLExtract,
+    SQLParamExtract,
+    CSVExtract,
+    EmailExtract,
+    FileExtract,
+    URLExtract,
 )
-from glide.load import RowSQLLoader, RowCSVLoader, EmailLoader, FileLoader, URLLoader
+from glide.load import SQLLoad, CSVLoad, EmailLoad, FileLoad, URLLoad
 from glide.utils import iterize, get_class_list_docstring
 
 
@@ -106,13 +106,13 @@ def basic_glider(
 
 
 GLIDER_TEMPLATE_DATA = {
-    "Row": {
+    "": {
         "extract": [
-            ("SQL", RowSQLExtractor),
-            ("SQLParam", RowSQLParamExtractor),
-            ("CSV", RowCSVExtractor),
+            ("SQL", SQLExtract),
+            ("SQLParam", SQLParamExtract),
+            ("CSV", CSVExtract),
         ],
-        "load": [("SQL", RowSQLLoader), ("CSV", RowCSVLoader)],
+        "load": [("SQL", SQLLoad), ("CSV", CSVLoad)],
     }
 }
 
@@ -126,16 +126,16 @@ for data_format, template in GLIDER_TEMPLATE_DATA.items():
             name = "%s%s2%s" % (data_format, etype, ltype)
             locals()[name] = basic_glider(extract=extractor, load=loader)
 
-File2File = basic_glider(extract=FileExtractor, load=FileLoader)
-File2Email = basic_glider(extract=FileExtractor, load=EmailLoader)
-File2URL = basic_glider(extract=FileExtractor, load=URLLoader)
+File2File = basic_glider(extract=FileExtract, load=FileLoad)
+File2Email = basic_glider(extract=FileExtract, load=EmailLoad)
+File2URL = basic_glider(extract=FileExtract, load=URLLoad)
 
-Email2Email = basic_glider(extract=EmailExtractor, load=EmailLoader)
-Email2File = basic_glider(extract=EmailExtractor, load=FileLoader)
+Email2Email = basic_glider(extract=EmailExtract, load=EmailLoad)
+Email2File = basic_glider(extract=EmailExtract, load=FileLoad)
 
-URL2Email = basic_glider(extract=URLExtractor, load=EmailLoader)
-URL2File = basic_glider(extract=URLExtractor, load=FileLoader)
-URL2URL = basic_glider(extract=URLExtractor, load=URLLoader)
+URL2Email = basic_glider(extract=URLExtract, load=EmailLoad)
+URL2File = basic_glider(extract=URLExtract, load=FileLoad)
+URL2URL = basic_glider(extract=URLExtract, load=URLLoad)
 
 template_names = []
 for key, value in locals().copy().items():

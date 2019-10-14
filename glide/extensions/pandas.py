@@ -47,7 +47,7 @@ class PandasSQLNode(BaseSQLNode, DataFramePushMixin):
     allowed_conn_types = SQLALCHEMY_CONN_TYPES + [sqlite3.Connection]
 
 
-class DataFrameCSVExtractor(DataFramePush):
+class DataFrameCSVExtract(DataFramePush):
     """Extract data from a CSV using Pandas"""
 
     def run(self, f, **kwargs):
@@ -66,7 +66,7 @@ class DataFrameCSVExtractor(DataFramePush):
         self.do_push(df, chunksize=kwargs.get("chunksize", None))
 
 
-class DataFrameExcelExtractor(DataFramePush):
+class DataFrameExcelExtract(DataFramePush):
     """Extract data from an Excel file using Pandas"""
 
     def run(self, f, **kwargs):
@@ -87,7 +87,7 @@ class DataFrameExcelExtractor(DataFramePush):
         self.do_push(df_or_dict)
 
 
-class DataFrameSQLExtractor(PandasSQLNode):
+class DataFrameSQLExtract(PandasSQLNode):
     """Extract data from a SQL db using Pandas"""
 
     def run(self, sql, conn, **kwargs):
@@ -108,7 +108,7 @@ class DataFrameSQLExtractor(PandasSQLNode):
         self.do_push(df, kwargs.get("chunksize", None))
 
 
-class DataFrameSQLTableExtractor(PandasSQLNode):
+class DataFrameSQLTableExtract(PandasSQLNode):
     """Extract data from a SQL table using Pandas"""
 
     def run(self, table, conn, where=None, limit=None, **kwargs):
@@ -134,7 +134,7 @@ class DataFrameSQLTableExtractor(PandasSQLNode):
         self.do_push(df, kwargs.get("chunksize", None))
 
 
-class DataFrameCSVLoader(Node):
+class DataFrameCSVLoad(Node):
     """Load data into a CSV from a Pandas DataFrame"""
 
     def begin(self):
@@ -180,7 +180,7 @@ class DataFrameCSVLoader(Node):
         self.wrote_header = False
 
 
-class DataFrameExcelLoader(Node):
+class DataFrameExcelLoad(Node):
     """Load data into an Excel file from a Pandas DataFrame"""
 
     def run(self, df_or_dict, f, push_file=False, dry_run=False, **kwargs):
@@ -219,7 +219,7 @@ class DataFrameExcelLoader(Node):
             self.push(df_or_dict)
 
 
-class DataFrameSQLLoader(PandasSQLNode):
+class DataFrameSQLLoad(PandasSQLNode):
     """Load data into a SQL db from a Pandas DataFrame"""
 
     def run(self, df, conn, table, push_table=False, dry_run=False, **kwargs):
@@ -254,7 +254,7 @@ class DataFrameSQLLoader(PandasSQLNode):
             self.push(df)
 
 
-class DataFrameSQLTempLoader(PandasSQLNode):
+class DataFrameSQLTempLoad(PandasSQLNode):
     """Load data into a SQL temp table from a Pandas DataFrame"""
 
     def run(self, df, conn, schema=None, dry_run=False, **kwargs):

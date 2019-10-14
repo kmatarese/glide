@@ -27,9 +27,9 @@ def email_pipeline(
     extract=None,
     transform=None,
     load=None,
-    extractor=EmailExtractor,
+    extractor=EmailExtract,
     transformer=PlaceholderNode,
-    loader=EmailLoader,
+    loader=EmailLoad,
 ):
     glider = Glider(extractor("extract") | transformer("transform") | loader("load"))
 
@@ -104,7 +104,7 @@ def test_email_load_messages():
         extract=extract,
         transform=transform,
         load=load,
-        transformer=EmailMessageTransformer,
+        transformer=EmailMessageTransform,
     )
 
 
@@ -123,7 +123,7 @@ def test_email_load_messages_with_client():
             extract=extract,
             transform=transform,
             load=load,
-            transformer=EmailMessageTransformer,
+            transformer=EmailMessageTransform,
         )
 
 
@@ -145,7 +145,7 @@ def test_email_load_messages_format_body():
             extract=extract,
             load=load,
             transform=dict(attribute="payload"),
-            transformer=AttributeFilterNode,
+            transformer=AttributeFilter,
         )
 
 
@@ -167,13 +167,13 @@ def test_email_load_messages_format_html():
             extract=extract,
             load=load,
             transform=dict(attribute="payload"),
-            transformer=AttributeFilterNode,
+            transformer=AttributeFilter,
         )
 
 
 def test_email_load_data_to_attachment(rootdir):
     infile, _ = get_filenames(rootdir, "csv")
-    glider = Glider(FileExtractor("extract") | EmailLoader("load"))
+    glider = Glider(FileExtract("extract") | EmailLoad("load"))
 
     with smtplib.SMTP(test_config["SMTPHost"], port=test_config["SMTPPort"]) as client:
         init_smtp_client(client)

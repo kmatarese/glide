@@ -2,8 +2,8 @@ from .test_utils import *
 from glide import *
 
 
-def test_row_sql2sql(rootdir, pymysql_conn):
-    glider = RowSQL2SQL()
+def test_sql2sql(rootdir, pymysql_conn):
+    glider = SQL2SQL()
     in_table, out_table, cursor = dbapi_setup(rootdir, pymysql_conn, truncate=True)
     sql = "select * from %s limit 10" % in_table
     glider.consume(
@@ -13,7 +13,7 @@ def test_row_sql2sql(rootdir, pymysql_conn):
     )
 
 
-def test_row_parallel_csv2csv(rootdir):
-    glider = RowCSV2CSV(glider=ProcessPoolParaGlider)
+def test_parallel_csv2csv(rootdir):
+    glider = CSV2CSV(glider=ProcessPoolParaGlider)
     infile, outfile = get_filenames(rootdir, "csv")
     glider.consume([infile], load=dict(f=outfile))

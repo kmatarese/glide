@@ -9,16 +9,15 @@ BASE_ARGV = ["test_script_decorator.py"]
 LOAD_TABLE = "scratch.dma_zip_tmp"
 
 gs_glider = Glider(
-    RowSQLExtractor("extract") | RowSQLLoader("load"),
-    global_state=dict(conn=get_pymysql_conn()),
+    SQLExtract("extract") | SQLLoad("load"), global_state=dict(conn=get_pymysql_conn())
 )
 
 cf_glider = Glider(
-    RowSQLExtractor("extract") | RowSQLLoader("load"),
+    SQLExtract("extract") | SQLLoad("load"),
     global_state=dict(conn=RuntimeContext(get_pymysql_conn)),
 )
 
-glider = Glider(RowSQLExtractor("extract") | RowSQLLoader("load"))
+glider = Glider(SQLExtract("extract") | SQLLoad("load"))
 
 
 def get_data():

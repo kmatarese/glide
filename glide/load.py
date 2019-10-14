@@ -30,7 +30,7 @@ from glide.utils import (
 )
 
 
-class Printer(Node):
+class Print(Node):
     """Print the item"""
 
     def print(self, item):
@@ -47,14 +47,14 @@ class Printer(Node):
         self.push(item)
 
 
-class PrettyPrinter(Printer):
+class PrettyPrint(Print):
     """Pretty-prints the item"""
 
     def print(self, item):
         pp(item)
 
 
-class LenPrinter(Printer):
+class LenPrint(Print):
     """Prints the length of the item"""
 
     def get_label(self):
@@ -64,14 +64,14 @@ class LenPrinter(Printer):
         print("item length: %s" % size(item, "n/a"))
 
 
-class ReprPrinter(Printer):
+class ReprPrint(Print):
     """Prints the reprlib.repr of the item"""
 
     def print(self, item):
         print(repr(item))
 
 
-class FormatPrinter(Node):
+class FormatPrint(Node):
     """Format and print the item"""
 
     def run(
@@ -108,10 +108,7 @@ class FormatPrinter(Node):
         self.push(item)
 
 
-# -------- Row-based Loaders
-
-
-class RowCSVLoader(Node):
+class CSVLoad(Node):
     """Load data into a CSV using DictWriter"""
 
     def begin(self):
@@ -165,7 +162,7 @@ class RowCSVLoader(Node):
         self.writer = None
 
 
-class RowExcelLoader(Node):
+class ExcelLoad(Node):
     """Load data into an Excel file using pyexcel"""
 
     def run(
@@ -220,7 +217,7 @@ class RowExcelLoader(Node):
             self.push(rows)
 
 
-class RowSQLLoader(SQLNode):
+class SQLLoad(SQLNode):
     """Generic SQL loader"""
 
     def run(
@@ -280,7 +277,7 @@ class RowSQLLoader(SQLNode):
             self.push(rows)
 
 
-class RowSQLTempLoader(SQLNode):
+class SQLTempLoad(SQLNode):
     """Generic SQL temp table loader"""
 
     def run(self, rows, conn, cursor=None, schema=None, commit=True, dry_run=False):
@@ -318,10 +315,7 @@ class RowSQLTempLoader(SQLNode):
         self.push(table.name)
 
 
-# -------- Other Loaders
-
-
-class FileLoader(Node):
+class FileLoad(Node):
     """Load raw content to a file"""
 
     def run(self, data, f, open_flags="w", push_file=False, dry_run=False):
@@ -366,7 +360,7 @@ class FileLoader(Node):
             self.push(data)
 
 
-class URLLoader(Node):
+class URLLoad(Node):
     """Load data to URL with requests"""
 
     def run(
@@ -433,7 +427,7 @@ class URLLoader(Node):
         self.push(data)
 
 
-class EmailLoader(Node):
+class EmailLoad(Node):
     """Load data to email via SMTP"""
 
     def run(

@@ -17,7 +17,7 @@ from glide.sql_utils import build_table_select
 from glide.utils import dbg, read_excel, find_class_in_dict, get_class_list_docstring
 
 
-class RowCSVExtractor(Node):
+class CSVExtract(Node):
     """Extract data from a CSV"""
 
     def run(
@@ -86,7 +86,7 @@ class RowCSVExtractor(Node):
                     pass
 
 
-class RowExcelExtractor(Node):
+class ExcelExtract(Node):
     """Extract data from an Excel file"""
 
     def run(self, f, dict_rows=False, **kwargs):
@@ -113,8 +113,8 @@ class RowExcelExtractor(Node):
         self.push(data)
 
 
-class RowSQLExtractor(SQLNode):
-    """Generic SQL Extractor"""
+class SQLExtract(SQLNode):
+    """Generic SQL extract Node"""
 
     def run(
         self,
@@ -153,8 +153,8 @@ class RowSQLExtractor(SQLNode):
         self.do_push(fetcher, chunksize=chunksize)
 
 
-class RowSQLParamExtractor(RowSQLExtractor):
-    """Generic SQL Extractor that expects SQL params as data instead of a query"""
+class SQLParamExtract(SQLExtract):
+    """Generic SQL extract node that expects SQL params as data instead of a query"""
 
     def run(
         self, params, sql, conn, cursor=None, cursor_type=None, chunksize=None, **kwargs
@@ -190,8 +190,8 @@ class RowSQLParamExtractor(RowSQLExtractor):
         )
 
 
-class RowSQLTableExtractor(SQLNode):
-    """Generic SQL Table Extractor"""
+class SQLTableExtract(SQLNode):
+    """Generic SQL table extract node"""
 
     def run(
         self,
@@ -237,10 +237,7 @@ class RowSQLTableExtractor(SQLNode):
         self.do_push(fetcher, chunksize=chunksize)
 
 
-# -------- Other Extractors
-
-
-class FileExtractor(Node):
+class FileExtract(Node):
     """Extract raw data from a file"""
 
     def run(self, f, open_flags="r", chunksize=None, push_lines=False, limit=None):
@@ -301,7 +298,7 @@ class FileExtractor(Node):
                     pass
 
 
-class URLExtractor(Node):
+class URLExtract(Node):
     """Extract data from a URL with requests"""
 
     def run(
@@ -360,7 +357,7 @@ class URLExtractor(Node):
         self.push(data)
 
 
-class EmailExtractor(Node):
+class EmailExtract(Node):
     """Extract data from an email inbox using IMAPClient: https://imapclient.readthedocs.io"""
 
     def run(

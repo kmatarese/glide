@@ -4,7 +4,7 @@ from glide.core import Node
 from glide.utils import find_class_in_dict, get_class_list_docstring
 
 
-class DictKeyFilterNode(Node):
+class DictKeyFilter(Node):
     """A node that pushes a specific value from a dict-like object"""
 
     def run(self, item, key):
@@ -21,7 +21,7 @@ class DictKeyFilterNode(Node):
         self.push(item[key])
 
 
-class AttributeFilterNode(Node):
+class AttributeFilter(Node):
     """A node that pushes a specific attribute of an object"""
 
     def run(self, item, attribute):

@@ -73,9 +73,9 @@ def test_lower(redis_server, celery_worker):
 def test_celery_task_node(redis_server, celery_worker, rootdir):
     # Note: have to wait for result for celery_worker fixtures to work properly
     nodes = (
-        RowCSVExtractor("extract", nrows=20)
+        CSVExtract("extract", nrows=20)
         | CeleryApplyAsync("apply", task=lower_task, push_type="result", retry=False)
-        | Printer("load")
+        | Print("load")
     )
     infile, _ = get_filenames(rootdir, "csv")
     glider = Glider(nodes)
@@ -84,11 +84,11 @@ def test_celery_task_node(redis_server, celery_worker, rootdir):
 
 def test_celery_reducer(redis_server, celery_worker, rootdir):
     nodes = (
-        RowCSVExtractor("extract", nrows=20)
+        CSVExtract("extract", nrows=20)
         | SplitPush("split", split_count=2)
         | CeleryApplyAsync("apply", task=lower_task)
         | CeleryReduce("reduce")
-        | Printer("load")
+        | Print("load")
     )
     infile, _ = get_filenames(rootdir, "csv")
     glider = Glider(nodes)
@@ -97,7 +97,7 @@ def test_celery_reducer(redis_server, celery_worker, rootdir):
 
 def test_celery_glider_task(redis_server, celery_worker, rootdir):
     infile, outfile = get_filenames(rootdir, "csv")
-    glider = Glider(RowCSVExtractor("extract") | [Printer("load1"), Printer("load2")])
+    glider = Glider(CSVExtract("extract") | [Print("load1"), Print("load2")])
     async_result = celery_glider_task.delay(
         [infile], glider, consume_kwargs=dict(extract=dict(nrows=10))
     )
@@ -110,10 +110,10 @@ def test_celery_build_glider_task(redis_server, celery_worker, rootdir):
     async_result = celery_build_glider_task.delay(
         [infile],
         [
-            dict(class_name="RowCSVExtractor", args=["extract"]),
+            dict(class_name="CSVExtract", args=["extract"]),
             [
-                dict(class_name="Printer", args=["load1"]),
-                dict(class_name="Printer", args=["load2"]),
+                dict(class_name="Print", args=["load1"]),
+                dict(class_name="Print", args=["load2"]),
             ],
         ],
         consume_kwargs=dict(extract=dict(nrows=10)),
@@ -125,8 +125,8 @@ def test_celery_build_glider_task(redis_server, celery_worker, rootdir):
 def test_celery_glider_template_task(redis_server, celery_worker, rootdir):
     infile, outfile = get_filenames(rootdir, "csv")
     glider_template = GliderTemplate(
-        partial(RowCSVExtractor, "extract"),
-        [partial(Printer, "load1"), partial(Printer, "load2")],
+        partial(CSVExtract, "extract"),
+        [partial(Print, "load1"), partial(Print, "load2")],
     )
     async_result = celery_glider_template_task.delay(
         [infile], glider_template, consume_kwargs=dict(extract=dict(nrows=10))
@@ -138,7 +138,7 @@ def test_celery_glider_template_task(redis_server, celery_worker, rootdir):
 def test_celery_paraglider_csv(redis_server, celery_worker, rootdir):
     infile, outfile = get_filenames(rootdir, "csv")
     glider = CeleryParaGlider(
-        celery_consume_task, RowCSVExtractor("extract") | Printer("load")
+        celery_consume_task, CSVExtract("extract") | Print("load")
     )
     async_results = glider.consume([infile], extract=dict(nrows=10))
     # Note: have to wait for result for celery_worker fixtures to work properly
@@ -150,7 +150,7 @@ def test_celery_glider_sql(redis_server, celery_worker, rootdir):
     in_table, out_table = db_tables()
     sql = "select * from %s where Zip_Code < %%(zip)s" % in_table
 
-    glider = Glider(RowSQLExtractor("extract") | PrettyPrinter("load"))
+    glider = Glider(SQLExtract("extract") | PrettyPrint("load"))
 
     async_result = celery_glider_task.delay(
         [sql],
