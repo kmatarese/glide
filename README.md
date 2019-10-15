@@ -364,6 +364,17 @@ Finally, there are a variety of print nodes you can place in your pipeline for
 general logging or debugging, such as `Print`, `PrettyPrint`, `LenPrint`,
 `ReprPrint`, and `FormatPrint`. See the node documentation for more info.
 
+
+### Plotting Pipeline DAGs
+
+If you have the [Graphviz](http://www.graphviz.org/) package installed, you can generate
+a plot of your pipelines by simply doing the following:
+
+```python
+glider = Glider(...)
+glider.plot("/path/to/filename.png")
+```
+
 <a name="creatingnodes"></a>
 Creating Nodes
 --------------

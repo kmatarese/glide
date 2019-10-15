@@ -181,6 +181,49 @@ class Node(ConsecutionNode):
         raise NotImplementedError
 
 
+class GroupByNode(Node):
+    """This approach was copied from Consecution. It batches items
+    by key and then pushes once the key changes. For that reason
+    it requires sorting ahead of time to function properly. It may
+    make sense to provide different behavior."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._batch_ = []
+        self._previous_key = "__no_previous_key__"
+
+    def key(self, item):
+        raise NotImplementedError(
+            "you must define a .key(self, item) method on all " "GroupBy nodes."
+        )
+
+    def process(self, item):
+        key = self.key(item)
+        if key != self._previous_key:
+            self._previous_key = key
+            if len(self._batch_) > 0:
+                self._run(self._batch_)
+            self._batch_ = [item]
+        else:
+            self._batch_.append(item)
+
+    def _end(self):
+        self._run(self._batch_)
+        self._batch_ = []
+
+    def __getattribute__(self, name):
+        """This should trap for the end() method calls and install pre hook"""
+        if name == "end":
+
+            def wrapper():
+                self._end()
+                return super(GroupByNode, self).__getattribute__(name)()
+
+            return wrapper
+        else:
+            return super(GroupByNode, self).__getattribute__(name)
+
+
 class PushNode(Node):
     """A node that just passes all items through in run()"""
 
@@ -743,7 +786,7 @@ class RuntimeContext:
 
 def get_node_contexts(pipeline):
     """Get a dict of node_name->node_context from pipeline"""
-    contexts = {k: pipeline[k].context for k in pipeline._node_lookup}
+    contexts = {k: getattr(pipeline[k], "context", {}) for k in pipeline._node_lookup}
     return contexts
 
 
