@@ -13,9 +13,19 @@ def test_placeholder_node(rootdir):
     nodes = PlaceholderNode("extract") | CSVLoad("load")
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     glider["extract"] = CSVExtract("extract")
-    glider.consume(
-        [infile], extract=dict(chunksize=100, nrows=20), load=dict(f=outfile)
+    with open(outfile, "w") as f:
+        glider.consume([infile], extract=dict(chunksize=10, nrows=20), load=dict(f=f))
+
+
+def test_assert_node(rootdir):
+    nodes = (
+        CSVExtract("extract", chunksize=10, nrows=20)
+        | AssertFunc("length_check", func=lambda node, data: len(data) == 10)
+        | CSVLoad("load")
     )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    with open(outfile, "w") as f:
+        glider.consume([infile], load=dict(f=f))
 
 
 def parity_zip_router(row):

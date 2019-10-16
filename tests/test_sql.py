@@ -16,6 +16,46 @@ def test_sql_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     sqlite_out_conn.commit()
 
 
+def test_sql_assert_node(rootdir, sqlite_in_conn, sqlite_out_conn):
+    nodes = SQLExtract("extract") | SQLLoad("load") | AssertSQL("check")
+    glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
+    sql = "select * from %s limit 10" % table
+    assert_sql = "select (select count(*) as x from %s) == 10 as assert" % table
+    sqlite_out_conn.execute("delete from %s" % table)
+    sqlite_out_conn.commit()
+
+    glider.consume(
+        [sql],
+        extract=dict(conn=sqlite_in_conn),
+        load=dict(conn=sqlite_out_conn, table=table, stmt_type="INSERT"),
+        check=dict(conn=sqlite_out_conn, sql=assert_sql),
+    )
+    sqlite_out_conn.commit()
+
+
+def test_sql_assert_data_check(rootdir, sqlite_in_conn, sqlite_out_conn):
+    nodes = SQLExtract("extract") | SQLLoad("load") | AssertSQL("check")
+    glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
+    sql = "select * from %s limit 10" % table
+    assert_sql = "select count(*) as assert from %s" % table
+    sqlite_out_conn.execute("delete from %s" % table)
+    sqlite_out_conn.commit()
+
+    glider.consume(
+        [sql],
+        extract=dict(conn=sqlite_in_conn),
+        load=dict(
+            conn=sqlite_out_conn, table=table, push_table=False, stmt_type="INSERT"
+        ),
+        check=dict(
+            conn=sqlite_out_conn,
+            sql=assert_sql,
+            data_check=lambda node, data: len(data),
+        ),
+    )
+    sqlite_out_conn.commit()
+
+
 def test_sql_param_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     nodes = SQLParamExtract("extract", log=True) | SQLLoad("load")
     glider, table = sqlite_glider(rootdir, nodes, reset_output=True)

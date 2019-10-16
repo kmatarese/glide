@@ -338,6 +338,74 @@ necessary, as you often have access to the objects you need to clean up in the
 main process and can just do normal clean up there with context managers or
 explicit calls to `close` methods.
 
+### Data Integrity Checks
+
+Glide provides some handy assertion nodes for data integrity checks in your
+pipeline. For example, you can use `AssertFunc` to assert that some condition
+of the data is met:
+
+```python
+glider = Glider(
+    CSVExtract("extract", chunksize=10, nrows=20)
+    | AssertFunc("length_check", func=lambda node, data: len(data) == 10)
+    | CSVLoad("load") 
+)
+```
+
+The `func` callable must accept two parameters, a reference to the node object
+and the data passed into that node. Any truthy value returned will pass the
+assertion test. 
+
+Another common case is to do a check against some SQL data, perhaps in an aggregation
+pipeline. You can use `AssertSQL` for that, as in the following example that simply
+verifies the number of rows inserted.
+
+```python
+glider = Glider(
+    SQLExtract("extract")
+    | SQLLoad("load")
+    | AssertSQL("sql_check")
+)
+
+sql = "select * from in_table limit 10"
+assert_sql = "select (select count(*) as x from out_table) == 10 as assert"
+
+glider.consume(
+    [sql],
+    extract=dict(conn=in_conn),
+    load=dict(conn=out_conn, table="out_table"),
+    sql_check=dict(conn=out_conn, sql=assert_sql)
+)
+```
+
+This looks for a truthy value in the `assert` column of the result to pass the
+assertion. You can also use the `data_check` option of `AssertSQL` to instead
+have it do a comparison to the result of some function of the data. The
+following example will compare the `assert` column value to the result of the
+`data_check` for equality. In this case, it compares a count from the database
+to the length of the input data.
+
+```python
+glider = ...
+
+sql = "select * from in_table limit 10"
+assert_sql = "select count(*) as assert from out_table"
+
+glider.consume(
+    [sql],
+    extract=dict(conn=in_conn),
+    load=dict(conn=out_conn, table="out_table", push_table=False),
+    sql_check=dict(
+        conn=out_conn,
+        sql=assert_sql,
+        data_check=lambda node, data: len(data)
+    )
+)
+```
+
+Note that we also added `push_table=False` to the `SQLLoad` node to have it push
+the data instead of a table name.
+
 ### Debug Logging
 
 To enable debug logging for Glide change the log level of the "glide" logger:

@@ -757,6 +757,98 @@ class SQLNode(BaseSQLNode, SQLCursorPushMixin):
         )
 
 
+class AssertFunc(Node):
+    def run(self, data, func):
+        """Assert that a function returns a truthy value
+
+        Parameters
+        ----------
+        data
+            Data to push if func(self, data) is truthy
+        func : callable
+            A callable that accepts (node, data) args and returns a truthy value if
+            the assertion should pass.
+
+        """
+        assert func(self, data), "Data assertion failed\nnode: %s\nfunc: %s" % (
+            self.name,
+            func,
+        )
+        self.push(data)
+
+
+class AssertSQL(SQLNode):
+    def run(
+        self,
+        data,
+        sql,
+        conn,
+        cursor=None,
+        cursor_type=None,
+        params=None,
+        data_check=None,
+        **kwargs
+    ):
+        """Run a SQL query to check data.
+
+        Parameters
+        ----------
+        data
+            Data to pass through on success
+        sql : str
+            SQL query to run. Should return a single row with a "assert"
+            column to indicate success. Truthy values for "assert" will be
+            considered successful, unless data_check is passed in which case
+            it will be compared for equality to the result of that callable.
+        conn
+            SQL connection object
+        cursor : optional
+            SQL connection cursor object
+        cursor_type : optional
+            SQL connection cursor type when creating a cursor is necessary
+        params : tuple or dict, optional
+            A tuple or dict of params to pass to the execute method
+        data_check : callable, optional
+            A callable that will be passed the node and data as arguments and is expected
+            to return a value to be compared to the SQL result.
+        **kwargs
+            Keyword arguments pushed to the execute method
+
+        """
+        if not cursor:
+            cursor = self.get_sql_executor(conn, cursor_type=cursor_type)
+        params = params or ()
+        fetcher = self.sql_execute(conn, cursor, sql, params=params, **kwargs)
+        result = fetcher.fetchone()
+
+        if isinstance(conn, sqlite3.Connection):
+            assert isinstance(
+                result, sqlite3.Row
+            ), "Only sqlite3.Row rows are supported for sqlite3 connections"
+
+        assert not isinstance(
+            result, tuple
+        ), "Dict rows expected, got tuple. Please use a dict cursor."
+
+        assert "assert" in result.keys(), "Result is missing 'assert' column"
+        result = result["assert"]
+
+        if data_check:
+            check = data_check(self, data)
+            assert result == check, (
+                "SQL assertion failed\nnode: %s\nsql: %s\nvalue: %s\ndata_check: %s"
+                % (self.name, sql, result, check)
+            )
+        else:
+            assert result, "SQL assertion failed\nnode: %s\nsql: %s\nvalue: %s" % (
+                self.name,
+                sql,
+                result,
+            )
+
+        self.push(data)
+
+
 class RuntimeContext:
     """A function to be executed at runtime to populate context values
 
