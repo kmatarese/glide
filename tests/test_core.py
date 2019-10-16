@@ -17,6 +17,20 @@ def test_placeholder_node(rootdir):
         glider.consume([infile], extract=dict(chunksize=10, nrows=20), load=dict(f=f))
 
 
+def test_filter_node(rootdir):
+    nodes = (
+        CSVExtract("extract")
+        | Filter("filter", func=lambda node, data: len(data) == 5)
+        | Reduce("reduce", flatten=True)
+        | LenPrint("len")
+        | CSVLoad("load")
+        | AssertFunc("length_check", func=lambda n, d: len(d) == 5)
+    )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    with open(outfile, "w") as f:
+        glider.consume([infile], extract=dict(chunksize=10, nrows=15), load=dict(f=f))
+
+
 def test_assert_node(rootdir):
     nodes = (
         CSVExtract("extract", chunksize=10, nrows=20)

@@ -117,7 +117,7 @@ class DaskFuturesReduce(Reduce):
         results = []
         for _, result in dask_as_completed(self.results, with_results=True):
             results.append(result)
-        if self.context.get("flatten", False):
+        if results and self.context.get("flatten", False):
             results = pd.concat(results)
         self.push(results)
 

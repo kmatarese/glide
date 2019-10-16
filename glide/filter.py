@@ -4,6 +4,14 @@ from glide.core import Node
 from glide.utils import find_class_in_dict, get_class_list_docstring
 
 
+class Filter(Node):
+    """A node that only pushes if some condition is met"""
+
+    def run(self, item, func, **kwargs):
+        if func(self, item):
+            self.push(item)
+
+
 class DictKeyFilter(Node):
     """A node that pushes a specific value from a dict-like object"""
 

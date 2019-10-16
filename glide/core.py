@@ -170,7 +170,7 @@ class Node(ConsecutionNode):
         if self.log:
             print(format_msg(repr(item), label=self.name))
         else:
-            dbg(repr(item), label=self.name)
+            dbg("size:%s %s" % (size(item), repr(item)), label=self.name)
         self._run(item, *arg_values, **kwarg_values)
 
     def _run(self, item, *args, **kwargs):
@@ -237,7 +237,7 @@ class PlaceholderNode(PushNode):
     pass
 
 
-class SkipFalse(Node):
+class SkipFalseNode(Node):
     """This overrides the behavior of calling run() such that if a "false"
     object is pushed it will never call run, just push to next node instead"""
 
@@ -541,7 +541,7 @@ class Reduce(Node):
     def end(self):
         """Do the push once all results are in"""
         results = self.results
-        if self.context.get("flatten", False):
+        if results and self.context.get("flatten", False):
             results = flatten(results)
         self.push(results)
 
@@ -562,7 +562,7 @@ class FuturesReduce(Reduce):
         results = []
         for future in as_completed(self.results, timeout=timeout):
             results.append(future.result())
-        if self.context.get("flatten", False):
+        if results and self.context.get("flatten", False):
             results = flatten(results)
         self.push(results)
 
@@ -599,7 +599,7 @@ class SQLCursorPushMixin:
             self.push(data)
 
 
-class BaseSQLNode(SkipFalse):
+class BaseSQLNode(SkipFalseNode):
     """Base class for SQL-based nodes, checks for valid connection types on init
 
     Attributes

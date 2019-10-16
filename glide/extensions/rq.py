@@ -226,6 +226,6 @@ class RQReduce(Reduce):
         """Do the push once all results are in"""
         dbg("Waiting for %d RQ job(s)..." % len(self.results))
         results = get_async_results(self.results)
-        if self.context.get("flatten", False):
+        if results and self.context.get("flatten", False):
             results = flatten(results)
         self.push(results)

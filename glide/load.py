@@ -11,7 +11,7 @@ from pandas.io.common import get_filepath_or_buffer
 import requests
 from tlbx import st, pp, create_email, send_email, sqlformat, repr, format_msg
 
-from glide.core import Node, SQLNode
+from glide.core import Node, SQLNode, SkipFalseNode
 from glide.sql_utils import get_temp_table
 from glide.utils import (
     dbg,
@@ -103,7 +103,7 @@ class FormatPrint(Node):
         self.push(item)
 
 
-class CSVLoad(Node):
+class CSVLoad(SkipFalseNode):
     """Load data into a CSV using DictWriter"""
 
     def begin(self):
@@ -163,7 +163,7 @@ class CSVLoad(Node):
         self.writer = None
 
 
-class ExcelLoad(Node):
+class ExcelLoad(SkipFalseNode):
     """Load data into an Excel file using pyexcel"""
 
     def run(

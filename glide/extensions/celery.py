@@ -292,6 +292,6 @@ class CeleryReduce(Reduce):
             interval=self.context.get("interval", 0.5),
         )
         result_set.forget()
-        if self.context.get("flatten", False):
+        if results and self.context.get("flatten", False):
             results = flatten(results)
         self.push(results)
