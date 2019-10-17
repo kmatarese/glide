@@ -4,6 +4,7 @@ from collections import OrderedDict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import copy
 from inspect import signature, Parameter
+import os
 from pprint import pformat
 import sqlite3
 
@@ -37,6 +38,9 @@ from glide.utils import (
     divide_data,
     flatten,
     window,
+    load_json_config,
+    load_ini_config,
+    load_yaml_config,
 )
 
 SCRIPT_DATA_ARG = "data"
@@ -938,6 +942,44 @@ class RuntimeContext:
     def copy(self):
         """Create a copy of this RuntimeContext referencing the same objects"""
         return RuntimeContext(self.func, *self.args, **self.kwargs)
+
+
+class ConfigContext(RuntimeContext):
+    def __init__(self, filename=None, var=None, key=None):
+        """Populate context values at runtime from a config file. One of
+        filename or var must be specified.
+
+        Parameters
+        ----------
+        filename : str, optional
+            Name of a file to read the config from. The config parser used
+            will be inferred from the file extension.
+        var : str, optional
+            The name of an environment variable that points to a config file
+            to read.
+        key : str or callable, optional
+            A key to extract from the config, or a callable that takes the
+            config and returns an extracted value
+
+        """
+        assert filename or var, "Either filename or var must be specified"
+        assert not (filename and var), "Only one of filename or var should be specified"
+
+        if var:
+            filename = os.environ[var]
+
+        ext = filename.split(".")[-1]
+        supported = ["json", "yaml", "ini"]
+        assert ext in supported, "Invalid extension, only %s supported" % supported
+
+        if ext == "json":
+            func = load_json_config
+        elif ext == "yaml":
+            func = load_yaml_config
+        elif ext == "ini":
+            func = load_ini_config
+
+        super().__init__(func, filename, key=key)
 
 
 def get_node_contexts(pipeline):

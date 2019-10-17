@@ -245,3 +245,30 @@ def test_flatten(rootdir):
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     glider.consume([infile], transform=dict(func=lower_rows))
+
+
+def test_config_context_json(rootdir):
+    nodes = CSVExtract(
+        "extract", nrows=ConfigContext("config_context.json", key="nrows")
+    ) | LenPrint("print")
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile])
+
+
+def test_config_context_yaml(rootdir):
+    nodes = CSVExtract(
+        "extract", nrows=ConfigContext("config_context.yaml", key="nrows")
+    ) | LenPrint("print")
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile])
+
+
+def test_config_context_ini(rootdir):
+    nodes = CSVExtract(
+        "extract",
+        nrows=ConfigContext(
+            "config_context.ini", key=lambda x: int(x["TEST"]["nrows"])
+        ),
+    ) | LenPrint("print")
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile])

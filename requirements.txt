@@ -8,6 +8,7 @@ pyexcel
 pyexcel-xls
 pyexcel-xlsx
 pymysql
+pyyaml
 requests
 sqlalchemy
 tlbx

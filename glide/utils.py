@@ -1,5 +1,6 @@
 """Common utilities"""
 
+import configparser
 import functools
 import itertools
 import io
@@ -12,6 +13,7 @@ from pyexcel_xlsx import get_data as get_xlsx, save_data as save_xlsx
 from pyexcel_xls import get_data as get_xls, save_data as save_xls
 from tlbx import (
     st,
+    json,
     dbg as _dbg,
     dbgsql as _dbgsql,
     info as _info,
@@ -20,6 +22,7 @@ from tlbx import (
     get_caller,
     is_str,
 )
+import yaml
 
 default_logger = logging.getLogger("glide")
 default_logger.setLevel(logging.INFO)
@@ -56,6 +59,35 @@ def get_class_list_docstring(heading, classes):
     return _CLASS_LIST_DOCSTRING_TEMPLATE.format(
         heading=heading, classes_str=classes_str
     )
+
+
+def _config_helper(data, key):
+    if key:
+        if callable(key):
+            return key(data)
+        return data[key]
+    return data
+
+
+def load_json_config(filename, key=None):
+    """Load a config from a json file, optionally extracting a key"""
+    with open(filename, "r") as f:
+        config = json.load(f)
+    return _config_helper(config, key)
+
+
+def load_yaml_config(filename, key=None):
+    """Load a config from a yaml file, optionally extracting a key"""
+    with open(filename, "r") as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+    return _config_helper(config, key)
+
+
+def load_ini_config(filename, key=None):
+    """Load a config from an ini file, optionally extracting a key"""
+    config = configparser.ConfigParser()
+    config.read(filename)
+    return _config_helper(config, key)
 
 
 def closer(x):

@@ -279,6 +279,46 @@ class CeleryApplyAsync(Node):
             assert False, "Invalid push_type: %s" % push_type
 
 
+class CelerySendTask(Node):
+    """A Node that calls app.send_task"""
+
+    def run(
+        self, data, app, task_name, timeout=None, push_type=PushTypes.Async, **kwargs
+    ):
+        """Call app.send_task with the given data as the first task argument
+
+        Parameters
+        ----------
+        data
+            Data to process
+        app
+            Celery app
+        task_name
+            A name of a Celery Task registered with your app.
+        timeout : int, optional
+            A timeout to use if waiting for results via AsyncResult.get()
+        push_type : str, optional
+            If "async", push the AsyncResult immediately.
+            If "input", push the input data immediately after task submission.
+            If "result", collect the task result synchronously and push it.
+        **kwargs
+            Keyword arguments pass to task.send_task
+
+        """
+        async_result = app.send_task(task_name, args=(data,), **kwargs)
+
+        if push_type == PushTypes.Async:
+            self.push(async_result)
+        elif push_type == PushTypes.Input:
+            self.push(data)
+        elif push_type == PushTypes.Result:
+            result = async_result.get(timeout=timeout)
+            async_result.forget()
+            self.push(result)
+        else:
+            assert False, "Invalid push_type: %s" % push_type
+
+
 class CeleryReduce(Reduce):
     """Collect the asynchronous results before pushing"""
 

@@ -301,6 +301,39 @@ can create a dict-based cursor for query execution within the subprocess as
 required by `SQLExtract`. Any args/kwargs passed to RuntimeContext will be
 passed to the function when called.
 
+### Config Context
+
+`ConfigContext` is an alternative type of `RuntimeContext` that can read a
+config file to fill in node context. It supports reading from JSON, INI, or
+YAML config files and optionally extracting specific data from the file. The
+following shows an example of reading a key ("nrows") from a JSON structure:
+
+```python
+glider = Glider(
+    CSVExtract("extract", nrows=ConfigContext("myconfig.json", key="nrows"))
+    | Print("load")
+)
+glider.consume(...)
+```
+
+As another example, the following reads from an INI file and also passes a
+callable for the `key` parameter to extract a value from the config:
+
+```python
+glider = Glider(
+    CSVExtract("extract", nrows=ConfigContext(
+        "myconfig.ini", key=lambda x: int(x["Section"]["nrows"])
+    ))
+    | Print("load")
+)
+glider.consume(...)
+```
+
+If no value is specified for `key`, the entire config file is
+returned. `ConfigContext` may be particularly useful when you want to load
+sensitive information such as API login details that you would not want to
+store in your code.
+
 ### Cleaning Up
 
 Sometimes it is also necessary to call clean up functionality after processing
