@@ -82,7 +82,9 @@ def test_arg_override():
         _test_arg_override()
 
 
-@gs_glider.cli()
+@gs_glider.cli(
+    Arg("--load_table", required=False, default=LOAD_TABLE, help="custom help")
+)
 def _test_help(data, node_contexts):
     assert False
 

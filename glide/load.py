@@ -34,9 +34,9 @@ class Print(Node):
         """Get a label for the print statement"""
         return "---- %s ----\n" % self.name
 
-    def run(self, item, label=True):
+    def run(self, item, no_label=False):
         """Print the item with the printer function and push"""
-        if label:
+        if not no_label:
             print(self.get_label(), end="")
         self.print(item)
         self.push(item)
@@ -227,10 +227,10 @@ class SQLLoad(SQLNode):
         conn,
         table,
         cursor=None,
-        commit=True,
+        no_commit=False,
         stmt_type="REPLACE",
         odku=False,
-        push_table=True,
+        push_data=False,
         dry_run=False,
     ):
         """Form SQL statement and use bulk execute to write rows to table
@@ -245,8 +245,8 @@ class SQLLoad(SQLNode):
             Name of a table to write the data to
         cursor : optional
             Database connection cursor
-        commit : bool, optional
-            If true and conn has a commit method, call conn.commit
+        no_commit : bool, optional
+            If false and conn has a commit method, call conn.commit
         stmt_type : str, optional
             Type of SQL statement to use (REPLACE, INSERT, etc.). **Note:** Backend
             support for this varies.
@@ -254,8 +254,8 @@ class SQLLoad(SQLNode):
             If true, add ON DUPLICATE KEY UPDATE clause for all columns. If a
             list then only add it for the specified columns. **Note:** Backend
             support for this varies.
-        push_table : bool
-            If true, push the table forward instead of the data
+        push_data : bool, optional
+            If true, push the data forward instead of the table name
         dry_run : bool, optional
             If true, skip actually loading the data
 
@@ -269,19 +269,19 @@ class SQLLoad(SQLNode):
             if not cursor:
                 cursor = self.get_sql_executor(conn)
             self.sql_executemany(conn, cursor, sql, rows)
-            if commit and hasattr(conn, "commit"):
+            if (not no_commit) and hasattr(conn, "commit"):
                 conn.commit()
 
-        if push_table:
-            self.push(table)
-        else:
+        if push_data:
             self.push(rows)
+        else:
+            self.push(table)
 
 
 class SQLTempLoad(SQLNode):
     """Generic SQL temp table loader"""
 
-    def run(self, rows, conn, cursor=None, schema=None, commit=True, dry_run=False):
+    def run(self, rows, conn, cursor=None, schema=None, no_commit=False, dry_run=False):
         """Create and bulk load a temp table
 
         Parameters
@@ -294,8 +294,8 @@ class SQLTempLoad(SQLNode):
             Database connection cursor
         schema : str, optional
             Schema to create temp table in
-        commit : bool, optional
-            If true and conn has a commit method, call conn.commit
+        no_commit : bool, optional
+            If false and conn has a commit method, call conn.commit
         dry_run : bool, optional
             If true, skip actually loading the data
 
@@ -310,7 +310,7 @@ class SQLTempLoad(SQLNode):
             if not cursor:
                 cursor = self.get_sql_executor(conn)
             self.sql_executemany(conn, cursor, sql, rows)
-            if commit and hasattr(conn, "commit"):
+            if (not no_commit) and hasattr(conn, "commit"):
                 conn.commit()
 
         self.push(table.name)
@@ -369,7 +369,7 @@ class URLLoad(Node):
         url,
         data_param="data",
         session=None,
-        raise_for_status=True,
+        skip_raise=False,
         dry_run=False,
         **kwargs
     ):
@@ -388,8 +388,8 @@ class URLLoad(Node):
             parameter to stuff data in when calling requests methods
         session : optional
             A requests Session to use to make the request
-        raise_for_status : bool, optional
-            Raise exceptions for bad response status
+        skip_raise : bool, optional
+            if False, raise exceptions for bad response status
         dry_run : bool, optional
             If true, skip actually loading the data
         **kwargs
@@ -421,7 +421,7 @@ class URLLoad(Node):
             else:
                 assert False, "Input url must be a str or dict type, got %s" % type(url)
 
-            if raise_for_status:
+            if not skip_raise:
                 resp.raise_for_status()
 
         self.push(data)

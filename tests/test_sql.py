@@ -45,7 +45,7 @@ def test_sql_assert_data_check(rootdir, sqlite_in_conn, sqlite_out_conn):
         [sql],
         extract=dict(conn=sqlite_in_conn),
         load=dict(
-            conn=sqlite_out_conn, table=table, push_table=False, stmt_type="INSERT"
+            conn=sqlite_out_conn, table=table, push_data=True, stmt_type="INSERT"
         ),
         check=dict(
             conn=sqlite_out_conn,

@@ -394,7 +394,7 @@ assert_sql = "select count(*) as assert from out_table"
 glider.consume(
     [sql],
     extract=dict(conn=in_conn),
-    load=dict(conn=out_conn, table="out_table", push_table=False),
+    load=dict(conn=out_conn, table="out_table", push_data=True),
     sql_check=dict(
         conn=out_conn,
         sql=assert_sql,
@@ -403,7 +403,7 @@ glider.consume(
 )
 ```
 
-Note that we also added `push_table=False` to the `SQLLoad` node to have it push
+Note that we also added `push_data=True` to the `SQLLoad` node to have it push
 the data instead of a table name.
 
 ### Debug Logging
@@ -536,7 +536,11 @@ is named "load", the CLI will automatically generate required args called
 `--load_conn` and `--load_table`. 
 
 By default, the first positional argument(s) expected on the CLI is used to
-populate the `data` argument. Let's ignore the fact that you can't pass a real
+populate the `data` argument. Additionally, the default help strings are
+extracted from the run() method documentation if you use numpy docstring
+format.
+
+Let's ignore the fact that you can't pass a real
 database connection object on the command line for a second and see how you
 would run this script:
 

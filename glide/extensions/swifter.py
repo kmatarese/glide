@@ -11,7 +11,7 @@ from glide.core import Node
 class SwifterApply(Node):
     """Apply a Swifter transform to a Pandas DataFrame"""
 
-    def run(self, df, func, processes=True, **kwargs):
+    def run(self, df, func, threads=False, **kwargs):
         """Use Swifter apply() on a DataFrame
 
         Parameters
@@ -20,17 +20,19 @@ class SwifterApply(Node):
             The pandas DataFrame to apply func to
         func : callable
             A callable that will be passed to df.swifter.apply
-        processes : bool
-            If true use the "processes" scheduler, else "threads"
+        threads : bool
+            If true use the "threads" scheduler, else "processes"
         **kwargs
             Keyword arguments passed to Dask df.swifter.apply
 
         """
         assert swifter, "The swifter package is not installed"
-        if processes:
-            df.swifter.set_dask_scheduler(scheduler="processes")
-        else:
+
+        if threads:
             df.swifter.set_dask_scheduler(scheduler="threads")
+        else:
+            df.swifter.set_dask_scheduler(scheduler="processes")
+
         for column in df.columns:
             df[column] = df[column].swifter.apply(func, **kwargs)
         self.push(df)

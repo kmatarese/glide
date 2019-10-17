@@ -7,7 +7,13 @@ from inspect import signature, Parameter
 from pprint import pformat
 import sqlite3
 
+from consecution import (
+    Pipeline,
+    GlobalState as ConsecutionGlobalState,
+    Node as ConsecutionNode,
+)
 import numpy as np
+from numpydoc.docscrape import FunctionDoc
 from tlbx import (
     st,
     repr,
@@ -19,11 +25,6 @@ from tlbx import (
     format_msg,
 )
 
-from consecution import (
-    Pipeline,
-    GlobalState as ConsecutionGlobalState,
-    Node as ConsecutionNode,
-)
 from glide.sql_utils import is_sqlalchemy_conn, get_bulk_statement
 from glide.utils import (
     dbg,
@@ -1389,7 +1390,9 @@ class GliderScript(Script):
     def _get_script_arg_name(self, node_name, arg_name):
         return "%s_%s" % (node_name, arg_name)
 
-    def _get_script_arg(self, node, arg_name, required=False, default=None):
+    def _get_script_arg(
+        self, node, arg_name, required=False, default=None, arg_help=None
+    ):
         """Generate a tlbx Arg"""
         if self.blacklisted(node.name, arg_name):
             return None
@@ -1405,7 +1408,7 @@ class GliderScript(Script):
             default = self.glider.global_state[arg_name]
 
         arg_type = str
-        if default:
+        if default is not None:
             arg_type = type(default)
 
         arg_name = "--" + self._get_script_arg_name(node.name, arg_name)
@@ -1414,11 +1417,19 @@ class GliderScript(Script):
             if default:
                 action = "store_false"
             script_arg = Arg(
-                arg_name, required=required, action=action, default=default
+                arg_name,
+                required=required,
+                action=action,
+                default=default,
+                help=arg_help,
             )
         else:
             script_arg = Arg(
-                arg_name, required=required, type=arg_type, default=default
+                arg_name,
+                required=required,
+                type=arg_type,
+                default=default,
+                help=arg_help,
             )
         return script_arg
 
@@ -1432,15 +1443,31 @@ class GliderScript(Script):
             script_args[SCRIPT_DATA_ARG] = Arg(SCRIPT_DATA_ARG, nargs="+")
 
         for node in node_lookup.values():
+            try:
+                # Only works if run() has docs in numpydoc format
+                docs = FunctionDoc(node.run)
+                node_help = {v.name: "\n".join(v.desc) for v in docs["Parameters"]}
+            except Exception as e:
+                info("failed to parse node '%s' run() docs: %s" % (node.name, str(e)))
+                node_help = {}
+
             for arg_name, _ in node.run_args.items():
-                script_arg = self._get_script_arg(node, arg_name, required=True)
+                arg_help = node_help.get(arg_name, None)
+                script_arg = self._get_script_arg(
+                    node, arg_name, required=True, arg_help=arg_help
+                )
                 if not script_arg:
                     continue
                 script_args[script_arg.name] = script_arg
 
             for kwarg_name, kwarg_default in node.run_kwargs.items():
+                arg_help = node_help.get(kwarg_name, None)
                 script_arg = self._get_script_arg(
-                    node, kwarg_name, required=False, default=kwarg_default
+                    node,
+                    kwarg_name,
+                    required=False,
+                    default=kwarg_default,
+                    arg_help=arg_help,
                 )
                 if not script_arg:
                     continue

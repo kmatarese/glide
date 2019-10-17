@@ -298,9 +298,7 @@ class FileExtract(Node):
 class URLExtract(Node):
     """Extract data from a URL with requests"""
 
-    def run(
-        self, url, push_type="content", session=None, raise_for_status=True, **kwargs
-    ):
+    def run(self, url, push_type="content", session=None, skip_raise=False, **kwargs):
         """Extract data from a URL using requests and push response.content. Input
         url maybe be a string (GET that url) or a dictionary of args to
         requests.request:
@@ -316,8 +314,8 @@ class URLExtract(Node):
             data from requests response.
         session : optional
             A requests Session to use to make the request
-        raise_for_status : bool, optional
-            Raise exceptions for bad response status
+        skip_raise : bool, optional
+            if False, raise exceptions for bad response status
         **kwargs
             Keyword arguments to pass to the request method. If a dict is
             passed for the url parameter it overrides values here.
@@ -336,7 +334,7 @@ class URLExtract(Node):
         else:
             assert False, "Input url must be a str or dict type, got %s" % type(url)
 
-        if raise_for_status:
+        if not skip_raise:
             resp.raise_for_status()
 
         if push_type == "content":

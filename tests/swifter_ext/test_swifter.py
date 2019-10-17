@@ -28,6 +28,6 @@ def test_swifter_chunked_threads_lowercase(rootdir):
     glider.consume(
         [infile],
         extract=dict(chunksize=500),
-        transform=dict(func=lower, processes=False),
+        transform=dict(func=lower, threads=True),
         load=dict(f=outfile),
     )

@@ -1,6 +1,7 @@
 consecution
 imapclient
 m2r
+numpydoc
 openpyxl
 pandas>=0.25.1
 pyexcel
