@@ -68,6 +68,25 @@ def test_router_function(rootdir):
     glider.consume([infile])
 
 
+def test_window_push(rootdir):
+    nodes = (
+        CSVExtract("extract", nrows=5) | WindowPush("window", size=3) | Print("print")
+    )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile])
+
+
+def test_window_reduce(rootdir):
+    nodes = (
+        CSVExtract("extract", nrows=5)
+        | IterPush("iter")
+        | WindowReduce("window", size=3)
+        | Print("print")
+    )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile])
+
+
 class ZipGroupByDMA(GroupByNode):
     def key(self, row):
         key = row["DMA_Description"]

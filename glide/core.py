@@ -28,13 +28,14 @@ from glide.sql_utils import is_sqlalchemy_conn, get_bulk_statement
 from glide.utils import (
     dbg,
     info,
+    is_function,
+    is_pandas,
+    closer,
     iterize,
     size,
     divide_data,
     flatten,
-    is_function,
-    is_pandas,
-    closer,
+    window,
 )
 
 SCRIPT_DATA_ARG = "data"
@@ -237,6 +238,23 @@ class PlaceholderNode(PushNode):
     pass
 
 
+# TODO: Some of these nodes need a better home
+class Average(Node):
+    """Push the average of the input"""
+
+    def run(self, data):
+        """Take the average of data and push it"""
+        self.push(sum(data) / len(data))
+
+
+class Sum(Node):
+    """Push the sum of the input"""
+
+    def run(self, data):
+        """Take the sum of data and push it"""
+        self.push(sum(data))
+
+
 class SkipFalseNode(Node):
     """This overrides the behavior of calling run() such that if a "false"
     object is pushed it will never call run, just push to next node instead"""
@@ -254,11 +272,27 @@ class SkipFalseNode(Node):
 
 
 class IterPush(Node):
-    """A node that pushes each item of an iterable individually"""
+    """Push each item of an iterable individually"""
 
     def run(self, data, **kwargs):
         for row in data:
             self.push(row)
+
+
+class WindowPush(Node):
+    def run(self, item, size, **kwargs):
+        """Push windows of the specified size
+
+        Parameters
+        ----------
+        item
+            The data to slice into windows
+        size : int
+            The window size
+
+        """
+        for w in window(item, size=size):
+            self.push(w)
 
 
 def split_count_helper(data, split_count):
@@ -544,6 +578,35 @@ class Reduce(Node):
         if results and self.context.get("flatten", False):
             results = flatten(results)
         self.push(results)
+
+
+class WindowReduce(Node):
+    def begin(self):
+        """Initialize a place for a window to be collected"""
+        self.window = []
+
+    def run(self, item, size, **kwargs):
+        """Collect results to fill and push windows
+
+        Parameters
+        ----------
+        item
+            Item to collect into window
+        size : int
+            Size of window to collect
+
+        """
+        assert size and int(size) and size > 1, "Window size must be an integer > 1"
+
+        self.window.append(item)
+
+        if len(self.window) < size:
+            return
+
+        # Final item of window will get appended next iteration
+        next_window = self.window[1:]
+        self.push(self.window)
+        self.window = next_window
 
 
 class ThreadReduce(Reduce):

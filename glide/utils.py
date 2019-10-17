@@ -110,6 +110,18 @@ def size(o, default=None):
     return default
 
 
+# https://stackoverflow.com/questions/6822725/rolling-or-sliding-window-iterator
+def window(seq, size=2):
+    """Returns a sliding window over data from the iterable"""
+    it = iter(seq)
+    result = tuple(itertools.islice(it, size))
+    if len(result) == size:
+        yield result
+    for elem in it:
+        result = result[1:] + (elem,)
+        yield result
+
+
 def iterize(o):
     """Automatically wrap certain objects that you would not normally process item by item"""
     if (
