@@ -4,6 +4,7 @@ import shutil
 import time
 
 import pytest
+import requests
 
 from .test_utils import *
 from glide import *
@@ -166,6 +167,25 @@ def test_func(rootdir):
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     glider.consume([infile])
+
+
+def get_json_helper(url, **kwargs):
+    resp = requests.get(url, **kwargs)
+    return resp.json()
+
+
+def test_poll_func(rootdir):
+    glider = Glider(
+        PollFunc(
+            "poll",
+            func=get_json_helper,
+            result_param="id",
+            result_value=1,
+            data_param="title",
+        )
+        | Print("print")
+    )
+    glider.consume(["https://jsonplaceholder.typicode.com/todos/1"])
 
 
 def test_process_pool_submit(rootdir):

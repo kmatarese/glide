@@ -61,6 +61,18 @@ def get_class_list_docstring(heading, classes):
     )
 
 
+def closer(x):
+    """Helper to call close on x"""
+    x.close()
+
+
+def not_none(*args):
+    return all([x is not None for x in args])
+
+
+# -------- Config utils
+
+
 def _config_helper(data, key):
     if key:
         if callable(key):
@@ -90,9 +102,7 @@ def load_ini_config(filename, key=None):
     return _config_helper(config, key)
 
 
-def closer(x):
-    """Helper to call close on x"""
-    x.close()
+# -------- Type utils
 
 
 def is_function(f):
@@ -108,6 +118,9 @@ def is_pandas(o):
 def is_file_obj(o):
     """Test if an object is a file object"""
     return isinstance(o, (io.TextIOBase, io.BufferedIOBase, io.RawIOBase, io.IOBase))
+
+
+# -------- Iterable utils
 
 
 def nchunks(a, n):
@@ -165,6 +178,9 @@ def iterize(o):
     ):
         return [o]
     return o
+
+
+# -------- Excel utils
 
 
 def excel_file_type(f):

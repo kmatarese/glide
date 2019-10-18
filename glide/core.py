@@ -24,6 +24,7 @@ from tlbx import (
     MappingMixin,
     set_missing_key,
     format_msg,
+    poll_call,
 )
 
 from glide.sql_utils import is_sqlalchemy_conn, get_bulk_statement
@@ -633,6 +634,53 @@ class FuturesReduce(Reduce):
         if results and self.context.get("flatten", False):
             results = flatten(results)
         self.push(results)
+
+
+class PollFunc(Node):
+    def run(
+        self,
+        data,
+        func,
+        result_param="status",
+        result_value="success",
+        sleep_time=2,
+        max_iter=10,
+        data_param=None,
+        **kwargs
+    ):
+        """Poll a function for a result
+
+        Parameters
+        ----------
+        data
+            Data to pass to func. Typically a request or URL that needs to be
+            polled for a result.
+        func : callable
+            The function that will be called on each iteration to get a
+            result. It is expected to return a dict with a key/value
+            representing completion (see result_param/result_value).
+        result_param : str
+            The key to extract from the func result to look for success.
+        result_value
+            The value representing success. Keep polling until this value is found.
+        sleep_time : float
+            The amount of time to sleep between iterations
+        max_iter : int
+            The maximum number of iterations before giving up
+        data_param : str, optional
+            If given, pull this param out of the func result on success and
+            push. Otherwise push the full response from func.
+        kwargs
+            Keyword arguments passed to func
+
+        """
+        result = poll_call(
+            func, result_param, result_value, sleep_time, max_iter, data, **kwargs
+        )
+        if data_param:
+            self.push(result[data_param])
+        else:
+            self.push(result)
 
 
 class Flatten(Node):

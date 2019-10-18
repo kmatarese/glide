@@ -14,7 +14,13 @@ from tlbx import st, read_chunks, extract_email_payload
 
 from glide.core import Node, SQLNode
 from glide.sql_utils import build_table_select
-from glide.utils import dbg, read_excel, find_class_in_dict, get_class_list_docstring
+from glide.utils import (
+    dbg,
+    read_excel,
+    find_class_in_dict,
+    get_class_list_docstring,
+    not_none,
+)
 
 
 class CSVExtract(Node):
@@ -298,58 +304,153 @@ class FileExtract(Node):
 class URLExtract(Node):
     """Extract data from a URL with requests"""
 
-    def run(self, url, push_type="content", session=None, skip_raise=False, **kwargs):
-        """Extract data from a URL using requests and push response.content. Input
-        url maybe be a string (GET that url) or a dictionary of args to
-        requests.request:
+    def run(
+        self,
+        request,
+        data_type="content",
+        session=None,
+        skip_raise=False,
+        page_size=None,
+        page_size_param="size",
+        page_offset_param="offset",
+        page_request_param="params",
+        page_key=None,
+        page_len=len,
+        page_limit=None,
+        push_pages=False,
+        **kwargs
+    ):
+        """Extract data from a URL using requests and push
+        response.content. Input request may be a string (GET that url) or a
+        dictionary of args to requests.request:
 
         http://2.python-requests.org/en/master/api/?highlight=get#requests.request
 
+        See the requests docs for information on authentication options:
+
+        https://requests.kennethreitz.org/en/master/user/authentication/
+
         Parameters
         ----------
-        url : str or dict
+        request : str or dict
             If str, a URL to GET. If a dict, args to requests.request
-        push_type : str, optional
+        data_type : str, optional
             One of "content", "text", or "json" to control extraction of
             data from requests response.
         session : optional
             A requests Session to use to make the request
         skip_raise : bool, optional
             if False, raise exceptions for bad response status
+        page_size : int, optional
+            If specified, request in pages of this size. Only supported with
+            data_type="json".
+        page_size_param : str, optional
+            The request parameter to put the page size in
+        page_offset_param : str, optional
+            The request parameter to put the page offset in
+        page_request_param : str, optional
+            Where to put the paging params when calling requests. Can either be
+            "params" or "data".
+        page_key : str or callable, optional
+            Where to pull the page data from the results. If None, assume the
+            entire json response is the page data.
+        page_len : callable
+            A callable that can determine the length of the page given the
+            json result. The default is just to use len(result).
+        page_limit : int, optional
+            If passed, use as a cap of the number of pages pulled
+        push_pages : bool, optional
+            If true, push each page individually.
         **kwargs
             Keyword arguments to pass to the request method. If a dict is
-            passed for the url parameter it overrides values here.
+            passed for the request parameter it overrides values of kwargs.
 
         """
         requestor = requests
         if session:
             requestor = session
 
-        if isinstance(url, str):
-            resp = requestor.get(url, **kwargs)
-        elif isinstance(url, dict):
-            kwargs_copy = deepcopy(kwargs)
-            kwargs_copy.update(url)
-            resp = requestor.request(**kwargs_copy)
-        else:
-            assert False, "Input url must be a str or dict type, got %s" % type(url)
-
-        if not skip_raise:
-            resp.raise_for_status()
-
-        if push_type == "content":
-            data = resp.content
-        elif push_type == "text":
-            data = resp.text
-        elif push_type == "json":
-            data = resp.json()
-        else:
-            assert False, (
-                "Unrecognized push_type: %s, must be one of content, text, or json"
-                % push_type
+        paging = False
+        if page_size or push_pages:
+            paging = True
+            assert not_none(
+                page_request_param,
+                page_size,
+                push_pages,
+                page_size_param,
+                page_offset_param,
+            ), "Not all paging params specified"
+            assert page_request_param in ["data", "params"], (
+                "Invalid page_request_param: %s" % page_request_param
             )
+            assert (
+                data_type == "json"
+            ), "Paging is only supported with JSON-based results"
+            kwargs[page_request_param] = kwargs.get(page_request_param, {})
 
-        self.push(data)
+        offset = 0
+        results = []
+
+        if isinstance(request, str):
+            request = dict(method="GET", url=request)
+        else:
+            assert isinstance(
+                request, dict
+            ), "Request must be a str or dict type, got %s" % type(request)
+
+        count = 0
+        while True:
+            kwargs_copy = deepcopy(kwargs)
+            kwargs_copy.update(request)
+            if paging:
+                assert not (
+                    page_size_param in kwargs_copy[page_request_param]
+                    or page_offset_param in kwargs_copy[page_request_param]
+                ), ("Params conflict with paging params: %s" % url)
+                kwargs_copy[page_request_param].update(
+                    {page_size_param: page_size, page_offset_param: offset}
+                )
+
+            resp = requestor.request(**kwargs_copy)
+            count += 1
+
+            if not skip_raise:
+                resp.raise_for_status()
+
+            if data_type == "content":
+                data = resp.content
+            elif data_type == "text":
+                data = resp.text
+            elif data_type == "json":
+                data = resp.json()
+            else:
+                assert False, (
+                    "Unrecognized data_type: %s, must be one of content, text, or json"
+                    % data_type
+                )
+
+            if paging:
+                page = data
+                if page_key:
+                    if isinstance(page_key, str):
+                        page = data[page_key]
+                    else:
+                        page = page_key(data)
+
+                offset += page_len(page)
+                if push_pages:
+                    self.push(page)
+                else:
+                    results.extend(page)
+
+                if page_limit and count >= page_limit:
+                    break
+            else:
+                results = data
+                break
+
+        if (not paging) or (not push_pages):
+            self.push(results)
 
 
 class EmailExtract(Node):
