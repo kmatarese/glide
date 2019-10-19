@@ -70,6 +70,13 @@ def not_none(*args):
     return all([x is not None for x in args])
 
 
+def split_count_helper(data, split_count):
+    """Helper to override the split count if data len is shorter"""
+    if hasattr(data, "__len__"):
+        return min(len(data), split_count)
+    return split_count
+
+
 # -------- Config utils
 
 

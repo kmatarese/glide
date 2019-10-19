@@ -12,8 +12,9 @@ from pandas.io.common import get_filepath_or_buffer
 import requests
 from tlbx import st, read_chunks, extract_email_payload
 
-from glide.core import Node, SQLNode
+from glide.core import Node
 from glide.sql_utils import build_table_select
+from glide.sql import SQLNode
 from glide.utils import (
     dbg,
     read_excel,

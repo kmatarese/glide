@@ -11,7 +11,9 @@ from pandas.io.common import get_filepath_or_buffer
 import requests
 from tlbx import st, pp, create_email, send_email, sqlformat, repr, format_msg
 
-from glide.core import Node, SQLNode, SkipFalseNode
+from glide.core import Node
+from glide.flow import SkipFalseNode
+from glide.sql import SQLNode
 from glide.sql_utils import get_temp_table
 from glide.utils import (
     dbg,

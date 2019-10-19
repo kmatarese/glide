@@ -10,7 +10,8 @@ except:
     Worker = None
 from tlbx import st
 
-from glide import ParaGlider, Node, Reduce, PushTypes, consume, split_count_helper
+from glide import ParaGlider, Node, PushTypes, consume
+from glide.flow import Reduce, split_count_helper
 from glide.utils import dbg, divide_data, flatten, size
 
 

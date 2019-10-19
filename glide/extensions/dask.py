@@ -13,7 +13,8 @@ import pandas as pd
 import numpy as np
 from tlbx import st, set_missing_key
 
-from glide.core import Node, PushNode, FuturesPush, ParaGlider, PoolSubmit, Reduce
+from glide.core import Node, PushNode, ParaGlider, PoolSubmit
+from glide.flow import FuturesPush, Reduce
 from glide.utils import dbg, is_pandas
 
 
