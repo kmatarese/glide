@@ -1,5 +1,7 @@
 consecution
+html5lib
 imapclient
+lxml
 m2r
 numpydoc
 openpyxl

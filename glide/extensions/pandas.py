@@ -169,6 +169,25 @@ class DataFrameSQLTableExtract(PandasSQLNode):
         self.do_push(df, kwargs.get("chunksize", None))
 
 
+class DataFrameHTMLExtract(Node):
+    """Extract data from HTML tables using Pandas"""
+
+    def run(self, f, **kwargs):
+        """Extract data for input file and push as a DataFrame
+
+        Parameters
+        ----------
+        f
+            file or buffer to be passed to pandas.read_html
+        **kwargs
+            kwargs to be passed to pandas.read_html
+
+        """
+        assert pd, "Please install Pandas to use this class"
+        df_list = pd.read_html(f, **kwargs)
+        self.push(df_list)
+
+
 class DataFrameCSVLoad(Node):
     """Load data into a CSV from a Pandas DataFrame"""
 
@@ -323,6 +342,37 @@ class DataFrameSQLTempLoad(PandasSQLNode):
             df.to_sql(table.name, conn, if_exists="append", **kwargs)
 
         self.push(table.name)
+
+
+class DataFrameHTMLLoad(Node):
+    def run(self, df, f, push_file=False, dry_run=False, **kwargs):
+        """Use Pandas to_html to output a DataFrame
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            DataFrame to load to a CSV
+        f : file or buffer
+            File to write the DataFrame to
+        push_file : bool, optional
+            If true, push the file forward instead of the data
+        dry_run : bool, optional
+            If true, skip actually loading the data
+        **kwargs
+            Keyword arguments passed to DataFrame.to_html
+
+        """
+        assert pd, "Please install Pandas to use this class"
+
+        if dry_run:
+            warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
+        else:
+            df.to_html(f, **kwargs)
+
+        if push_file:
+            self.push(f)
+        else:
+            self.push(df)
 
 
 class DataFrameApplyMap(Node):

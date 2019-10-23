@@ -24,6 +24,7 @@ Glide is an easy-to-use data pipelining tool inspired by [Consecution](https://g
     - CSVs
     - Excel files (including multi-sheet support)
     - Raw/generic files
+  - HTML Tables
   - Emails
 - Extensions for [Pandas](https://pandas.pydata.org/), [Dask](https://dask.org/), [Celery](http://www.celeryproject.org/), [Redis Queue](http://python-rq.org/) and more
 - A variety of node and DAG parallel/distributed processing strategies including concurrent.futures Executors, Dask, Celery, or Redis Queue.
@@ -775,7 +776,6 @@ New extensions are encouraged! To add an extension:
 For inspiration, here are some ideas for extensions:
 
 - NoSQL databases
-- HTML Tables
 - Google Ads
 - Google Analytics
 - Facebook Ads

@@ -52,6 +52,16 @@ def test_dataframe_chunked_lowercase(rootdir):
     )
 
 
+def test_dataframe_html_extract_and_load(rootdir):
+    nodes = (
+        DataFrameHTMLExtract("extract")
+        | IterPush("iter")
+        | DataFrameHTMLLoad("load", index=False)
+    )
+    glider, infile, outfile = file_glider(rootdir, "html", nodes)
+    glider.consume([infile], load=dict(f=outfile))
+
+
 def test_dataframe_moving_average(rootdir):
     nodes = (
         DataFrameCSVExtract("extract")
