@@ -44,6 +44,41 @@ class Map(Node):
         self.push(result)
 
 
+class DictKeyTransform(Node):
+    def run(self, data, drop=None, **transforms):
+        """Rename/replace keys in an iterable of dicts
+
+        Parameters
+        ----------
+        data
+            Data to process. Expected to be a list/iterable of dict rows.
+        drop : list, optional
+            A list of keys to drop after transformations are complete.
+        **transforms
+            key->value pairs used to populate columns of each dict row. If the
+            value is a callable it is expected to take the row as input and
+            return the value to fill in for the key.
+
+        """
+        drop = drop or []
+        assert isinstance(
+            drop, (list, tuple)
+        ), "drop argument must be a list/tuple of keys to drop"
+
+        for row in data:
+            assert isinstance(row, dict), "Dict rows expected, got %s" % type(row)
+            for key, value in transforms.items():
+                if callable(value):
+                    row[key] = value(row)
+                else:
+                    row[key] = value
+
+            for key in drop:
+                del row[key]
+
+        self.push(data)
+
+
 class JSONDumps(Node):
     """Call json.dumps on the data"""
 

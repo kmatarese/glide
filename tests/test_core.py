@@ -169,6 +169,18 @@ def test_func(rootdir):
     glider.consume([infile])
 
 
+def test_dict_key_transform(rootdir):
+    nodes = (
+        CSVExtract("extract", nrows=10)
+        | DictKeyTransform(
+            "transform", **{"zip code": lambda x: x["Zip_Code"]}, drop=["Zip_Code"]
+        )
+        | PrettyPrint("load")
+    )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile])
+
+
 def get_json_helper(url, **kwargs):
     resp = requests.get(url, **kwargs)
     return resp.json()

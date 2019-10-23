@@ -57,7 +57,7 @@ def test_sql_assert_data_check(rootdir, sqlite_in_conn, sqlite_out_conn):
 
 
 def test_sql_param_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
-    nodes = SQLParamExtract("extract", log=True) | SQLLoad("load")
+    nodes = SQLParamExtract("extract", _log=True) | SQLLoad("load")
     glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
     sql = "select * from %s where Zip_Code = :zip" % table
     sqlite_out_conn.execute("delete from %s" % table)

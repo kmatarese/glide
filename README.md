@@ -440,7 +440,7 @@ glider.consume(
 Note that we also added `push_data=True` to the `SQLLoad` node to have it push
 the data instead of a table name.
 
-### Debug Logging
+### Debugging
 
 To enable debug logging for Glide change the log level of the "glide" logger:
 
@@ -452,12 +452,23 @@ logging.getLogger("glide").setLevel(logging.DEBUG)
 Glide will then print debug information about data passed through your
 pipeline. 
 
-You can also pass `log=True` to the init method of any node to enable logging
+You can also pass `_log=True` to the init method of any node to enable logging
 of processed items:
 
 ```python
 glider = Glider(
-    SQLExtract("extract", log=True)
+    SQLExtract("extract", _log=True)
+    ...
+)
+```
+
+Additionaly, you can pass `_debug=True` to the init method of any node to
+cause the node to drop into PDB right before calling `run`, assuming you
+aren't executing the pipeline in a subprocess:
+
+```python
+glider = Glider(
+    SQLExtract("extract", _debug=True)
     ...
 )
 ```

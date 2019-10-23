@@ -66,8 +66,10 @@ class Node(ConsecutionNode):
     ----------
     name : str
         The name of the Node.
-    log : bool, optional
+    _log : bool, optional
         If true, log items processed by the node.
+    _debug : bool, optional
+        If true, drop into PDB right before calling run() for this node.
     **default_context
         Keyword args that establish the default_context of the Node.
 
@@ -75,9 +77,11 @@ class Node(ConsecutionNode):
     ----------
     name : str
         The name of the Node.
-    log : bool
+    _log : bool
         If true, log items processed by the node. Note that this overrides
         Consecution's log() functionality.
+    _debug : bool
+        If true, drop into PDB right before calling run() for this node.
     default_context : dict
         A dictionary to establish default context for the node that can be
         used to populate run() arguments.
@@ -90,9 +94,10 @@ class Node(ConsecutionNode):
 
     """
 
-    def __init__(self, name, log=False, **default_context):
+    def __init__(self, name, _log=False, _debug=False, **default_context):
         super().__init__(name)
-        self.log = log
+        self._log = _log
+        self._debug = _debug
         self.default_context = default_context or {}
         self.reset_context()
         self.run_args, self.run_kwargs = self._get_run_args()
@@ -169,13 +174,15 @@ class Node(ConsecutionNode):
     def process(self, item):
         """Required method used by Consecution to process nodes"""
         arg_values, kwarg_values = self._get_run_arg_values()
-        if self.log:
+        if self._log:
             print(format_msg(repr(item), label=self.name))
         else:
             dbg("size:%s %s" % (size(item), repr(item)), label=self.name)
         self._run(item, *arg_values, **kwarg_values)
 
     def _run(self, item, *args, **kwargs):
+        if self._debug:
+            st()
         self.run(item, *args, **kwargs)
 
     def run(self, item, **kwargs):
