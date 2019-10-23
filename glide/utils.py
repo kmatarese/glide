@@ -175,7 +175,11 @@ def window(seq, size=2):
 
 
 def iterize(o):
-    """Automatically wrap certain objects that you would not normally process item by item"""
+    """Automatically wrap certain objects that you would not normally process
+    item by item.
+
+    TODO: this function should probaly be improved/generalized.
+    """
     if (
         is_pandas(o)
         or is_str(o)
@@ -185,6 +189,13 @@ def iterize(o):
     ):
         return [o]
     return o
+
+
+def listify(o):
+    """Ensure an object is a list by wrapping if necessary"""
+    if isinstance(o, list):
+        return o
+    return [o]
 
 
 # -------- Excel utils

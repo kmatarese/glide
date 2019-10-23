@@ -10,7 +10,41 @@ from tlbx import st
 from glide.core import Node
 from glide.sql import BaseSQLNode
 from glide.sql_utils import build_table_select, get_temp_table, SQLALCHEMY_CONN_TYPES
-from glide.utils import warn
+from glide.utils import warn, listify
+
+
+class ToDataFrame(Node):
+    def run(self, rows, **kwargs):
+        """Convert the rows to a DataFrame
+
+        Parameters
+        ----------
+        rows
+            An iterable of rows to convert to a DataFrame
+        **kwargs
+            Keyword arguments passed to from_records()
+
+        """
+        df = pd.DataFrame.from_records(rows, **kwargs)
+        self.push(df)
+
+
+class FromDataFrame(Node):
+    def run(self, df, orient="records", **kwargs):
+        """Push the DataFrame to the next node, obeying chunksize if passed
+
+        Parameters
+        ----------
+        df
+            A DataFrame to convert to an iterable of records
+        orient
+            The orient arg passed to df.to_dict()
+        **kwargs
+            Keyword arguments passed to df.to_dict()
+
+        """
+        rows = df.to_dict(orient=orient, **kwargs)
+        self.push(rows)
 
 
 class DataFramePushMixin:
@@ -310,3 +344,83 @@ class DataFrameApplyMap(Node):
         assert pd, "Please install Pandas to use this class"
         df = df.applymap(func, **kwargs)
         self.push(df)
+
+
+class DataFrameRollingNode(Node):
+    """Apply df.rolling to a DataFrame"""
+
+    def compute_stats(self, df, rolling, column_name):
+        """Override this to implement logic to manipulate the DataFrame"""
+        raise NotImplementedError
+
+    def run(self, df, windows, columns=None, suffix=None, **kwargs):
+        """Use df.rolling to apply a rolling window calculation on a dataframe
+
+        https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.rolling.html
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            The pandas DataFrame to process
+        windows : int or list of ints
+            Size(s) of the moving window(s). If a list, all windows will be
+            calculated and the window size will be appended as a suffix.
+        columns : list, optional
+            A list of columns to calculate values for
+        suffix : str, optional
+            A suffix to add to the column names of calculated values
+        **kwargs
+            Keyword arguments passed to df.rolling
+
+        """
+        columns = columns or df.columns
+        windows = listify(windows)
+
+        for column in columns:
+            for window in windows:
+                rolling = df[column].rolling(window, **kwargs)
+
+                column_name = column
+                if suffix or len(windows) > 1:
+                    window_suffix = suffix or ""
+                    if len(windows) > 1:
+                        window_suffix = "%s-%s" % (window_suffix, window)
+                    column_name = column + window_suffix
+
+                self.compute_stats(df, rolling, column_name)
+
+        self.push(df)
+
+
+class DataFrameMovingAverage(DataFrameRollingNode):
+    """Compute a moving average on a DataFrame"""
+
+    def compute_stats(self, df, rolling, column_name):
+        df[column_name] = rolling.mean()
+
+
+class DataFrameRollingSum(DataFrameRollingNode):
+    """Compute a rolling window sum on a DataFrame"""
+
+    def compute_stats(self, df, rolling, column_name):
+        df[column_name] = rolling.sum()
+
+
+class DataFrameRollingStd(DataFrameRollingNode):
+    """Compute a rolling standard deviation on a DataFrame"""
+
+    def compute_stats(self, df, rolling, column_name):
+        df[column_name] = rolling.std()
+
+
+class DataFrameBollingerBands(DataFrameRollingNode):
+    """Compute bollinger bands for the specified columns in a DataFrame"""
+
+    def compute_stats(self, df, rolling, column_name):
+        df_ma = rolling.mean()
+        df_std = rolling.std()
+        upper = df_ma + 2 * df_std
+        lower = df_ma - 2 * df_std
+        df[column_name] = df_ma
+        df[column_name + "-lower"] = lower
+        df[column_name + "-upper"] = upper

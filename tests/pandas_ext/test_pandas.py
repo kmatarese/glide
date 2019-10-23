@@ -2,7 +2,25 @@ from ..test_utils import *
 from glide import *
 from glide.extensions.pandas import *
 
-# -------- File-based gliders
+
+def test_to_dataframe(rootdir):
+    nodes = (
+        CSVExtract("extract")
+        | ToDataFrame("to_dataframe")
+        | DataFrameCSVLoad("load", index=False, mode="a")
+    )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile], extract=dict(nrows=100), load=dict(f=outfile))
+
+
+def test_from_dataframe(rootdir):
+    nodes = (
+        DataFrameCSVExtract("extract")
+        | FromDataFrame("to_dataframe")
+        | PrettyPrint("print")
+    )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile], extract=dict(nrows=50))
 
 
 def test_dataframe_csv_extract_and_load(rootdir):
@@ -34,6 +52,58 @@ def test_dataframe_chunked_lowercase(rootdir):
     )
 
 
+def test_dataframe_moving_average(rootdir):
+    nodes = (
+        DataFrameCSVExtract("extract")
+        | DataFrameMovingAverage(
+            "moving_average", windows=5, suffix="_test", columns=["Zip_Code"]
+        )
+        | Print("print")
+    )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile], extract=dict(nrows=20))
+
+
+def test_dataframe_multi_moving_average(rootdir):
+    nodes = (
+        DataFrameCSVExtract("extract")
+        | DataFrameMovingAverage("moving_average", windows=[3, 5], columns=["Zip_Code"])
+        | Print("print")
+    )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile], extract=dict(nrows=20))
+
+
+def test_dataframe_rolling_sum(rootdir):
+    nodes = (
+        DataFrameCSVExtract("extract")
+        | DataFrameRollingSum("rolling_sum", windows=[5], columns=["Zip_Code"])
+        | Print("print")
+    )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile], extract=dict(nrows=20))
+
+
+def test_dataframe_rolling_std(rootdir):
+    nodes = (
+        DataFrameCSVExtract("extract")
+        | DataFrameRollingStd("rolling_std", windows=[5], columns=["Zip_Code"])
+        | Print("print")
+    )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile], extract=dict(nrows=20))
+
+
+def test_dataframe_bollinger_bands(rootdir):
+    nodes = (
+        DataFrameCSVExtract("extract")
+        | DataFrameBollingerBands("bollinger", windows=[5, 7], columns=["Zip_Code"])
+        | Print("print")
+    )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile], extract=dict(nrows=20))
+
+
 def test_dataframe_process_pool_lowercase(rootdir):
     nodes = (
         DataFrameCSVExtract("extract")
@@ -54,9 +124,6 @@ def test_dataframe_thread_pool_lowercase(rootdir):
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     glider.consume([infile], transform=dict(func=df_lower), load=dict(f=outfile))
-
-
-# -------- SQL-based gliders
 
 
 def test_dataframe_sqlite_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
