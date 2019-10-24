@@ -67,7 +67,7 @@ class Node(ConsecutionNode):
     name : str
         The name of the Node.
     _log : bool, optional
-        If true, log items processed by the node.
+        If true, log data processed by the node.
     _debug : bool, optional
         If true, drop into PDB right before calling run() for this node.
     **default_context
@@ -80,7 +80,7 @@ class Node(ConsecutionNode):
     name : str
         The name of the Node.
     _log : bool
-        If true, log items processed by the node. Note that this overrides
+        If true, log data processed by the node. Note that this overrides
         Consecution's log() functionality.
     _debug : bool
         If true, drop into PDB right before calling run() for this node.
@@ -95,7 +95,7 @@ class Node(ConsecutionNode):
         An OrderedDict of keyword args and defaults to run()
     run_requires_data : bool
         If true, the first positional arg to run is expected to be the
-        data/item to process
+        data to process
 
     """
 
@@ -153,7 +153,7 @@ class Node(ConsecutionNode):
         for i, param_name in enumerate(sig.parameters):
             param = sig.parameters[param_name]
             if i == 0 and self.run_requires_data:
-                # The first param is the item to process which is passed
+                # The first param is the data to process which is passed
                 # directly in process()
                 continue
 
@@ -199,15 +199,15 @@ class Node(ConsecutionNode):
 
         return _args, _kwargs
 
-    def process(self, item):
+    def process(self, data):
         """Required method used by Consecution to process nodes"""
         arg_values, kwarg_values = self._get_run_arg_values()
         if self._log:
-            print(format_msg(repr(item), label=self.name))
+            print(format_msg(repr(data), label=self.name))
         else:
-            dbg("size:%s %s" % (size(item), repr(item)), label=self.name)
+            dbg("size:%s %s" % (size(data), repr(data)), label=self.name)
         if self.run_requires_data:
-            self._run(item, *arg_values, **kwarg_values)
+            self._run(data, *arg_values, **kwarg_values)
         else:
             self._run(*arg_values, **kwarg_values)
 
@@ -216,13 +216,13 @@ class Node(ConsecutionNode):
             st()
         self.run(*args, **kwargs)
 
-    def run(self, item, **kwargs):
+    def run(self, data, **kwargs):
         """Subclasses will override this method to implement core node logic"""
         raise NotImplementedError
 
 
 class GroupByNode(Node):
-    """This approach was copied from Consecution. It batches items
+    """This approach was copied from Consecution. It batches data
     by key and then pushes once the key changes. For that reason
     it requires sorting ahead of time to function properly. It may
     make sense to provide different behavior."""
@@ -232,20 +232,20 @@ class GroupByNode(Node):
         self._batch_ = []
         self._previous_key = "__no_previous_key__"
 
-    def key(self, item):
+    def key(self, data):
         raise NotImplementedError(
-            "you must define a .key(self, item) method on all " "GroupBy nodes."
+            "you must define a .key(self, data) method on all " "GroupBy nodes."
         )
 
-    def process(self, item):
-        key = self.key(item)
+    def process(self, data):
+        key = self.key(data)
         if key != self._previous_key:
             self._previous_key = key
             if len(self._batch_) > 0:
                 self._run(self._batch_)
-            self._batch_ = [item]
+            self._batch_ = [data]
         else:
-            self._batch_.append(item)
+            self._batch_.append(data)
 
     def _end(self):
         self._run(self._batch_)
@@ -273,10 +273,10 @@ class NoInputNode(Node):
 
 
 class PushNode(Node):
-    """A node that just passes all items through in run()"""
+    """A node that just passes all data through in run()"""
 
-    def run(self, item, **kwargs):
-        self.push(item)
+    def run(self, data, **kwargs):
+        self.push(data)
 
 
 class PlaceholderNode(PushNode):

@@ -453,7 +453,7 @@ Glide will then print debug information about data passed through your
 pipeline. 
 
 You can also pass `_log=True` to the init method of any node to enable logging
-of processed items:
+of processed data:
 
 ```python
 glider = Glider(
@@ -581,12 +581,14 @@ inferred by inspecting the `run` arguments on the nodes of the pipeline and
 prefixing the node name. For example, `SQLLoad` requires a `conn` and a
 `table` argument, as well as having a few optional arguments. Since the node
 is named "load", the CLI will automatically generate required args called
-`--load_conn` and `--load_table`. 
-
-By default, the first positional argument(s) expected on the CLI is used to
-populate the `data` argument. Additionally, the default help strings are
+`--load_conn` and `--load_table`. Additionally, the default help strings are
 extracted from the run() method documentation if you use numpy docstring
 format.
+
+By default, the first positional argument(s) expected on the CLI are used to
+populate the `data` argument. If the top node of your pipeline is a subclass
+of `NoInputNode` then the CLI will automatically skip the `data` CLI arg and not
+try to pass any data as the first positional argument to the wrapped function.
 
 Let's ignore the fact that you can't pass a real
 database connection object on the command line for a second and see how you

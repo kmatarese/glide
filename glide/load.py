@@ -26,54 +26,54 @@ from glide.utils import (
 
 
 class Print(Node):
-    """Print the item"""
+    """Print the data"""
 
-    def print(self, item):
-        """Print the item"""
-        print(item)
+    def print(self, data):
+        """Print the data"""
+        print(data)
 
     def get_label(self):
         """Get a label for the print statement"""
         return "---- %s ----\n" % self.name
 
-    def run(self, item, no_label=False):
-        """Print the item with the printer function and push"""
+    def run(self, data, no_label=False):
+        """Print the data with the printer function and push"""
         if not no_label:
             print(self.get_label(), end="")
-        self.print(item)
-        self.push(item)
+        self.print(data)
+        self.push(data)
 
 
 class PrettyPrint(Print):
-    """Pretty-prints the item"""
+    """Pretty-prints the data"""
 
-    def print(self, item):
-        pp(item)
+    def print(self, data):
+        pp(data)
 
 
 class LenPrint(Print):
-    """Prints the length of the item"""
+    """Prints the length of the data"""
 
     def get_label(self):
         return "%s: " % self.name
 
-    def print(self, item):
-        print("item length: %s" % size(item, "n/a"))
+    def print(self, data):
+        print("data length: %s" % size(data, "n/a"))
 
 
 class ReprPrint(Print):
-    """Prints the reprlib.repr of the item"""
+    """Prints the reprlib.repr of the data"""
 
-    def print(self, item):
-        print(repr(item))
+    def print(self, data):
+        print(repr(data))
 
 
 class FormatPrint(Node):
-    """Format and print the item"""
+    """Format and print the data"""
 
     def run(
         self,
-        item,
+        data,
         label=None,
         indent=None,
         color=None,
@@ -84,8 +84,8 @@ class FormatPrint(Node):
 
         Parameters
         ----------
-        item
-            The item to print
+        data
+            The data to print
         **kwargs
             Keyword arguments passed to tlx.format_msg
 
@@ -94,7 +94,7 @@ class FormatPrint(Node):
             label = self.name
 
         msg = format_msg(
-            item,
+            data,
             label=label,
             indent=indent,
             color=color,
@@ -102,7 +102,7 @@ class FormatPrint(Node):
             format_func=format_func,
         )
         print(msg)
-        self.push(item)
+        self.push(data)
 
 
 class CSVLoad(SkipFalseNode):

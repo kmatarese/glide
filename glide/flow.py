@@ -11,16 +11,16 @@ class SkipFalseNode(Node):
     """This overrides the behavior of calling run() such that if a "false"
     object is pushed it will never call run, just push to next node instead"""
 
-    def _run(self, item, *args, **kwargs):
-        if is_pandas(item):
-            if item.empty:
-                self.push(item)
+    def _run(self, data, *args, **kwargs):
+        if is_pandas(data):
+            if data.empty:
+                self.push(data)
                 return
         else:
-            if not item:
-                self.push(item)
+            if not data:
+                self.push(data)
                 return
-        self.run(item, *args, **kwargs)
+        self.run(data, *args, **kwargs)
 
 
 class IterPush(Node):
@@ -32,18 +32,18 @@ class IterPush(Node):
 
 
 class WindowPush(Node):
-    def run(self, item, size, **kwargs):
+    def run(self, data, size, **kwargs):
         """Push windows of the specified size
 
         Parameters
         ----------
-        item
+        data
             The data to slice into windows
         size : int
             The window size
 
         """
-        for w in window(item, size=size):
+        for w in window(data, size=size):
             self.push(w)
 
 
@@ -79,9 +79,9 @@ class SplitByNode(PushNode):
         """Split the data into split_count slices"""
         return divide_data(data, split_count)
 
-    def _push(self, item):
+    def _push(self, data):
         """Override Consecution's push such that we can push split data"""
-        splits = self.get_splits(item, len(self._downstream_nodes))
+        splits = self.get_splits(data, len(self._downstream_nodes))
         for i, split in enumerate(splits):
             self._downstream_nodes[i]._process(split)
 
@@ -126,10 +126,10 @@ class FuturesPush(PushNode):
     executor_class = ProcessPoolExecutor
     as_completed_func = as_completed
 
-    def _push(self, item):
+    def _push(self, data):
         """Override Consecution's push such that we can push in parallel"""
         if self._logging == "output":
-            self._write_log(item)
+            self._write_log(data)
 
         executor_kwargs = self.context.get("executor_kwargs", None) or {}
         with self.executor_class(**executor_kwargs) as executor:
@@ -144,14 +144,14 @@ class FuturesPush(PushNode):
 
             if do_split:
                 # Split the data among the downstream nodes
-                splits = divide_data(item, len(self._downstream_nodes))
+                splits = divide_data(data, len(self._downstream_nodes))
                 for i, split in enumerate(splits):
                     node = self._downstream_nodes[i]
                     futures.append(executor.submit(node._process, split))
             else:
                 # Pass complete data to each downstream node
                 for downstream in self._downstream_nodes:
-                    futures.append(executor.submit(downstream._process, item))
+                    futures.append(executor.submit(downstream._process, data))
 
             # Wait for results
             for future in self.__class__.as_completed_func(futures):
@@ -178,9 +178,9 @@ class Reduce(Node):
         """Setup a place for results to be collected"""
         self.results = []
 
-    def run(self, item, **kwargs):
+    def run(self, data, **kwargs):
         """Collect results from previous nodes"""
-        self.results.append(item)
+        self.results.append(data)
 
     def end(self):
         """Do the push once all results are in"""
@@ -195,20 +195,20 @@ class WindowReduce(Node):
         """Initialize a place for a window to be collected"""
         self.window = []
 
-    def run(self, item, size, **kwargs):
+    def run(self, data, size, **kwargs):
         """Collect results to fill and push windows
 
         Parameters
         ----------
-        item
-            Item to collect into window
+        data
+            Data to collect into window
         size : int
             Size of window to collect
 
         """
         assert size and int(size) and size > 1, "Window size must be an integer > 1"
 
-        self.window.append(item)
+        self.window.append(data)
 
         if len(self.window) < size:
             return

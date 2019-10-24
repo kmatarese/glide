@@ -32,11 +32,11 @@ class DaskClientPush(FuturesPush):
 class DaskDelayedPush(PushNode):
     """Use dask delayed to do a parallel push"""
 
-    def _push(self, item):
+    def _push(self, data):
         assert delayed, "Please install dask (delayed) to use DaskDelayedPush"
 
         if self._logging == "output":
-            self._write_log(item)
+            self._write_log(data)
 
         assert "executor_kwargs" not in self.context, (
             "%s does not currently support executor_kwargs" % self.__class__
@@ -44,12 +44,12 @@ class DaskDelayedPush(PushNode):
 
         lazy = []
         if self.context.get("split", False):
-            splits = np.array_split(item, len(self._downstream_nodes))
+            splits = np.array_split(data, len(self._downstream_nodes))
             for i, downstream in enumerate(self._downstream_nodes):
                 lazy.append(delayed(downstream._process)(splits[i]))
         else:
             for downstream in self._downstream_nodes:
-                lazy.append(delayed(downstream._process)(item))
+                lazy.append(delayed(downstream._process)(data))
 
         compute(lazy)
 
