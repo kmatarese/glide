@@ -20,6 +20,14 @@ cf_glider = Glider(
 glider = Glider(SQLExtract("extract") | SQLLoad("load"))
 
 
+class NoDataNode(NoInputNode):
+    def run(self):
+        self.push("Test!")
+
+
+no_data_glider = Glider(NoDataNode("extract") | Print("load"))
+
+
 def get_data():
     return ["select * from scratch.dma_zip limit 10"]
 
@@ -74,7 +82,7 @@ def test_parent_cli():
 
 @cf_glider.cli(Arg("--load_table", required=False, default=LOAD_TABLE))
 def _test_arg_override(data, node_contexts):
-    gs_glider.consume(data, **node_contexts)
+    cf_glider.consume(data, **node_contexts)
 
 
 def test_arg_override():
@@ -121,3 +129,13 @@ def _test_injected_args_with_node_prefix(data, node_contexts, **kwargs):
 def test_injected_args_with_node_prefix():
     with patch("argparse._sys.argv", get_argv(get_load_table(), data=False)):
         _test_injected_args_with_node_prefix()
+
+
+@no_data_glider.cli()
+def _test_no_data_cli(node_contexts):
+    no_data_glider.consume(None, **node_contexts)
+
+
+def test_no_data_cli():
+    with patch("argparse._sys.argv"):
+        _test_no_data_cli()

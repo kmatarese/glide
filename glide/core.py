@@ -93,8 +93,13 @@ class Node(ConsecutionNode):
         An OrderedDict of positional args to run()
     run_kwargs : dict
         An OrderedDict of keyword args and defaults to run()
+    run_requires_data : bool
+        If true, the first positional arg to run is expected to be the
+        data/item to process
 
     """
+
+    run_requires_data = True
 
     def __init__(self, name, _log=False, _debug=False, **default_context):
         super().__init__(name)
@@ -147,10 +152,11 @@ class Node(ConsecutionNode):
 
         for i, param_name in enumerate(sig.parameters):
             param = sig.parameters[param_name]
-            if i == 0:
+            if i == 0 and self.run_requires_data:
                 # The first param is the item to process which is passed
                 # directly in process()
                 continue
+
             if param.kind == param.POSITIONAL_ONLY:
                 positionals[param.name] = None
             elif (
@@ -200,12 +206,15 @@ class Node(ConsecutionNode):
             print(format_msg(repr(item), label=self.name))
         else:
             dbg("size:%s %s" % (size(item), repr(item)), label=self.name)
-        self._run(item, *arg_values, **kwarg_values)
+        if self.run_requires_data:
+            self._run(item, *arg_values, **kwarg_values)
+        else:
+            self._run(*arg_values, **kwarg_values)
 
-    def _run(self, item, *args, **kwargs):
+    def _run(self, *args, **kwargs):
         if self._debug:
             st()
-        self.run(item, *args, **kwargs)
+        self.run(*args, **kwargs)
 
     def run(self, item, **kwargs):
         """Subclasses will override this method to implement core node logic"""
@@ -253,6 +262,14 @@ class GroupByNode(Node):
             return wrapper
         else:
             return super(GroupByNode, self).__getattribute__(name)
+
+
+class NoInputNode(Node):
+    """A node that does not take a data positional arg in run() and is expected
+    to generate data to be pushed
+    """
+
+    run_requires_data = False
 
 
 class PushNode(Node):
@@ -568,6 +585,16 @@ def clean_up_nodes(cleanup, contexts):
         raise Exception("Errors during clean_up: %s" % errors)
 
 
+def consume_none(pipeline):
+    """This mimics the behavior of Consecution's consume() but allows for
+    running a pipeline with no input data."""
+    pipeline.begin()
+    # Hack: call Consecution's _process method with no data. The top node is
+    # expected to generate data and push it.
+    pipeline.top_node._process(None)
+    return pipeline.end()
+
+
 def consume(pipeline, data, cleanup=None, **node_contexts):
     """Handles node contexts before/after calling pipeline.consume()
 
@@ -583,7 +610,10 @@ def consume(pipeline, data, cleanup=None, **node_contexts):
         contexts = get_node_contexts(pipeline)
         dbg("size=%s\n%s" % (size(data, "n/a"), pformat(contexts)), indent="label")
         try:
-            return pipeline.consume(iterize(data))
+            if data is None:
+                return consume_none(pipeline)
+            else:
+                return pipeline.consume(iterize(data))
         finally:
             if cleanup:
                 clean_up_nodes(cleanup, contexts)
@@ -632,6 +662,11 @@ class Glider:
     def __str__(self):
         """Passthrough to Consecution Pipeline"""
         return self.pipeline.__str__()
+
+    @property
+    def top_node(self):
+        """Get the pipeline top_node attribute"""
+        return self.pipeline.top_node
 
     @property
     def global_state(self):
@@ -987,7 +1022,8 @@ class GliderScript(Script):
         custom_script_args = custom_script_args or []
         script_args = OrderedDict()
 
-        if not self.blacklisted("", SCRIPT_DATA_ARG):
+        requires_data = not isinstance(self.glider.top_node, NoInputNode)
+        if requires_data and not self.blacklisted("", SCRIPT_DATA_ARG):
             script_args[SCRIPT_DATA_ARG] = Arg(SCRIPT_DATA_ARG, nargs="+")
 
         for node in node_lookup.values():
@@ -1033,10 +1069,10 @@ class GliderScript(Script):
         """Wrap the wrapped function so we can convert from CLI keyword args to node
         contexts"""
 
-        def inner(data, *args, **kwargs):
+        def inner(*args, **kwargs):
             nonlocal self
             kwargs = self._convert_kwargs(kwargs)
-            return func(data, *args, **kwargs)
+            return func(*args, **kwargs)
 
         return inner
 
