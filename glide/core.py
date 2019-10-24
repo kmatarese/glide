@@ -71,7 +71,9 @@ class Node(ConsecutionNode):
     _debug : bool, optional
         If true, drop into PDB right before calling run() for this node.
     **default_context
-        Keyword args that establish the default_context of the Node.
+        Keyword args that establish the default_context of the Node. Note that
+        this context is copy.deepcopy'd on init, so any value in
+        default_context must be usable by deepcopy.
 
     Attributes
     ----------
@@ -109,6 +111,26 @@ class Node(ConsecutionNode):
     def reset_context(self):
         """Reset context dict for this Node to the default"""
         self.context = copy.deepcopy(self.default_context)
+
+    def update_downstream_context(self, context, propagate=False):
+        """Update the run context of downstream nodes
+
+        Parameters
+        ----------
+        context : dict
+            A dict used to update the context of downstream nodes
+        propagate : bool, optional
+            If true, propagate the update to all child nodes in the DAG. The
+            default behavior is to only push updates to the immediate
+            downstream nodes.
+
+        """
+        for downstream in self._downstream_nodes:
+            if not isinstance(downstream, Node):
+                continue
+            downstream.update_context(context)
+            if propagate:
+                downstream.update_downstream_context(context, propagate=True)
 
     def _begin(self):
         for k, v in self.context.items():

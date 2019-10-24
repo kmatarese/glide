@@ -279,6 +279,32 @@ def test_flatten(rootdir):
     glider.consume([infile], transform=dict(func=lower_rows))
 
 
+def test_update_downstream_context(rootdir):
+    nodes = CSVExtract("extract", nrows=10) | [
+        FormatPrint("print1"),
+        FormatPrint("print2"),
+    ]
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider["extract"].update_downstream_context(dict(indent=2))
+    glider.consume([infile])
+
+
+class UpdateRequiredContextTest(Node):
+    def run(self, data, outfile=None):
+        with open(outfile, "w") as f:
+            self.update_downstream_context(dict(f=f))
+            self.push(data)
+
+
+def test_update_downstream_context_required_arg(rootdir):
+    nodes = (
+        CSVExtract("extract", nrows=10) | PlaceholderNode("context") | CSVLoad("load")
+    )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider["context"] = UpdateRequiredContextTest("context", outfile=outfile)
+    glider.consume([infile])
+
+
 def test_config_context_json(rootdir):
     nodes = CSVExtract(
         "extract", nrows=ConfigContext("config_context.json", key="nrows")

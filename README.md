@@ -547,6 +547,9 @@ glider = Glider(
 )
 ```
 
+Additionally, you can update the context of nodes at runtime by using the
+`update_context` or `update_downstream_context` node methods.
+
 <a name="cligeneration"></a>
 CLI Generation
 --------------
