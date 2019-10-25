@@ -4,6 +4,7 @@ import pytest
 
 from .test_utils import get_pymysql_conn, pymysql
 from glide import *
+from glide.utils import date_window_cli, datetime_window_cli
 
 BASE_ARGV = ["test_script_decorator.py"]
 LOAD_TABLE = "scratch.dma_zip_tmp"
@@ -78,6 +79,29 @@ def _test_parent_cli(data, dry_run, node_contexts):
 def test_parent_cli():
     with patch("argparse._sys.argv", get_argv(get_load_table() + ["--dry_run"])):
         _test_parent_cli()
+
+
+@gs_glider.cli(parents=[date_window_cli])
+def _test_date_window_cli(data, date_windows, node_contexts, **kwargs):
+    dbg(date_windows)
+
+
+def test_date_window_cli():
+    with patch("argparse._sys.argv", get_argv(get_load_table() + ["--yesterday"])):
+        _test_date_window_cli()
+
+
+@gs_glider.cli(parents=[datetime_window_cli])
+def _test_datetime_window_cli(data, date_windows, node_contexts, **kwargs):
+    dbg(date_windows)
+
+
+def test_datetime_window_cli():
+    with patch(
+        "argparse._sys.argv",
+        get_argv(get_load_table() + ["--days-back", "1", "--date-window-size", "4"]),
+    ):
+        _test_datetime_window_cli()
 
 
 @cf_glider.cli(Arg("--load_table", required=False, default=LOAD_TABLE))

@@ -1,10 +1,15 @@
 """Common utilities"""
 
+import argparse
 import configparser
+import datetime
+from dateutil import parser as dateparser
+from dateutil.relativedelta import relativedelta
 import functools
 import itertools
 import io
 import logging
+import math
 import types
 
 import numpy as np
@@ -21,6 +26,8 @@ from tlbx import (
     error as _error,
     get_caller,
     is_str,
+    Arg,
+    Parent,
 )
 import yaml
 
@@ -75,6 +82,257 @@ def split_count_helper(data, split_count):
     if hasattr(data, "__len__"):
         return min(len(data), split_count)
     return split_count
+
+
+# -------- Date utils
+
+
+def date_from_str(s):
+    today = datetime.date.today()
+    if s == "today":
+        return today
+    elif s == "yesterday":
+        return today - datetime.timedelta(days=1)
+    elif s == "tomorrow":
+        return today + datetime.timedelta(days=1)
+    elif s == "start_of_month":
+        return today.replace(day=1)
+    elif s == "start_of_next_month":
+        return (today + relativedelta(months=+1)).replace(day=1)
+    elif s == "start_of_last_month":
+        return (today.replace(day=1) - datetime.timedelta(days=1)).replace(day=1)
+
+    return dateparser.parse(s)
+
+
+def to_datetime(d):
+    if type(d) == datetime.datetime:
+        return d
+    if type(d) == datetime.date:
+        return datetime.datetime.combine(d, datetime.time()).replace(microsecond=0)
+    if type(d) == str:
+        return to_datetime(date_from_str(d))
+    assert False, "Unsupported type: %s" % type(d)
+
+
+def to_date(d):
+    if type(d) == datetime.date:
+        return d
+    if type(d) == datetime.datetime:
+        return d.date()
+    if type(d) == str:
+        return to_date(date_from_str(d))
+    assert False, "Unsupported type: %s" % type(d)
+
+
+def get_datetime_windows(
+    start_date, end_date, window_size_hours=None, reverse=False, add_second=True
+):
+    """Produce a list of start/end date tuples
+
+    Parameters
+    ----------
+    start_date : date, datetime, or str
+        The absolute start date of the range
+    end_date : date, datetime, or str
+        The absolute end date of the range
+    window_size_hours : float, optional
+        The size of the windows in hours. May be a float to represent partial hours.
+    reverse : bool, optional
+        If true return the windows in reverse order
+    add_second : bool, optional
+        If true, offset the start of each window to be one second past the end
+        date of the previous window.
+
+    Returns
+    -------
+    dt_windows : list
+        A list of tuples of start / end datetime pairs
+
+    """
+    start_date = to_datetime(start_date)
+    end_date = to_datetime(end_date)
+
+    if not window_size_hours:
+        return [(start_date, end_date)]
+
+    hours = (end_date - start_date).total_seconds() / float(3600)
+    num_windows = int(math.ceil(hours / window_size_hours))
+    window_delta = datetime.timedelta(hours=window_size_hours)
+    orig_end_date = end_date
+    end_date = start_date
+    dt_windows = []
+
+    for i in range(num_windows):
+        end_date = min(end_date + window_delta, orig_end_date)
+        dt_windows.append((start_date, end_date))
+        seconds = 1 if add_second else 0
+        start_date = end_date + datetime.timedelta(seconds=seconds)
+        if end_date >= orig_end_date:
+            break
+
+    if reverse:
+        dt_windows.reverse()
+
+    return dt_windows
+
+
+def _process_date_action_dest(dest, values, end_date):
+    today = datetime.date.today()
+    now = datetime.datetime.now()
+    if dest == "yesterday":
+        start_date = today - datetime.timedelta(days=1)
+        end_date = today
+    elif dest == "today":
+        start_date = today
+    elif dest == "days_back":
+        start_date = today - datetime.timedelta(days=values)
+    elif dest == "hours_back":
+        start_date = now - datetime.timedelta(hours=values)
+    elif dest == "date_range":
+        if len(values) == 1:
+            start_date = date_from_str(values[0])
+        elif len(values) == 2:
+            start_date = date_from_str(values[0])
+            end_date = date_from_str(values[1])
+        else:
+            assert False, "date_range only accepts one or two arguments"
+    else:
+        assert False, "Unrecognized date action %s" % dest
+    return start_date, end_date
+
+
+class DateTimeWindowAction(argparse.Action):
+    """An argparse Action for handling datetime window CLI args"""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        end_date = datetime.datetime.now()
+
+        if self.dest == "date_window_size":
+            if getattr(namespace, "date_windows", None):
+                start_date = namespace.date_windows[0][0]
+                end_date = namespace.date_windows[0][1]
+                setattr(
+                    namespace,
+                    "date_windows",
+                    get_datetime_windows(
+                        start_date,
+                        end_date,
+                        window_size_hours=values,
+                        reverse=getattr(namespace, "reverse_windows", False),
+                    ),
+                )
+            else:
+                # This will get used later once date_windows is populated
+                setattr(namespace, self.dest, values)
+                return
+        else:
+            start_date, end_date = _process_date_action_dest(
+                self.dest, values, end_date
+            )
+
+        if not hasattr(namespace, "date_windows"):
+            if getattr(namespace, "date_window_size", None):
+                setattr(
+                    namespace,
+                    "date_windows",
+                    get_datetime_windows(
+                        start_date,
+                        end_date,
+                        window_size_hours=namespace.date_window_size,
+                        reverse=getattr(namespace, "reverse_windows", False),
+                    ),
+                )
+            else:
+                setattr(namespace, "date_windows", [(start_date, end_date)])
+
+
+class DateWindowAction(argparse.Action):
+    """An argparse Action for handling date window CLI args"""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        today = datetime.date.today()
+        end_date = today + datetime.timedelta(days=1)
+        start_date, end_date = _process_date_action_dest(self.dest, values, end_date)
+
+        assert isinstance(
+            start_date, datetime.date
+        ), "start date must be a datetime.date object"
+        assert isinstance(
+            end_date, datetime.date
+        ), "end date must be a datetime.date object"
+
+        date_windows = get_datetime_windows(
+            start_date,
+            end_date,
+            window_size_hours=24,
+            reverse=getattr(namespace, "reverse_windows", False),
+        )
+        date_windows = [(s.date(), e.date()) for s, e in date_windows]
+        setattr(namespace, "date_windows", date_windows)
+
+
+@Parent()
+@Arg("--today", nargs=0, action=DateTimeWindowAction, help="Use today as date range")
+@Arg(
+    "--yesterday",
+    nargs=0,
+    action=DateTimeWindowAction,
+    help="Use yesterday as date range",
+)
+@Arg(
+    "--days-back",
+    type=int,
+    action=DateTimeWindowAction,
+    help="Use date range starting N days back",
+)
+@Arg(
+    "--hours-back",
+    type=int,
+    action=DateTimeWindowAction,
+    help="Use date range starting N hours back",
+)
+@Arg(
+    "--date-range",
+    nargs="+",
+    metavar=("start_date", "end_date"),
+    type=str,
+    action=DateTimeWindowAction,
+    help="Specify custom date range start/end",
+)
+@Arg(
+    "--date-window-size",
+    type=float,
+    action=DateTimeWindowAction,
+    help="Date window size in hours",
+)
+def datetime_window_cli():
+    """An argparse parent CLI that adds datetime window support"""
+    pass
+
+
+@Parent()
+@Arg("--today", nargs=0, action=DateWindowAction, help="Use today as date range")
+@Arg(
+    "--yesterday", nargs=0, action=DateWindowAction, help="Use yesterday as date range"
+)
+@Arg(
+    "--days-back",
+    type=int,
+    action=DateWindowAction,
+    help="Use date range starting N days back",
+)
+@Arg(
+    "--date-range",
+    nargs="+",
+    metavar=("start_date", "end_date"),
+    type=str,
+    action=DateWindowAction,
+    help="Specify custom date range start/end",
+)
+def date_window_cli():
+    """An argparse parent CLI that adds date window support"""
+    pass
 
 
 # -------- Config utils

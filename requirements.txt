@@ -10,6 +10,7 @@ pyexcel
 pyexcel-xls
 pyexcel-xlsx
 pymysql
+python-dateutil
 pyyaml
 requests
 sqlalchemy
