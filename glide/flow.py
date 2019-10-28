@@ -3,8 +3,16 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 import numpy as np
 from tlbx import st, dbg, info, poll_call
 
-from glide.core import Node, PushNode
-from glide.utils import is_pandas, divide_data, flatten, window, split_count_helper
+from glide.core import Node, PushNode, NoInputNode
+from glide.utils import (
+    is_pandas,
+    divide_data,
+    flatten,
+    window,
+    split_count_helper,
+    get_date_windows,
+    get_datetime_windows,
+)
 
 
 class SkipFalseNode(Node):
@@ -12,6 +20,9 @@ class SkipFalseNode(Node):
     object is pushed it will never call run, just push to next node instead"""
 
     def _run(self, data, *args, **kwargs):
+        if self._debug:
+            st()
+
         if is_pandas(data):
             if data.empty:
                 self.push(data)
@@ -20,6 +31,7 @@ class SkipFalseNode(Node):
             if not data:
                 self.push(data)
                 return
+
         self.run(data, *args, **kwargs)
 
 
@@ -293,3 +305,30 @@ class Flatten(Node):
     def run(self, data):
         """Flatten the input before pushing. Assumes data is in ~list of ~lists format"""
         self.push(flatten(data))
+
+
+class DateTimeWindowPush(NoInputNode):
+    def run(
+        self,
+        start_date,
+        end_date,
+        window_size_hours=None,
+        num_windows=None,
+        reverse=False,
+        no_add_second=False,
+    ):
+        dt_windows = get_datetime_windows(
+            start_date,
+            end_date,
+            window_size_hours=window_size_hours,
+            num_windows=num_windows,
+            reverse=reverse,
+            add_second=not no_add_second,  # flipped logic for CLI flag friendliness
+        )
+        self.push(dt_windows)
+
+
+class DateWindowPush(NoInputNode):
+    def run(self, start_date, end_date, reverse=False):
+        date_windows = get_date_windows(start_date, end_date, reverse=reverse)
+        self.push(date_windows)

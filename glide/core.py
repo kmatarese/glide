@@ -111,6 +111,9 @@ class Node(ConsecutionNode):
 
     def update_context(self, context):
         """Update the context dict for this Node"""
+        assert isinstance(context, dict), "Context must be dict-like, got %s" % type(
+            context
+        )
         self.context.update(context)
 
     def reset_context(self):
@@ -283,6 +286,29 @@ class PlaceholderNode(PushNode):
     """Used as a placeholder in pipelines. Will pass values through by default"""
 
     pass
+
+
+class ContextPush(Node):
+    """Pass context to downstream nodes"""
+
+    def run(self, data, func, propagate=False):
+        """Pass dynamically generated context to downstream nodes
+
+        Parameters
+        ----------
+        data
+            Data being processed by the node.
+        func : callable
+            A function that takes the node object and data as input and
+            returns a context dict to be used to update/add downstream node
+            context.
+        propagate : bool, optional
+            Passed through to node.update_downstream_context()
+
+        """
+        context = func(self, data)
+        self.update_downstream_context(context, propagate=propagate)
+        self.push(data)
 
 
 class PoolSubmit(Node):

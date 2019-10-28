@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures._base import TimeoutError
+import datetime
 import shutil
 import time
 
@@ -305,6 +306,16 @@ def test_update_downstream_context_required_arg(rootdir):
     glider.consume([infile])
 
 
+def test_context_push_node(rootdir):
+    nodes = (
+        CSVExtract("extract", nrows=10)
+        | ContextPush("context", func=lambda node, data: dict(indent=4))
+        | [FormatPrint("print1"), FormatPrint("print2")]
+    )
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile])
+
+
 def test_config_context_json(rootdir):
     nodes = CSVExtract(
         "extract", nrows=ConfigContext("config_context.json", key="nrows")
@@ -330,3 +341,29 @@ def test_config_context_ini(rootdir):
     ) | LenPrint("print")
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     glider.consume([infile])
+
+
+def test_datetime_window_push():
+    nodes = DateTimeWindowPush("windows") | PrettyPrint("print")
+    glider = Glider(nodes)
+    today = datetime.date.today()
+    glider.consume(
+        None,
+        windows=dict(
+            start_date=today - datetime.timedelta(days=3), end_date=today, num_windows=2
+        ),
+    )
+
+
+def test_date_window_push():
+    nodes = DateWindowPush("windows") | PrettyPrint("print")
+    glider = Glider(nodes)
+    today = datetime.date.today()
+    now = datetime.datetime.now()
+    glider.consume(
+        None,
+        windows=dict(
+            start_date=datetime.datetime(2019, 10, 25, 3, 2, 1),
+            end_date=datetime.datetime(2019, 10, 28, 3, 2, 1),
+        ),
+    )

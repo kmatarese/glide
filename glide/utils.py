@@ -125,8 +125,48 @@ def to_date(d):
     assert False, "Unsupported type: %s" % type(d)
 
 
+def datetime_cmp(d1, d2):
+    d1 = to_datetime(d1)
+    d2 = to_datetime(d2)
+    return (d1 > d2) - (d1 < d2)
+
+
+def get_date_windows(start_date, end_date, reverse=False):
+    start_date = to_datetime(start_date)
+    end_date = to_datetime(end_date)
+
+    start_date = start_date.date()
+    if datetime_cmp(end_date, end_date.date()) != 0:
+        end_date = end_date.date() + datetime.timedelta(days=1)
+    else:
+        end_date = end_date.date()
+
+    delta = end_date - start_date
+    num_windows = delta.days
+    orig_end_date = end_date
+    end_date = start_date
+    date_windows = []
+
+    for i in range(num_windows):
+        end_date = end_date + datetime.timedelta(days=1)
+        date_windows.append((start_date, end_date))
+        start_date = end_date
+        if end_date >= orig_end_date:
+            break
+
+    if reverse:
+        date_windows.reverse()
+
+    return date_windows
+
+
 def get_datetime_windows(
-    start_date, end_date, window_size_hours=None, reverse=False, add_second=True
+    start_date,
+    end_date,
+    window_size_hours=None,
+    num_windows=None,
+    reverse=False,
+    add_second=True,
 ):
     """Produce a list of start/end date tuples
 
@@ -138,6 +178,9 @@ def get_datetime_windows(
         The absolute end date of the range
     window_size_hours : float, optional
         The size of the windows in hours. May be a float to represent partial hours.
+    num_windows : int, optional
+        The number of windows to split the date range into. One of num_windows or
+        window_size_hours must be specified.
     reverse : bool, optional
         If true return the windows in reverse order
     add_second : bool, optional
@@ -150,14 +193,24 @@ def get_datetime_windows(
         A list of tuples of start / end datetime pairs
 
     """
+    assert (
+        window_size_hours or num_windows
+    ), "One of window_size_hours or num_windows must be specified"
+    assert not (
+        window_size_hours and num_windows
+    ), "Only one of window_size_hours or num_windows can be specified"
+
     start_date = to_datetime(start_date)
     end_date = to_datetime(end_date)
+    total_secs = (end_date - start_date).total_seconds()
 
-    if not window_size_hours:
-        return [(start_date, end_date)]
+    if num_windows:
+        if num_windows == 1:
+            return [(start_date, end_date)]
+        window_size_hours = (total_secs / num_windows) / 3600
 
-    hours = (end_date - start_date).total_seconds() / float(3600)
-    num_windows = int(math.ceil(hours / window_size_hours))
+    total_hours = total_secs / 3600
+    num_windows = num_windows or int(math.ceil(total_hours / window_size_hours))
     window_delta = datetime.timedelta(hours=window_size_hours)
     orig_end_date = end_date
     end_date = start_date
@@ -262,13 +315,9 @@ class DateWindowAction(argparse.Action):
             end_date, datetime.date
         ), "end date must be a datetime.date object"
 
-        date_windows = get_datetime_windows(
-            start_date,
-            end_date,
-            window_size_hours=24,
-            reverse=getattr(namespace, "reverse_windows", False),
+        date_windows = get_date_windows(
+            start_date, end_date, reverse=getattr(namespace, "reverse_windows", False)
         )
-        date_windows = [(s.date(), e.date()) for s, e in date_windows]
         setattr(namespace, "date_windows", date_windows)
 
 

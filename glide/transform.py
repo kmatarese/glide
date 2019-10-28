@@ -7,10 +7,10 @@ from glide.utils import find_class_in_dict, get_class_list_docstring
 
 
 class Func(Node):
-    """Call func with data"""
+    """Call func with data and push the result"""
 
     def run(self, data, func):
-        """Call func with data
+        """Call func with data and push the result
 
         Parameters
         ----------
