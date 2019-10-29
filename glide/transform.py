@@ -1,5 +1,8 @@
 """A home for common transform nodes"""
 
+from collections import OrderedDict
+import hashlib
+
 from tlbx import st, json, set_missing_key, update_email
 
 from glide.core import Node
@@ -75,6 +78,42 @@ class DictKeyTransform(Node):
 
             for key in drop:
                 del row[key]
+
+        self.push(data)
+
+
+class HashKey(Node):
+    def run(
+        self, data, columns=None, hash_func=hashlib.md5, hash_dest="id", encoding="utf8"
+    ):
+        """Create a unique hash key from the specified columns and place it in
+        each row.
+
+        Parameters
+        ----------
+        data
+            An iterable of dict-like rows
+        columns : list, optional
+            A list of columns to incorporate into the key. If None, the keys
+            of the first row will be used. If the first row is not an
+            OrderedDict, the keys will be sorted before use.
+        hash_func : callable, optional
+            A callable from the hashlib module
+        hash_dest : str, optional
+            Column name to put the calculated key
+        encoding : str, optional
+            How to encode the values before hashing
+
+        """
+        for row in data:
+            if not columns:
+                keys = row.keys()
+                if isinstance(row, OrderedDict):
+                    columns = list(keys)
+                else:
+                    columns = sorted(keys)
+            value = "-".join((str(row[k]) for k in columns))
+            row[hash_dest] = hash_func(value.encode(encoding)).hexdigest()
 
         self.push(data)
 

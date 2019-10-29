@@ -182,6 +182,12 @@ def test_dict_key_transform(rootdir):
     glider.consume([infile])
 
 
+def test_hash_key(rootdir):
+    nodes = CSVExtract("extract", nrows=10) | HashKey("transform") | PrettyPrint("load")
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    glider.consume([infile])
+
+
 def get_json_helper(url, **kwargs):
     resp = requests.get(url, **kwargs)
     return resp.json()
