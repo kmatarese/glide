@@ -1020,21 +1020,29 @@ class GliderScript(Script):
         if default is not None:
             arg_type = type(default)
 
-        arg_name = "--" + self._get_script_arg_name(node.name, arg_name)
         if arg_type == bool:
-            action = "store_true"
+            base_arg_name = arg_name
             if default:
                 action = "store_false"
+                base_arg_name = "no_" + arg_name
+            else:
+                action = "store_true"
+
+            dest = self._get_script_arg_name(node.name, arg_name)
+            arg_name = self._get_script_arg_name(node.name, base_arg_name)
+
             script_arg = Arg(
-                arg_name,
+                "--" + arg_name,
                 required=required,
                 action=action,
                 default=default,
                 help=arg_help,
+                dest=dest,
             )
         else:
+            arg_name = self._get_script_arg_name(node.name, arg_name)
             script_arg = Arg(
-                arg_name,
+                "--" + arg_name,
                 required=required,
                 type=arg_type,
                 default=default,

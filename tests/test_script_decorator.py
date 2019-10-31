@@ -9,11 +9,12 @@ from glide.utils import date_window_cli, datetime_window_cli
 BASE_ARGV = ["test_script_decorator.py"]
 LOAD_TABLE = "scratch.dma_zip_tmp"
 
+global_conn = get_pymysql_conn()
 gs_glider = Glider(
-    SQLExtract("extract") | SQLLoad("load"), global_state=dict(conn=get_pymysql_conn())
+    SQLExtract("extract") | SQLLoad("load"), global_state=dict(conn=global_conn)
 )
 
-cf_glider = Glider(
+rc_glider = Glider(
     SQLExtract("extract") | SQLLoad("load"),
     global_state=dict(conn=RuntimeContext(get_pymysql_conn)),
 )
@@ -104,9 +105,9 @@ def test_datetime_window_cli():
         _test_datetime_window_cli()
 
 
-@cf_glider.cli(Arg("--load_table", required=False, default=LOAD_TABLE))
+@rc_glider.cli(Arg("--load_table", required=False, default=LOAD_TABLE))
 def _test_arg_override(data, node_contexts):
-    cf_glider.consume(data, **node_contexts)
+    rc_glider.consume(data, **node_contexts)
 
 
 def test_arg_override():
@@ -125,6 +126,21 @@ def test_help():
     with patch("argparse._sys.argv", get_argv(["--help"])):
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             _test_help()
+
+
+@gs_glider.cli(
+    Arg("--load_table", required=False, default=LOAD_TABLE, help="custom help")
+)
+def _test_no_commit(data, node_contexts):
+    gs_glider.consume(data, **node_contexts)
+
+
+def test_no_commit():
+    with patch("argparse._sys.argv", get_argv(["--load_no_commit"])):
+        _test_no_commit()
+    # This commit is necessary to prevent some other tests that reuse this
+    # conn from hanging.
+    global_conn.commit()
 
 
 @glider.cli(inject=dict(data=get_data, conn=RuntimeContext(get_pymysql_conn)))

@@ -315,7 +315,7 @@ class DateTimeWindowPush(NoInputNode):
         window_size_hours=None,
         num_windows=None,
         reverse=False,
-        no_add_second=False,
+        add_second=True,
     ):
         dt_windows = get_datetime_windows(
             start_date,
@@ -323,7 +323,7 @@ class DateTimeWindowPush(NoInputNode):
             window_size_hours=window_size_hours,
             num_windows=num_windows,
             reverse=reverse,
-            add_second=not no_add_second,  # flipped logic for CLI flag friendliness
+            add_second=add_second,
         )
         self.push(dt_windows)
 

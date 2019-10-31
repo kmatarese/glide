@@ -36,9 +36,9 @@ class Print(Node):
         """Get a label for the print statement"""
         return "---- %s ----\n" % self.name
 
-    def run(self, data, no_label=False):
+    def run(self, data, label=True):
         """Print the data with the printer function and push"""
-        if not no_label:
+        if label:
             print(self.get_label(), end="")
         self.print(data)
         self.push(data)
@@ -229,7 +229,7 @@ class SQLLoad(SQLNode):
         conn,
         table,
         cursor=None,
-        no_commit=False,
+        commit=True,
         stmt_type="REPLACE",
         odku=False,
         push_data=False,
@@ -247,8 +247,9 @@ class SQLLoad(SQLNode):
             Name of a table to write the data to
         cursor : optional
             Database connection cursor
-        no_commit : bool, optional
-            If false and conn has a commit method, call conn.commit
+        commit : bool, optional
+            If true and conn has a commit method, call conn.commit. If your
+            connection autocommits this will have no effect.
         stmt_type : str, optional
             Type of SQL statement to use (REPLACE, INSERT, etc.). **Note:** Backend
             support for this varies.
@@ -271,7 +272,7 @@ class SQLLoad(SQLNode):
             if not cursor:
                 cursor = self.get_sql_executor(conn)
             self.sql_executemany(conn, cursor, sql, rows)
-            if (not no_commit) and hasattr(conn, "commit"):
+            if commit and hasattr(conn, "commit"):
                 conn.commit()
 
         if push_data:
@@ -283,7 +284,7 @@ class SQLLoad(SQLNode):
 class SQLTempLoad(SQLNode):
     """Generic SQL temp table loader"""
 
-    def run(self, rows, conn, cursor=None, schema=None, no_commit=False, dry_run=False):
+    def run(self, rows, conn, cursor=None, schema=None, commit=True, dry_run=False):
         """Create and bulk load a temp table
 
         Parameters
@@ -296,8 +297,9 @@ class SQLTempLoad(SQLNode):
             Database connection cursor
         schema : str, optional
             Schema to create temp table in
-        no_commit : bool, optional
-            If false and conn has a commit method, call conn.commit
+        commit : bool, optional
+            If true and conn has a commit method, call conn.commit. If your
+            connection autocommits this will have no effect.
         dry_run : bool, optional
             If true, skip actually loading the data
 
@@ -312,7 +314,7 @@ class SQLTempLoad(SQLNode):
             if not cursor:
                 cursor = self.get_sql_executor(conn)
             self.sql_executemany(conn, cursor, sql, rows)
-            if (not no_commit) and hasattr(conn, "commit"):
+            if commit and hasattr(conn, "commit"):
                 conn.commit()
 
         self.push(table.name)

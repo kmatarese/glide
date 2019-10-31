@@ -755,6 +755,26 @@ The `cleanup` decorator argument takes a dictionary that maps argument names to
 callables that accept the argument value to perform some clean up. In this
 case, it closes the database connection after the wrapped method is complete.
 
+### Boolean Args
+
+Node `run` args whose default is a boolean value will be converted to boolean
+flags on the CLI. If the default is `True`, the flag will invert the logic of
+the flag and prepend 'no_' to the beginning of the arg name for clarity. 
+
+For example, the `SQLLoad` node has a `run` keyword arg with a default of
+`commit=True`. Assuming this node was named `load`, this will produce a CLI
+flag `--load_no_commit` which, when passed in a terminal, will set
+`commit=False` in the node. If the default had been `False` the CLI arg name
+would have simply been `--load_commit` and it would set the value to `True`
+when passed in a terminal.
+
+This leads to more clear CLI behavior as opposed to having a flag with a
+truth-like name getting a false-like result when passed in a terminal. Of
+course another option would have been to define the node keyword arg as
+`no_commit=False` instead of `commit=True`. This would also lead to
+understandable CLI behavior but, in my opinion, would lead to more confusing
+variable naming in your code.
+
 <a name="extensions"></a>
 Extensions
 ----------
