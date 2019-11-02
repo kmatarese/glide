@@ -1,8 +1,16 @@
 import sqlite3
 
+from tlbx import st
+
 from glide.core import Node
 from glide.flow import SkipFalseNode
-from glide.sql_utils import is_sqlalchemy_conn, get_bulk_statement
+from glide.sql_utils import (
+    is_sqlalchemy_conn,
+    is_sqlalchemy_transaction,
+    get_bulk_statement,
+    escape_string,
+)
+from glide.utils import dbg
 
 
 class SQLCursorPushMixin:
@@ -73,7 +81,107 @@ class BaseSQLNode(SkipFalseNode):
             return conn
         return conn.cursor(cursor_type) if cursor_type else conn.cursor()
 
-    def sql_execute(self, conn, cursor, sql, params=None, **kwargs):
+    def transaction(self, conn, cursor=None):
+        """Start a transaction. If conn is a SQLAlchemy conn return a
+        reference to the transaction object, otherwise just return the conn
+        which should have commit/rollback methods."""
+
+        dbg("starting transaction: %s" % conn)
+        if is_sqlalchemy_conn(conn):
+            return conn.begin()
+
+        # For SQLite and DBAPI connections we explicitly call begin.
+        # https://docs.python.org/3/library/sqlite3.html#sqlite3-controlling-transactions
+        if not cursor:
+            cursor = self.get_sql_executor(conn)
+        cursor.execute("BEGIN")
+        return conn
+
+    def commit(self, obj):
+        """Commit any currently active transactions"""
+
+        if hasattr(obj, "commit"):
+            obj.commit()
+        elif is_sqlalchemy_conn(obj):
+            # Hack: I don't want to have to pass around the transaction
+            # between nodes since that requirement is really specific to
+            # SQLAlchemy, and SQLAlchemy doesn't seem to provide a standard
+            # way of obtaining the current transaction, so this approach is
+            # lifted from the SQLAlchemy internals.
+            assert hasattr(obj, "_Connection__transaction"), (
+                "Could not find transaction attribute on SQLAlchemy object: %s" % obj
+            )
+            if getattr(obj, "_Connection__transaction", None):
+                obj._Connection__transaction.commit()
+            else:
+                # SQLAlchemy connections autocommit by default, so we assume
+                # that happened.
+                pass
+        else:
+            assert False, "Could not determine how to commit with object: %s" % obj
+
+    def rollback(self, obj):
+        """Rollback any currently active transactions"""
+
+        dbg("rolling back transaction: %s" % obj)
+        if hasattr(obj, "rollback"):
+            obj.rollback()
+        elif is_sqlalchemy_conn(obj):
+            # See note above about this hack
+            assert hasattr(obj, "_Connection__transaction"), (
+                "Could not find transaction attribute on SQLAlchemy object: %s" % obj
+            )
+            if getattr(obj, "_Connection__transaction", None):
+                obj._Connection__transaction.rollback()
+            else:
+                assert False, (
+                    "Trying to rollback a transaction but the SQLAlchemy "
+                    "conn was not in a transaction. It may have "
+                    "autocommitted."
+                )
+        else:
+            assert False, "Could not determine how to rollback with object: %s" % obj
+
+    def create_like(self, conn, cursor, table, like_table, drop=False):
+        """Create a table like another table, optionally trying to drop
+        `table` first"""
+        table = escape_string(table.strip("`"))
+        like_table = escape_string(like_table.strip("`"))
+
+        if drop:
+            drop_sql = "drop table if exists %s" % table
+            dbg(drop_sql)
+            self.execute(conn, cursor, drop_sql)
+
+        if isinstance(conn, sqlite3.Connection):
+            get_create_sql = (
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name=?"
+            )
+            qr = self.execute(conn, cursor, get_create_sql, params=(like_table,))
+            row = qr.fetchone()
+            assert isinstance(row, sqlite3.Row), "Only sqlite3.Row rows are supported"
+            create_sql = row["sql"].replace(like_table, table)
+        else:
+            # Assume this syntax works with most other SQL databases
+            create_sql = "create table %s like %s" % (table, like_table)
+
+        dbg(create_sql)
+        self.execute(conn, cursor, create_sql)
+
+    def drop_table(self, conn, cursor, table):
+        """Drop tables all day long"""
+        drop_sql = escape_string("drop table %s" % table)
+        dbg(drop_sql)
+        self.execute(conn, cursor, drop_sql)
+
+    def rename_tables(self, conn, cursor, renames):
+        """Execute one or more table renames"""
+        for t1, t2 in renames:
+            sql = escape_string("ALTER TABLE %s RENAME TO %s" % (t1, t2))
+            dbg(sql)
+            self.execute(conn, cursor, sql)
+
+    def execute(self, conn, cursor, sql, params=None, **kwargs):
         """Executes the sql statement and returns an object that can fetch results
 
         Parameters
@@ -101,7 +209,7 @@ class BaseSQLNode(SkipFalseNode):
         qr = cursor.execute(sql, params, **kwargs)
         return cursor
 
-    def sql_executemany(self, conn, cursor, sql, rows):
+    def executemany(self, conn, cursor, sql, rows):
         """Bulk executes the sql statement and returns an object that can fetch results
 
         Parameters
@@ -147,7 +255,7 @@ class BaseSQLNode(SkipFalseNode):
 
         Returns
         -------
-        A SQL bulk replace query
+        A SQL bulk load query of the given stmt_type
 
         """
         if is_sqlalchemy_conn(conn):
@@ -185,6 +293,104 @@ class SQLNode(BaseSQLNode, SQLCursorPushMixin):
             "Connection must have a cursor() method or be a SQLAlchemy connection: %s"
             % conn
         )
+
+
+class SQLExecute(SQLNode):
+    def run(
+        self,
+        sql,
+        conn,
+        cursor=None,
+        cursor_type=None,
+        params=None,
+        commit=True,
+        rollback=False,
+        dry_run=False,
+        **kwargs
+    ):
+        """Perform a generic SQL query execution and push the cursor/execute
+        response.
+
+        Parameters
+        ----------
+        sql : str
+            SQL query to run
+        conn
+            SQL connection object
+        cursor : optional
+            SQL connection cursor object
+        cursor_type : optional
+            SQL connection cursor type when creating a cursor is necessary
+        params : tuple or dict, optional
+            A tuple or dict of params to pass to the execute method
+        commit : bool, optional
+            If true try to commit the transaction. If your connection
+            autocommits this will have no effect. If this is a SQLAlchemy
+            connection and you are in a transaction, it will try to get a
+            reference to the current transaction and call commit on that.
+        rollback : bool, optional
+            If true try to rollback the transaction on exceptions. Behavior
+            may vary by backend DB library if you are not currently in a
+            transaction.
+        **kwargs
+            Keyword arguments pushed to the execute method
+
+        """
+        fetcher = None
+
+        if dry_run:
+            warn(
+                "dry_run=True, skipping sql execute in %s.run" % self.__class__.__name__
+            )
+        else:
+            if not cursor:
+                cursor = self.get_sql_executor(conn, cursor_type=cursor_type)
+
+            params = params or ()
+
+            try:
+                fetcher = self.execute(conn, cursor, sql, params=params, **kwargs)
+                if commit:
+                    self.commit(conn)
+            except:
+                if rollback:
+                    self.rollback(conn)
+                raise
+
+        self.push(fetcher)
+
+
+class SQLFetch(Node, SQLCursorPushMixin):
+    def run(self, cursor, chunksize=None):
+        """Fetch data from the cursor and push the result.
+
+        Parameters
+        ----------
+        cursor
+            A cursor-like object that can fetch results
+        chunksize : int, optional
+            Fetch and push data in chunks of this size
+
+        """
+        self.do_push(cursor, chunksize=chunksize)
+
+
+class SQLTransaction(SQLNode):
+    def run(self, data, conn, cursor=None):
+        """Begin a SQL transaction on the connection
+
+        Parameters
+        ----------
+        data
+            Data being passed through the pipeline
+        conn
+            Database connection to start the transaction on
+        cursor : optional
+            SQL connection cursor object
+
+        """
+        tx = self.transaction(conn, cursor=cursor)
+        self.push(data)
 
 
 class AssertSQL(SQLNode):
@@ -228,7 +434,7 @@ class AssertSQL(SQLNode):
         if not cursor:
             cursor = self.get_sql_executor(conn, cursor_type=cursor_type)
         params = params or ()
-        fetcher = self.sql_execute(conn, cursor, sql, params=params, **kwargs)
+        fetcher = self.execute(conn, cursor, sql, params=params, **kwargs)
         result = fetcher.fetchone()
 
         if isinstance(conn, sqlite3.Connection):

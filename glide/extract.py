@@ -156,7 +156,7 @@ class SQLExtract(SQLNode):
         if not cursor:
             cursor = self.get_sql_executor(conn, cursor_type=cursor_type)
         params = params or ()
-        fetcher = self.sql_execute(conn, cursor, sql, params=params, **kwargs)
+        fetcher = self.execute(conn, cursor, sql, params=params, **kwargs)
         self.do_push(fetcher, chunksize=chunksize)
 
 
@@ -240,7 +240,7 @@ class SQLTableExtract(SQLNode):
             cursor = self.get_sql_executor(conn, cursor_type=cursor_type)
         sql = build_table_select(table, where=where, limit=limit)
         params = params or ()
-        fetcher = self.sql_execute(conn, cursor, sql, params=params, **kwargs)
+        fetcher = self.execute(conn, cursor, sql, params=params, **kwargs)
         self.do_push(fetcher, chunksize=chunksize)
 
 

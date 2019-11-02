@@ -7,7 +7,7 @@ try:
     import pymysql
 except ImportError:
     pymysql = None
-from sqlalchemy import create_engine
+import sqlalchemy as sa
 from tlbx import rmfile
 
 from glide import *
@@ -66,7 +66,7 @@ def get_sqlalchemy_mysql_engine():
     user = test_config["MySQLUser"]
     password = test_config["MySQLPassword"]
     schema = test_config["MySQLTestSchema"]
-    engine = create_engine(
+    engine = sa.create_engine(
         "mysql+pymysql://%(user)s:%(password)s@%(host)s:%(port)s/%(schema)s" % locals()
     )
     return engine

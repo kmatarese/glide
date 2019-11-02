@@ -6,6 +6,7 @@ import time
 
 import pandas as pd
 from pandas.io.sql import SQLTable, SQLiteTable, pandasSQL_builder
+from pymysql import escape_string
 import sqlalchemy as sa
 from tlbx import st
 
@@ -15,6 +16,20 @@ SQLALCHEMY_CONN_TYPES = [sa.engine.base.Connection, sa.engine.Connectable]
 def is_sqlalchemy_conn(conn):
     """Check if conn is a sqlalchemy connection"""
     return isinstance(conn, tuple(SQLALCHEMY_CONN_TYPES))
+
+
+def is_sqlalchemy_transaction(o):
+    """Check if an object is a sqlalchemy transaction"""
+    return isinstance(conn, sa.engine.Transaction)
+
+
+def add_table_suffix(table, suffix):
+    """Helper to deal with backticks when adding table suffix"""
+    if table.endswith("`"):
+        table = table.rstrip("`") + suffix + "`"
+    else:
+        table = table + suffix
+    return table
 
 
 def get_temp_table_name():
@@ -123,7 +138,7 @@ def get_bulk_statement(
         odku_clause = ", ".join(["%s=VALUES(%s)" % (col, col) for col in odku_cols])
         sql = sql + " ON DUPLICATE KEY UPDATE %s" % odku_clause
 
-    return sql
+    return escape_string(sql)
 
 
 def get_bulk_insert(table_name, column_names, **kwargs):
@@ -154,4 +169,4 @@ def build_table_select(table, where=None, limit=None):
     if limit:
         sql += " LIMIT %s" % int(limit)
 
-    return sql
+    return escape_string(sql)

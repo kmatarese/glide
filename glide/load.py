@@ -14,7 +14,7 @@ from tlbx import st, pp, create_email, send_email, sqlformat, repr, format_msg
 from glide.core import Node
 from glide.flow import SkipFalseNode
 from glide.sql import SQLNode
-from glide.sql_utils import get_temp_table
+from glide.sql_utils import get_temp_table, add_table_suffix, escape_string
 from glide.utils import (
     dbg,
     warn,
@@ -230,8 +230,11 @@ class SQLLoad(SQLNode):
         table,
         cursor=None,
         commit=True,
+        rollback=False,
         stmt_type="REPLACE",
         odku=False,
+        swap=False,
+        keep_old=False,
         push_data=False,
         dry_run=False,
     ):
@@ -248,8 +251,14 @@ class SQLLoad(SQLNode):
         cursor : optional
             Database connection cursor
         commit : bool, optional
-            If true and conn has a commit method, call conn.commit. If your
-            connection autocommits this will have no effect.
+            If true try to commit the transaction. If your connection
+            autocommits this will have no effect. If this is a SQLAlchemy
+            connection and you are in a transaction, it will try to get a
+            reference to the current transaction and call commit on that.
+        rollback : bool, optional
+            If true try to rollback the transaction on exceptions. Behavior
+            may vary by backend DB library if you are not currently in a
+            transaction.
         stmt_type : str, optional
             Type of SQL statement to use (REPLACE, INSERT, etc.). **Note:** Backend
             support for this varies.
@@ -257,13 +266,23 @@ class SQLLoad(SQLNode):
             If true, add ON DUPLICATE KEY UPDATE clause for all columns. If a
             list then only add it for the specified columns. **Note:** Backend
             support for this varies.
+        swap : bool, optional
+            If true, load a table and then swap it into the target table via rename.
+            Not supported with all database back ends.
+        keep_old : bool, optional
+            If true and swapping tables, keep the original table with a __old
+            suffix added to the name
         push_data : bool, optional
             If true, push the data forward instead of the table name
         dry_run : bool, optional
             If true, skip actually loading the data
 
         """
-        sql = self.get_bulk_statement(conn, stmt_type, table, rows, odku=odku)
+        load_table = table
+        if swap:
+            load_table = add_table_suffix(table, "__swap")
+
+        sql = self.get_bulk_statement(conn, stmt_type, load_table, rows, odku=odku)
         dbg("Loading %d rows\n%s" % (size(rows, "n/a"), sqlformat(sql)), indent="label")
 
         if dry_run:
@@ -271,9 +290,27 @@ class SQLLoad(SQLNode):
         else:
             if not cursor:
                 cursor = self.get_sql_executor(conn)
-            self.sql_executemany(conn, cursor, sql, rows)
-            if commit and hasattr(conn, "commit"):
-                conn.commit()
+
+            try:
+                if swap:
+                    self.create_like(conn, cursor, load_table, table, drop=True)
+
+                self.executemany(conn, cursor, sql, rows)
+
+                if swap:
+                    old_table = add_table_suffix(table, "__old")
+                    self.rename_tables(
+                        conn, cursor, [(table, old_table), (load_table, table)]
+                    )
+                    if not keep_old:
+                        self.drop_table(conn, cursor, old_table)
+
+                if commit:
+                    self.commit(conn)
+            except:
+                if rollback:
+                    self.rollback(conn)
+                raise
 
         if push_data:
             self.push(rows)
@@ -284,7 +321,16 @@ class SQLLoad(SQLNode):
 class SQLTempLoad(SQLNode):
     """Generic SQL temp table loader"""
 
-    def run(self, rows, conn, cursor=None, schema=None, commit=True, dry_run=False):
+    def run(
+        self,
+        rows,
+        conn,
+        cursor=None,
+        schema=None,
+        commit=True,
+        rollback=False,
+        dry_run=False,
+    ):
         """Create and bulk load a temp table
 
         Parameters
@@ -298,8 +344,14 @@ class SQLTempLoad(SQLNode):
         schema : str, optional
             Schema to create temp table in
         commit : bool, optional
-            If true and conn has a commit method, call conn.commit. If your
-            connection autocommits this will have no effect.
+            If true try to commit the transaction. If your connection
+            autocommits this will have no effect. If this is a SQLAlchemy
+            connection and you are in a transaction, it will try to get a
+            reference to the current transaction and call commit on that.
+        rollback : bool, optional
+            If true try to rollback the transaction on exceptions. Behavior
+            may vary by backend DB library if you are not currently in a
+            transaction.
         dry_run : bool, optional
             If true, skip actually loading the data
 
@@ -313,9 +365,15 @@ class SQLTempLoad(SQLNode):
         else:
             if not cursor:
                 cursor = self.get_sql_executor(conn)
-            self.sql_executemany(conn, cursor, sql, rows)
-            if commit and hasattr(conn, "commit"):
-                conn.commit()
+
+            try:
+                self.executemany(conn, cursor, sql, rows)
+                if commit:
+                    self.commit(conn)
+            except:
+                if rollback:
+                    self.rollback(conn)
+                raise
 
         self.push(table.name)
 
