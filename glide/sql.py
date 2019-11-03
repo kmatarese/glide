@@ -145,8 +145,8 @@ class BaseSQLNode(SkipFalseNode):
     def create_like(self, conn, cursor, table, like_table, drop=False):
         """Create a table like another table, optionally trying to drop
         `table` first"""
-        table = escape_string(table.strip("`"))
-        like_table = escape_string(like_table.strip("`"))
+        table = escape_string(str(table).strip("`"))
+        like_table = escape_string(str(like_table).strip("`"))
 
         if drop:
             drop_sql = "drop table if exists %s" % table

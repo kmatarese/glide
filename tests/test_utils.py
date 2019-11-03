@@ -104,13 +104,21 @@ def sqlite_glider(rootdir, nodes, reset_output=False):
     return glider, "`%s`" % table.strip("`")
 
 
-def sqlalchemy_setup(rootdir, conn, truncate=False):
+def sqlalchemy_setup(rootdir, conn, truncate=False, sa_objects=False):
     in_table, out_table = db_tables()
     if truncate:
         try:
             conn.execute("truncate %s" % out_table)
         except Exception as e:
             print("Error during truncation: %s" % str(e))
+
+    if sa_objects:
+        meta = sa.MetaData()
+        meta.bind = conn.engine
+        meta.reflect()
+        in_table = meta.tables[in_table.split(".")[-1]]
+        out_table = meta.tables[out_table.split(".")[-1]]
+
     return in_table, out_table
 
 

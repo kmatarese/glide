@@ -227,6 +227,21 @@ def test_sqlalchemy_extract_and_load(rootdir, sqlalchemy_conn):
     )
 
 
+def test_sqlalchemy_query_object(rootdir, sqlalchemy_conn):
+    in_table, out_table = sqlalchemy_setup(
+        rootdir, sqlalchemy_conn, truncate=True, sa_objects=True
+    )
+    select = sa.select([c for c in in_table.c])
+    select = select.select_from(in_table)
+    select = select.where(in_table.c.zip_code < "01000")
+    glider = Glider(SQLExtract("extract") | SQLLoad("load"))
+    glider.consume(
+        [select],
+        extract=dict(conn=sqlalchemy_conn),
+        load=dict(conn=sqlalchemy_conn, table=out_table, swap=True),
+    )
+
+
 def test_pymysql_table_extract(rootdir, pymysql_conn):
     in_table, out_table, cursor = dbapi_setup(rootdir, pymysql_conn)
     glider = Glider(SQLTableExtract("extract", limit=10) | Print("load"))

@@ -25,6 +25,7 @@ def is_sqlalchemy_transaction(o):
 
 def add_table_suffix(table, suffix):
     """Helper to deal with backticks when adding table suffix"""
+    table = str(table)  # Hack to handle SQLAlchemy tables
     if table.endswith("`"):
         table = table.rstrip("`") + suffix + "`"
     else:

@@ -27,10 +27,18 @@ class SkipFalseNode(Node):
             if data.empty:
                 self.push(data)
                 return
-        else:
-            if not data:
+        elif hasattr(data, "__bool__") or hasattr(data, "__len__"):
+            try:
+                truth = bool(data)
+            except:
+                truth = data is not None
+            if not truth:
                 self.push(data)
                 return
+        else:
+            assert False, (
+                "Could not figure out how to do bool check of object: %s" % data
+            )
 
         self.run(data, *args, **kwargs)
 
