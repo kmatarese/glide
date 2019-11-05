@@ -17,3 +17,12 @@ def test_parallel_csv2csv(rootdir):
     glider = CSV2CSV(glider=ProcessPoolParaGlider)
     infile, outfile = get_filenames(rootdir, "csv")
     glider.consume([infile], load=dict(f=outfile))
+
+
+def test_node_template(rootdir):
+    nodes = CSVExtract("extract", chunksize=10, nrows=20) | Print("load")
+    temp = NodeTemplate(nodes)
+    inst = temp()
+    glider = Glider(inst)
+    infile, outfile = get_filenames(rootdir, "csv")
+    glider.consume([infile])

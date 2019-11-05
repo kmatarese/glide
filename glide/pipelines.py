@@ -1,6 +1,6 @@
 """Basic ETL pipeline templates for common nodes"""
 
-from functools import partial
+import copy
 
 from tlbx import st
 
@@ -17,31 +17,40 @@ from glide.load import SQLLoad, CSVLoad, EmailLoad, FileLoad, URLLoad
 from glide.utils import iterize, get_class_list_docstring
 
 
-class GliderTemplate:
-    """A 'partial' for a Glider. It must be passed functools.partial nodes
-    that it will create when __call__'d.
+class NodeTemplate:
+    """A set of nodes that can be used as a template"""
 
-    Note
-    ----
-    This currently does not support lists of lists for node levels.
+    def __init__(self, nodes):
+        """Create and store a deepcopy of the input nodes"""
+        self.nodes = copy.deepcopy(nodes)
+
+    def __call__(self):
+        """Create and return a deepcopy of self.nodes"""
+        nodes = copy.deepcopy(self.nodes)
+        return nodes
+
+
+class GliderTemplate:
+    """A template for a Glider. It will create a new pipeline with a copy of
+    its templated nodes when __call__'d.
 
     Parameters
     ----------
-    node_levels*
-        An iterable of functools.partial nodes
+    nodes
+        A top node potentially tied to other downstream nodes
 
     Attributes
     ----------
-    node_levels
-        An iterable of functools.partial nodes
+    nodes
+        A top node potentially tied to other downstream nodes
 
     """
 
-    def __init__(self, *node_levels):
-        self.node_levels = node_levels
+    def __init__(self, nodes):
+        self.nodes = NodeTemplate(nodes)
 
     def __call__(self, glider=Glider):
-        """Create a Glide pipeline from the partial nodes
+        """Create a Glide pipeline from the nodes
 
         Parameters
         ----------
@@ -53,30 +62,7 @@ class GliderTemplate:
         A Glide pipeline
 
         """
-        nodes = self.create_nodes()
-        return glider(nodes)
-
-    def create_nodes(self):
-        """Create node objects from node partials"""
-        results = None
-        for node_level in self.node_levels:
-            node_level = iterize(node_level)
-            level_nodes = []
-            for node_partial in node_level:
-                assert not isinstance(
-                    node_partial, (list, tuple)
-                ), "List of lists not supported"
-                level_nodes.append(node_partial())
-
-            if len(level_nodes) == 1:
-                level_nodes = level_nodes[0]
-
-            if not results:
-                results = level_nodes
-                continue
-
-            results |= level_nodes
-        return results
+        return glider(self.nodes())
 
 
 def basic_glider(
@@ -98,11 +84,7 @@ def basic_glider(
     A GliderTemplate that can be called to produce Gliders from the template.
 
     """
-    return GliderTemplate(
-        partial(extract, "extract"),
-        partial(transform, "transform"),
-        partial(load, "load"),
-    )
+    return GliderTemplate(extract("extract") | transform("transform") | load("load"))
 
 
 GLIDER_TEMPLATE_DATA = {
@@ -116,7 +98,7 @@ GLIDER_TEMPLATE_DATA = {
     }
 }
 
-# This will create local GliderTemplate 'partials' for all combinations of
+# This will create local GliderTemplates for all combinations of
 # extractors and loaders in the above data structure
 for data_format, template in GLIDER_TEMPLATE_DATA.items():
     extractors = template["extract"]

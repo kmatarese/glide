@@ -109,6 +109,14 @@ class Node(ConsecutionNode):
         self.reset_context()
         self.run_args, self.run_kwargs = self._get_run_args()
 
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        new = cls.__new__(cls)
+        memo[id(self)] = new
+        for k, v in self.__dict__.items():
+            setattr(new, k, copy.deepcopy(v, memo))
+        return new
+
     def update_context(self, context):
         """Update the context dict for this Node"""
         assert isinstance(context, dict), "Context must be dict-like, got %s" % type(

@@ -1,5 +1,3 @@
-from functools import partial
-
 from celery.contrib.testing import worker
 import pytest
 from tlbx import st
@@ -125,8 +123,7 @@ def test_celery_build_glider_task(redis_server, celery_worker, rootdir):
 def test_celery_glider_template_task(redis_server, celery_worker, rootdir):
     infile, outfile = get_filenames(rootdir, "csv")
     glider_template = GliderTemplate(
-        partial(CSVExtract, "extract"),
-        [partial(Print, "load1"), partial(Print, "load2")],
+        CSVExtract("extract") | [Print("load1"), Print("load2")]
     )
     async_result = celery_glider_template_task.delay(
         [infile], glider_template, consume_kwargs=dict(extract=dict(nrows=10))
