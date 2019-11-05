@@ -19,6 +19,13 @@ def test_placeholder_node(rootdir):
         glider.consume([infile], extract=dict(chunksize=10, nrows=20), load=dict(f=f))
 
 
+def test_profiler_node(rootdir):
+    nodes = Profile("profile") | CSVExtract("extract") | CSVLoad("load")
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    with open(outfile, "w") as f:
+        glider.consume([infile], extract=dict(chunksize=10, nrows=20), load=dict(f=f))
+
+
 def test_filter_node(rootdir):
     nodes = (
         CSVExtract("extract")

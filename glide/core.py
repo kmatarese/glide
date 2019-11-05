@@ -3,6 +3,11 @@
 from collections import OrderedDict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import copy
+
+try:
+    import cProfile as profile
+except ImportError:
+    import profile
 from inspect import signature, Parameter
 import os
 from pprint import pformat
@@ -294,6 +299,24 @@ class PlaceholderNode(PushNode):
     """Used as a placeholder in pipelines. Will pass values through by default"""
 
     pass
+
+
+class Profile(Node):
+    """A node that profiles the call to push(), thus profiling all downstream
+    nodes"""
+
+    def run(self, data, filename=None):
+        """Profiles calls to push(), thus profiling all downstream nodes
+
+        Parameters
+        ----------
+        data
+            Data to push
+        filename : str, optional
+            Filename to pass to runctx() to save stats
+
+        """
+        profile.runctx("self.push(data)", globals(), locals(), filename=filename)
 
 
 class ContextPush(Node):
