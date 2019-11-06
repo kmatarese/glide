@@ -5,6 +5,7 @@ Glide: Easy ETL
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Documentation Status](https://readthedocs.org/projects/glide-etl/badge/?version=latest)](https://glide-etl.readthedocs.io/en/latest/?badge=latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/glide)
 
 Introduction
 ------------
@@ -87,8 +88,9 @@ $ pip install glide
 Primer
 ------
 
-You are encouraged to take a deeper look at the [docs](#documentation), but
-the short of it is the following:
+You are encouraged to take a deeper look at the
+[docs](https://glide-etl.readthedocs.io/en/latest/), but the short of it is
+the following:
 
 1\. A `Node` is a part of a pipeline which has a `run` method that typically
 accepts data from upstream nodes, and pushes data to downstream nodes. For example:
