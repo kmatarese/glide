@@ -3,9 +3,6 @@ from glide.extensions.pandas import *
 from ..test_utils import *
 
 
-# -------- Transformers
-
-
 def test_csv_dask_client_lowercase(rootdir):
     nodes = (
         DataFrameCSVExtract("extract")
@@ -56,9 +53,6 @@ def test_csv_dask_dataframe_lowercase(rootdir):
     glider.consume([infile], transform=dict(func=lower), load=dict(f=outfile))
 
 
-# -------- Parallel Nodes
-
-
 def test_dask_delayed_push_node(rootdir):
     # This will push the same data to each logging node
     infile, _ = get_filenames(rootdir, "csv")
@@ -79,9 +73,6 @@ def test_dask_client_push_node(rootdir):
         | [Print("load1"), Print("load2"), Print("load3")]
     )
     glider.consume([infile])
-
-
-# -------- ParaGlider
 
 
 def test_csv_dask_paraglider(rootdir):

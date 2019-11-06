@@ -306,7 +306,7 @@ glider = Glider(
 <a name="example-date-windows"></a>
 ### Example: Date Windows
 
-Generate a set of date windows and push them downstream:
+Generate a set of datetime windows and push them downstream:
 
 ```python
 import datetime
@@ -322,8 +322,9 @@ glider.consume(
 ```
 
 Or use `DateWindowPush` for date objects. Note that `None` is passed as the
-first arg to `consume` because the top node is a special `NoInputNode` that
-takes no input data and generates data to push on its own.
+first arg to `consume` because the top node (`DateTimeWindowPush`) is a
+subclass of `NoInputNode` which takes no input data and generates data to push
+on its own.
 
 <a name="example-parallel-transformation"></a>
 ### Example: Parallel Transformation
@@ -581,7 +582,7 @@ glider = Glider(
 If the hierarchy of nodes you want to form is not achievable with the `|`
 operator, you can use the `add_downstream` `Node` method to form more complex
 graphs. More info can be found
-[here](https://glide-etl.readthedocs.io/en/latest/pipelines.html#creating-pipelines).
+[here](https://glide-etl.readthedocs.io/en/latest/pipelines.html#complex-pipelines).
 
 <a name="example-plotting-pipeline-dags"></a>
 ### Example: Plotting Pipeline DAGs
@@ -647,13 +648,12 @@ help getting started.
 <a name="pandas"></a>
 ### Pandas
 
-Note that the Pandas extension is actually support by default with all `glide` installs.
+Note that the Pandas extension is actually supported by default with all
+`glide` installs.
 
 See the extension docs
 [here](https://glide-etl.readthedocs.io/en/latest/glide.extensions.pandas.html)
-for node/pipeline reference information.
-
-See the tests
+for node/pipeline reference information. See the tests
 [here](https://github.com/kmatarese/glide/tree/master/tests/pandas_ext/test_pandas.py)
 for some additional examples.
 
@@ -662,9 +662,7 @@ for some additional examples.
 
 See the extension docs
 [here](https://glide-etl.readthedocs.io/en/latest/glide.extensions.dask.html)
-for node/pipeline reference information.
-
-See the tests
+for node/pipeline reference information. See the tests
 [here](https://github.com/kmatarese/glide/tree/master/tests/dask_ext/test_dask.py)
 for some additional examples.
 
@@ -673,9 +671,7 @@ for some additional examples.
 
 See the extension docs
 [here](https://glide-etl.readthedocs.io/en/latest/glide.extensions.celery.html)
-for node/pipeline reference information.
-
-See the tests
+for node/pipeline reference information. See the tests
 [here](https://github.com/kmatarese/glide/tree/master/tests/celery_ext/test_celery.py)
 for some additional examples.
 
@@ -684,9 +680,7 @@ for some additional examples.
 
 See the extension docs
 [here](https://glide-etl.readthedocs.io/en/latest/glide.extensions.rq.html)
-for node/pipeline reference information.
-
-See the tests
+for node/pipeline reference information. See the tests
 [here](https://github.com/kmatarese/glide/tree/master/tests/rq_ext/test_rq.py)
 for some additional examples.
 
@@ -695,9 +689,7 @@ for some additional examples.
 
 See the extension docs
 [here](https://glide-etl.readthedocs.io/en/latest/glide.extensions.swifter.html)
-for node/pipeline reference information.
-
-See the tests
+for node/pipeline reference information. See the tests
 [here](https://github.com/kmatarese/glide/tree/master/tests/swifter_ext/test_swifter.py)
 for some additional examples.
 

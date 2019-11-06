@@ -128,6 +128,7 @@ try to pass any data as the first positional argument to the wrapped function.
 Let's ignore the fact that you can't pass a real
 database connection object on the command line for a second and see how you
 would run this script:
+
 .. code-block:: console
 
     $ python my_script.py "select * from input_table limit 10" \
@@ -137,6 +138,7 @@ would run this script:
 
 To pass multiple inputs to ``data`` you would simply use space-separated
 positional arguments:
+
 .. code-block:: console
 
     $ python my_script.py "sql query 1" "sql query 2" \
@@ -199,6 +201,7 @@ takes the standard ``argparse`` arguments::
 
 And now, assuming you had used the ``Glider`` with ``conn`` passed in the
 ``global_state``, you could simple do:
+
 .. code-block:: console
 
     $ python my_script.py "select * from input_table limit 10"
@@ -258,6 +261,7 @@ arg and a ``conn`` arg and neither are necessary for the command line. This
 automatically blacklists those args from the command line as well. Since we
 added the ``load_table`` arg and gave it a default as well, we can now simply
 run:
+
 .. code-block:: console
 
     $ python my_script.py
