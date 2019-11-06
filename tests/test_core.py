@@ -29,7 +29,7 @@ def test_profiler_node(rootdir):
 def test_filter_node(rootdir):
     nodes = (
         CSVExtract("extract")
-        | Filter("filter", func=lambda node, data: len(data) == 5)
+        | Filter("filter", func=lambda n, d: len(d) == 5)
         | Reduce("reduce", flatten=True)
         | LenPrint("len")
         | CSVLoad("load")

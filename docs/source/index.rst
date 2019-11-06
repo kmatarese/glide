@@ -24,7 +24,7 @@ such as `Dask <https://dask.org/>`_ for scalable analytics workflows.
 .. toctree::
    :maxdepth: 3
 
-   Quickstart <quickstart.rst>
-   Common Nodes <nodes>
-   Common Pipelines <pipelines>
+   Quickstart <quickstart>
+   Nodes <nodes>
+   Pipelines <pipelines>
    Glide Reference <glide>

@@ -10,7 +10,9 @@ Introduction
 ------------
 
 Glide is an easy-to-use data pipelining tool inspired by [Consecution](https://github.com/robdmc/consecution) and 
-[Apache Storm Topologies](http://storm.apache.org/releases/current/Tutorial.html). Like those libraries, **Glide is:**
+[Apache Storm Topologies](http://storm.apache.org/releases/current/Tutorial.html). 
+
+Like those libraries, **Glide is:**
 
 - A simple, reusable approach to building robust ETL pipelines
 - A system for wiring together processing nodes to form a directed acyclic graph (DAG)
@@ -19,17 +21,14 @@ Glide is an easy-to-use data pipelining tool inspired by [Consecution](https://g
 
 - An expanding suite of built-in nodes and pipelines that extract, transform, and load data from/to any combination of:
   - SQL databases (SQLite, DBAPI, and SQLAlchemy support)
-  - URLs
-  - Local or remote files including:
-    - CSVs
-    - Excel files (including multi-sheet support)
-    - Raw/generic files
+  - Local or remote files (CSVs, Excel, and raw file support)
+  - URLs (JSON endpoints, file downloads, APIs, etc.)
   - HTML Tables
   - Emails
 - Extensions for [Pandas](https://pandas.pydata.org/), [Dask](https://dask.org/), [Celery](http://www.celeryproject.org/), [Redis Queue](http://python-rq.org/) and more
-- A variety of node and DAG parallel/distributed processing strategies including concurrent.futures Executors, Dask, Celery, or Redis Queue.
+- A variety of node and DAG parallel/distributed processing strategies
 - A simple decorator to generate a command line interface from a pipeline in ~one line of code
-- The ability to control node contexts via defaults and/or simple runtime overrides
+- Flexible pipeline templating
 
 **Glide is not** a task orchestration and/or dependency management tool like
 Airflow. Use Glide to define your easily developed/contained/reusable/testable
@@ -39,13 +38,40 @@ good at, namely scheduling and complex task dependency management.
 Table of Contents
 -----------------
 
-- [Installation](#installation)
-- [Examples](#examples) 
-- [Creating Nodes](#creatingnodes)
-- [CLI Generation](#cligeneration)
-- [Extensions](#extensions)
-- [Docs](#documentation)
-- [How to Contribute](#howtocontribute)
+* [Installation](#installation)
+* [Primer](#primer) 
+* [Examples](#examples)
+  * [CSV Extract, Transform, and Load](#example-csv-extract-transform-and-load)
+  * [SQL Extract and Load](#example-sql-extract-and-load)
+  * [SQL Transactions](#example-sql-transactions)
+  * [DataFrames](#example-dataframes)
+  * [URL Extraction](#example-url-extraction)
+  * [JSON Converters](#example-json-converters)
+  * [Filters](#example-filters)
+  * [IterPush](#example-iterpush)
+  * [SplitPush](#example-splitpush)
+  * [SplitByNode](#example-splitbynode)
+  * [Window Processing](#example-window-processing)
+  * [Date Windows](#example-date-windows)
+  * [Parallel Transformation](#example-parallel-transformation)
+  * [Parallel Pipelines via ParaGlider](#example-parallel-pipelines-via-paraglider)
+  * [Parallel Branching](#example-parallel-branching)
+  * [Thread Reducers](#example-thread-reducers)
+  * [Templated Nodes and Pipelines](#example-templated-nodes-and-pipelines)
+  * [Data Integrity Checks](#example-data-integrity-checks)
+  * [Debugging](#example-debugging)
+  * [Profiling Pipelines](#example-profiling-pipelines)
+  * [Complex Pipelines](#example-complex-pipelines)
+  * [Plotting Pipeline DAGs](#example-plotting-pipeline-dags)
+* [CLI Generation](#cli-generation)
+* [Extensions](#extensions)
+  * [Pandas](#pandas)
+  * [Dask](#dask-experimental)
+  * [Celery](#celery-experimental)
+  * [Redis Queue](#redis-queue-experimental)
+  * [Swifter](#swifter-experimental)
+* [Docs](#documentation)
+* [How to Contribute](#how-to-contribute)
 
 <a name="installation"></a>
 Installation
@@ -57,30 +83,54 @@ Installation
 $ pip install glide
 ```
 
+<a name="primer"></a>
+Primer
+------
+
+You are encouraged to take a deeper look at the [docs](#documentation), but
+the short of it is the following:
+
+1\. A `Node` is a part of a pipeline which has a `run` method that typically
+accepts data from upstream nodes, and pushes data to downstream nodes. For example:
+```python
+class MyNode(Node):
+    def run(self, data):
+        # Some node-specific code here
+        self.push(data)
+```
+2\. A `Glider` is a pipeline of `Node` objects wired together in a DAG. It
+accepts input data in its `consume` method. For example:
+```python
+glider = Glider(
+    MyExtractNode("extract")
+    | MyTransformNode("transform")
+    | MyLoadNode("load")
+)
+glider.consume(data)
+```
+
+If a node's `run` method has additional parameters, they are populated from
+the node's `context`. More info on creating nodes and populating runtime context 
+can be found [here](https://glide-etl.readthedocs.io/en/latest/nodes.html).
+
 <a name="examples"></a>
 Examples
 --------
 
-The following examples serve as a quickstart to illustrate some core features
-and built-in nodes. More complete documentation can be viewed
-[here](https://glide-etl.readthedocs.io/en/latest/index.html).
-
-`Glider` is the main pipeline class that takes a DAG of `Nodes` as input and
-then accepts data to process in its `consume` method. The examples below
-assume you have used the following shortcut to import all necessary node and
-pipeline classes:
+The following examples serve to quickly illustrate some core features and
+built-in nodes. There is much more `Glide` can do that is not shown
+here. Everything below assumes you have used the following shortcut to import
+all necessary node and pipeline classes:
 
 ```python
 from glide import *
 ```
 
-Let's build some pipelines to explore Glide further...
+<a name="example-csv-extract-transform-and-load"></a>
+### Example: CSV Extract, Transform, and Load
 
-### Example: CSV Extract, Transform, Load
-
-Here is a simple example applying a transformation to data from a CSV, in this
-case using an existing function to lowercase all strings before loading into
-an output CSV:
+Apply a transformation to data from a CSV, use a function to lowercase all
+strings, and load into an output CSV:
 
 ```python
 def lower_rows(data):
@@ -101,21 +151,10 @@ glider.consume(
 )
 ```
 
-### Node Context
+<a name="example-sql-extract-and-load"></a>
+### Example: SQL Extract and Load
 
-The above examples demonstrates two separate ways to pass context to nodes:
-        
-1. Passing kwargs when instantiating the node. This becomes a default context
-for the node any time it is used/reused.
-2. Passing kwargs to `consume` that are node_name->node_context pairs. This context
-lasts only for the `consume` call. 
-
-> **Note:** Further details can be found in the Creating Nodes section.
-
-### Example: Global State
-
-A `Glider` can also have a shared context that can be used to populate node
-arguments via its optional `global_state` argument:
+Read from one table, write to another:
 
 ```python
 conn = get_my_sqlalchemy_conn()
@@ -124,7 +163,7 @@ sql = "select * from in_table limit 10"
 glider = Glider(
     SQLExtract("extract")
     | SQLLoad("load"),
-    global_state=dict(conn=conn) # conn will automagically be passed to any nodes that require it
+    global_state=dict(conn=conn) # conn is automagically passed to any nodes that accept a "conn" argument
 )
 glider.consume(
     [sql],
@@ -132,29 +171,164 @@ glider.consume(
 )
 ```
 
-### Example: Placeholder Nodes
+<a name="example-sql-transactions"></a>
+### Example: SQL Transactions
 
-You can easily drop replacement nodes into a pipeline:
+Start a transaction before writing to a database, rollback on failure:
 
 ```python
 glider = Glider(
-    PlaceholderNode("extract")
-    | MyTransformer("transform")
-    | CSVLoad("load")
+    SQLExtract("extract")
+    | SQLTransaction("tx")
+    | SQLLoad("load", rollback=True),
+    global_state=dict(conn=conn)
 )
-glider["extract"] = CSVExtract("extract")
 glider.consume(...)
 ```
 
-This is one basic approach to make reusable, templated pipelines.
+<a name="example-dataframes"></a>
+### Example: DataFrames
 
-> **Note:** Any node can be replaced by name. `PlaceholderNode` is just a convenience.
+The Pandas extension allows you to operate with DataFrames:
 
+```python
+def lower(s):
+    return s.lower() if type(s) == str else s
+
+glider = Glider(
+    DataFrameCSVExtract("extract")
+    | DataFrameApplyMap("transform", func=lower)
+    | DataFrameCSVLoad("load", index=False, mode="a")
+)
+glider.consume(...)
+```
+
+See the extension tests and code for more examples and documentation.
+
+<a name="example-url-extraction"></a>
+### Example: URL Extraction
+
+Extract data from each URL in the list of requests and load to a URL endpoint:
+
+```python
+glider = Glider(URLExtract("extract") | URLLoad("load"))
+reqs = [
+    "https://jsonplaceholder.typicode.com/todos/1",
+    "https://jsonplaceholder.typicode.com/todos/2",
+]
+glider.consume(
+    reqs,
+    extract=dict(data_type="json"),
+    load=dict(
+        url="https://jsonplaceholder.typicode.com/todos",
+        data_param="json",
+        headers={"Content-type": "application/json; charset=UTF-8"},
+    ),
+)
+```
+
+<a name="example-json-converters"></a>
+### Example: JSON Converters
+
+Load JSON from a string:
+
+```python
+glider = Glider(URLExtract("extract") | JSONLoads("json"))
+reqs = ["https://jsonplaceholder.typicode.com/todos/1"]
+glider.consume(reqs, extract=dict(data_type="text"))
+```
+
+Or dump it to a string with the `JSONDumps` node.
+
+<a name="example-filters"></a>
+### Example: Filters
+
+Filter the propagation of data based on the result of a function:
+
+```python
+def data_check(node, data):
+    # do some check on data, return True/False to control filtering
+    return True
+
+glider = Glider(
+    MyExtract("extract")
+    | Filter("filter", func=data_check)
+    | MyLoad("load")
+)
+```
+
+<a name="example-iterpush"></a>
+### Example: IterPush
+
+Push each row of an input iterable individually:
+
+```python
+glider = Glider(
+    CSVExtract("extract", nrows=20)
+    | IterPush("iter")
+    | Print("load")
+)
+```
+
+<a name="example-splitpush"></a>
+### Example: SplitPush
+
+Split an iterable before pushing:
+
+```python
+glider = Glider(SplitPush("push", split_count=2) | Print("print"))
+glider.consume([range(4)])
+```
+
+<a name="example-splitbynode"></a>
+### Example: SplitByNode
+
+Split an iterable evenly among downstream nodes:
+
+```python
+glider = Glider(SplitByNode("push") | [Print("print1"), Print("print2")])
+glider.consume([range(4)])
+```
+
+<a name="example-window-processing"></a>
+### Example: Window Processing
+
+Push a sliding window of the data:
+
+```python
+glider = Glider(
+    CSVExtract("extract", nrows=5)
+    | WindowPush("window", size=3)
+    | MyWindowCalcNode("calc")
+)
+```
+
+<a name="example-date-windows"></a>
+### Example: Date Windows
+
+Generate a set of date windows and push them downstream:
+
+```python
+import datetime
+
+today = datetime.date.today()
+glider = Glider(DateTimeWindowPush("windows") | PrettyPrint("print"))
+glider.consume(
+    None,
+    windows=dict(
+        start_date=today - datetime.timedelta(days=3), end_date=today, num_windows=2
+    )
+)
+```
+
+Or use `DateWindowPush` for date objects. Note that `None` is passed as the
+first arg to `consume` because the top node is a special `NoInputNode` that
+takes no input data and generates data to push on its own.
+
+<a name="example-parallel-transformation"></a>
 ### Example: Parallel Transformation
 
-Let's redo the earlier example with the data transformed in parallel processes
-using a `ProcessPoolSubmit` node. In this case, `lower_rows` will be called on
-equal splits of the data read from the CSV:
+Call a function in parallel processes on equal splits of data from a CSV:
 
 ```python
 glider = Glider(
@@ -188,13 +362,13 @@ The `FuturesReduce` node waits for the results from each futures object, and
 then `Flatten` will combine each subresult back together into a single result
 to be loaded in the final `CSVLoad` node.
 
+<a name="example-parallel-pipelines-via-paraglider"></a>
 ### Example: Parallel Pipelines via ParaGlider
 
-Glide also has support for completely parallelizing pipelines using a
-`ParaGlider` (who said ETL isn't fun?!?) instead of a `Glider`. The following
-code will create a `ProcessPoolParaGlider` and split processing of the inputs (two files
-in this case) over the pool, with each process running the entire pipeline on
-part of the consumed data:
+Completely parallelize a pipeline using a `ParaGlider` (who said ETL isn't
+fun?!?). Split processing of the inputs (two files in this case) over the
+pool, with each process running the entire pipeline on part of the consumed
+data:
 
 ```python
 glider = ProcessPoolParaGlider(
@@ -207,11 +381,11 @@ glider.consume(
 )
 ```
 
+<a name="example-parallel-branching"></a>
 ### Example: Parallel Branching
 
-If you only want to execute part of the pipeline in parallel, you can branch
-into parallel execution in the middle of the DAG utilizing a parallel push
-node as in the following example:
+Branch into parallel execution in the middle of the DAG utilizing a parallel
+push node:
 
 ```python
 glider = Glider(
@@ -230,9 +404,10 @@ processes.
 Once you branch off into processes with a parallel push node there is no way
 to reduce/join the pipeline back into the original process and resume
 single-process operation. The entire remainder of the pipeline is executed in
-each subprocess. However, that can be achieved with threads if necessary as
-shown in the next example.
+each subprocess. However, that is possible with threads as shown in the next
+example.
 
+<a name="example-thread-reducers"></a>
 ### Example: Thread Reducers
 
 ```python
@@ -251,132 +426,45 @@ multiple threads. The `ThreadReduce` node won't push until all of the previous
 nodes have finished, and then the final logging node will print all of the
 results.
 
-### Summary of Parallel Processing
+<a name="example-templated-nodes-and-pipelines"></a>
+### Example: Templated Nodes and Pipelines
 
-At this point it's worth summarizing the various ways you can attempt parallel processing
-using Glide:
-
-- Method 1: Parallelization *within* nodes such as `ProcessPoolSubmit` or a distributed processing extension such as Dask/Celery/Redis Queue
-- Method 2: Completely parallel pipelines via `ParaGliders` (each process executes the entire pipeline)
-- Method 3: Branched parallelism using parallel push nodes such as `ProcessPoolPush` or `ThreadPoolPush`
-
-Each has its own use cases. Method 1 is perhaps the most straightforward since
-you can return to single process operation after the node is done doing whatever
-it needed to do in parallel. Method 2 may be useful and easy to understand in
-certain cases as well. Method 3 can lead to more complex/confusing flows and
-should probably only be used towards the end of pipelines to branch the output
-in parallel, such as if writing to several databases in parallel as a final
-step.
-
-> **Note:** Combining the approaches may not work and has not been
-tested. Standard limitations apply regarding what types of data can be
-serialized and passed to a parallel process.
-
-### Runtime Context Generation
-
-Sometimes it is useful or necessary to fill in node context values at
-runtime. A prime example is when using SQL-based nodes in a parallel
-processing context. Since the database connection objects can not be pickled
-and passed to the spawned processes you need to establish the connection
-within the subprocess. Glide has a special `RuntimeContext` class for this
-purpose. Any callable wrapped as a RuntimeContext will not be called until
-`consume` is called. In the example below, `get_pymysql_conn` will be executed
-in a subprocess to fill in the "conn" context variable for the "extract" node:
-
-```python
-glider = ProcessPoolParaGlider(
-    SQLExtract("extract")
-    | PrettyPrint("load")
-)
-glider.consume(
-    [sql],
-    extract=dict(
-        conn=RuntimeContext(get_pymysql_conn),
-        cursor_type=pymysql.cursors.DictCursor,
-    )
-)
-```
-
-In this case it is also necessary to specify the cursor_type so `SQLExtract`
-can create a dict-based cursor for query execution within the subprocess as
-required by `SQLExtract`. Any args/kwargs passed to RuntimeContext will be
-passed to the function when called.
-
-### Config Context
-
-`ConfigContext` is an alternative type of `RuntimeContext` that can read a
-config file to fill in node context. It supports reading from JSON, INI, or
-YAML config files and optionally extracting specific data from the file. The
-following shows an example of reading a key ("nrows") from a JSON structure:
+Drop replacement nodes into an existing pipeline. Any node can be replaced by name:
 
 ```python
 glider = Glider(
-    CSVExtract("extract", nrows=ConfigContext("myconfig.json", key="nrows"))
-    | Print("load")
+    PlaceholderNode("extract")
+    | CSVLoad("load")
 )
+glider["extract"] = CSVExtract("extract")
 glider.consume(...)
 ```
 
-As another example, the following reads from an INI file and also passes a
-callable for the `key` parameter to extract a value from the config:
+Or reuse an existing structure of nodes with a `NodeTemplate`:
 
 ```python
-glider = Glider(
-    CSVExtract("extract", nrows=ConfigContext(
-        "myconfig.ini", key=lambda x: int(x["Section"]["nrows"])
-    ))
-    | Print("load")
+nodes = NodeTemplate(
+    CSVExtract("extract")
+    | CSVLoad("load")
 )
-glider.consume(...)
+glider = Glider(nodes()) # Copy of nodes created with each call
 ```
 
-If no value is specified for `key`, the entire config file is
-returned. `ConfigContext` may be particularly useful when you want to load
-sensitive information such as API login details that you would not want to
-store in your code.
-
-### Cleaning Up
-
-Sometimes it is also necessary to call clean up functionality after processing
-is complete. Sticking with the example above that utilizes SQL-based nodes in
-a parallel processing context, you'll want to explicitly close your database
-connections in each subprocess. The `consume` method accepts a `cleanup`
-argument that is a dictionary mapping argument names to cleaner functions. The
-following example tells the `Glider` to call the function `closer` with the
-value from `extract_conn` once `consume` is finished. Note that `closer` is a
-convenience function provided by Glide that just calls `close` on the given
-object.
+Or reuse an existing pipeline structure with `GliderTemplate`:
 
 ```python
-glider = ProcessPoolParaGlider(
-    SQLExtract("extract")
-    | PrettyPrint("load")
+template = GliderTemplate(
+    CSVExtract("extract")
+    | CSVLoad("load")
 )
-glider.consume(
-    [sql],
-    cleanup=dict(extract_conn=closer),
-    extract=dict(
-        conn=RuntimeContext(get_pymysql_conn),
-        cursor_type=pymysql.cursors.DictCursor,
-    )
-)
+glider = template() # Copy of pipeline created with each call
 ```
 
-The keys of the `cleanup` dict can either be explicit (node name prefixed) or
-more generic arg names that will map that function to every node that has that
-arg in its `run` method signature (so just "conn=" would have worked
-too). It's often better to be explicit as shown here.
+<a name="example-data-integrity-checks"></a>
+### Example: Data Integrity Checks
 
-> **Note:** In single-process cases the use of `cleanup` is usually not
-necessary, as you often have access to the objects you need to clean up in the
-main process and can just do normal clean up there with context managers or
-explicit calls to `close` methods.
-
-### Data Integrity Checks
-
-Glide provides some handy assertion nodes for data integrity checks in your
-pipeline. For example, you can use `AssertFunc` to assert that some condition
-of the data is met:
+You can use the `AssertFunc` node to assert that some condition of the data is
+met:
 
 ```python
 glider = Glider(
@@ -390,9 +478,8 @@ The `func` callable must accept two parameters, a reference to the node object
 and the data passed into that node. Any truthy value returned will pass the
 assertion test. 
 
-Another common case is to do a check against some SQL data, perhaps in an aggregation
-pipeline. You can use `AssertSQL` for that, as in the following example that simply
-verifies the number of rows inserted.
+Similarly, you can do a sql-based check with `AssertSQL`, in this case simply
+verifying the number of rows inserted:
 
 ```python
 glider = Glider(
@@ -414,10 +501,7 @@ glider.consume(
 
 This looks for a truthy value in the `assert` column of the result to pass the
 assertion. You can also use the `data_check` option of `AssertSQL` to instead
-have it do a comparison to the result of some function of the data. The
-following example will compare the `assert` column value to the result of the
-`data_check` for equality. In this case, it compares a count from the database
-to the length of the input data.
+have it do a comparison to the result of some function of the data:
 
 ```python
 glider = ...
@@ -440,7 +524,8 @@ glider.consume(
 Note that we also added `push_data=True` to the `SQLLoad` node to have it push
 the data instead of a table name.
 
-### Debugging
+<a name="example-debugging"></a>
+### Example: Debugging
 
 To enable debug logging for Glide change the log level of the "glide" logger:
 
@@ -477,8 +562,29 @@ Finally, there are a variety of print nodes you can place in your pipeline for
 general logging or debugging, such as `Print`, `PrettyPrint`, `LenPrint`,
 `ReprPrint`, and `FormatPrint`. See the node documentation for more info.
 
+<a name="example-profiling-pipelines"></a>
+### Example: Profiling Pipelines
 
-### Plotting Pipeline DAGs
+Insert a `Profile` node somewhere in your pipeline to get profiler information
+for all downstream nodes:
+
+```python
+glider = Glider(
+    Profile("profile")
+    ...
+)
+```
+
+<a name="example-complex-pipelines"></a>
+### Example: Complex Pipelines
+
+If the hierarchy of nodes you want to form is not achievable with the `|`
+operator, you can use the `add_downstream` `Node` method to form more complex
+graphs. More info can be found
+[here](https://glide-etl.readthedocs.io/en/latest/pipelines.html#creating-pipelines).
+
+<a name="example-plotting-pipeline-dags"></a>
+### Example: Plotting Pipeline DAGs
 
 If you have the [Graphviz](http://www.graphviz.org/) package installed, you can generate
 a plot of your pipelines by simply doing the following:
@@ -488,298 +594,36 @@ glider = Glider(...)
 glider.plot("/path/to/filename.png")
 ```
 
-<a name="creatingnodes"></a>
-Creating Nodes
---------------
-
-To create a custom node you simply inherit from the Glide `Node` class and
-define a `run` method that takes at least one positional argument for the data
-being pushed to it. The `run` method should call `self.push(data)` with the
-data it wants to push downstream.
-
-Here is an example of a simple transformer node:
-
-```python
-class ExampleTransformer(Node):
-    def run(self, data):
-        # Do something to the data here
-        self.push(data)
-```
-
-Earlier we mentioned node context. This comes into play when `run` is called
-on the node, as the required and optional parts of the context are inferred from
-the positional and keyword args of `run`. Take for example:
-
-```python
-class MyNode(Node):
-    def run(self, data, conn, chunksize=None, **kwargs):
-        # Some node-specific code here
-        self.push(data)
-```
-
-All nodes expect their first positional arg to be the data going through the
-pipeline. This node also requires a `conn` argument, and has an optional
-`chunksize` argument. These values can be filled in from the following inputs
-in priority order, with earlier methods overriding those further down the
-list:
-
-1\. Context args passed to `consume` for the particular node:
-```python
-conn = get_my_db_conn()
-glider.consume(
-    data,
-    my_node=dict(conn=conn, chunksize=100)
-)
-```
-2\. Default context set on the node at init time:
-```python
-conn = get_my_db_conn()
-glider = Glider(
-    MyNode("my_node", conn=conn, chunksize=100)
-)
-```
-3\. Global pipeline state passed via `global_state`. This only works for populating positional args currently:
-```python
-conn = get_my_db_conn()
-glider = Glider(
-    MyNode("my_node"),
-    global_state=dict(conn=conn)
-)
-```
-
-Additionally, you can update the context of nodes at runtime by using the
-`update_context` or `update_downstream_context` node methods.
-
-<a name="cligeneration"></a>
+<a name="cli-generation"></a>
 CLI Generation
 --------------
 
-Glide allows creating parameterized command line scripts from any pipeline
-with a simple decorator using the `Glider.cli` method. Consider the following simple
-SQL extract and load pipeline:
+With Glide you can create parameterized command line scripts from any pipeline
+with a simple decorator:
 
 ```python
 glider = Glider(
-    SQLExtract("extract")
-    | SQLLoad("load")
+    SQLLoad("extract")
+    | SQLExtract("load")
 )
-```
 
-You can create a command line script from the `glider` object as follows:
-
-```python
 @glider.cli()
 def main(data, node_contexts):
     glider.consume(data, **node_contexts)
 
 if __name__ == "__main__":
-    main()        
+    main()
 ```
 
 The script arguments, their types, and whether they are required or not is all
 inferred by inspecting the `run` arguments on the nodes of the pipeline and
-prefixing the node name. For example, `SQLLoad` requires a `conn` and a
-`table` argument, as well as having a few optional arguments. Since the node
-is named "load", the CLI will automatically generate required args called
-`--load_conn` and `--load_table`. Additionally, the default help strings are
-extracted from the run() method documentation if you use numpy docstring
-format.
-
-By default, the first positional argument(s) expected on the CLI are used to
-populate the `data` argument. If the top node of your pipeline is a subclass
-of `NoInputNode` then the CLI will automatically skip the `data` CLI arg and not
-try to pass any data as the first positional argument to the wrapped function.
-
-Let's ignore the fact that you can't pass a real
-database connection object on the command line for a second and see how you
-would run this script:
-
-```shell
-$ python my_script.py "select * from input_table limit 10" \
---extract_conn foo \
---load_conn bar \
---load_table output_table 
-```
-
-To pass multiple inputs to `data` you would simply use space-separated
-positional arguments:
-
-```shell
-$ python my_script.py "sql query 1" "sql query 2" \
---extract_conn foo \
---load_conn bar \
---load_table output_table 
-```
-
-One way to populate the `conn` arguments of pipeline nodes is to define it in
-the `global_state` or in the node initialization calls. In either case it is
-no longer considered a *required* command line argument. So the following
-would work:
-
-```python
-glider = Glider(
-    SQLExtract("extract")
-    | SQLLoad("load"),
-    global_state=dict(conn=get_my_db_conn())
-)
-```
-
-```shell
-$ python my_script.py "select * from input_table limit 10" \
---load_table output_table 
-```
-
-### Blacklisting Args
-
-In the previous example it is no longer necessary to even have the
-node-specific connection arguments show up on the command line (such as in
---help output). You can blacklist the arg from ever getting put into the CLI
-as follows:
-
-```python
-@glider.cli(blacklist=["conn"])
-def main(data, node_contexts):
-    glider.consume(data, **node_contexts)
-```
-
-Or, if you just wanted to blacklist an argument that appears in multiple nodes
-from a single node (such as the `conn` argument required in both the extract
-and load nodes in this example), you could be more explicit and prefix the
-node name:
-
-```python
-@glider.cli(blacklist=["load_conn"])
-def main(data, node_contexts):
-    glider.consume(data, **node_contexts)
-```
-
-That would remove `load_conn` from the CLI but not `extract_conn`.
-
-### Custom Arguments
-
-You can also override or add any argument you want using the `Arg` class which
-takes the standard `argparse` arguments:
-
-```python
-from glide.core import Glider, Arg
-
-glider = ...
-
-@glider.cli(Arg("--load_table", required=False, default="output_table"))
-def main(data, node_contexts):
-    glider.consume(data, **node_contexts)
-```
-
-And now, assuming you had used the `Glider` with `conn` passed in the
-`global_state`, you could simple do:
-
-```shell
-$ python my_script.py "select * from input_table limit 10"
-```
-
-You can override the `data` positional argument in this way too if you want to
-change the type/requirements:
-
-```python
-@glider.cli(Arg("data", type=str, default="some default sql query"))
-def main(data, node_contexts):
-    glider.consume(data, **node_contexts)
-```
-
-### Parent CLIs
-
-If you want to inherit or share arguments you can accomplish that using the
-`Parent` and `Arg` decorators together. These are using
-[climax](https://github.com/miguelgrinberg/climax) under the hood, which is
-utilizing `argparse`. For example, the following script inherits a `--dry_run`
-boolean CLI flag:
-
-```python
-from glide.core import Parent, Arg
-
-@Parent()
-@Arg("--dry_run", action="store_true")
-def parent_cli():
-    pass
-
-@glider.cli(parents=[parent_cli])
-def main(data, dry_run=False, node_contexts):
-    if dry_run:
-        something_else()
-    else:
-        glider.consume(data, **node_contexts)
-```
-
-### Argument Injection and Clean Up
-
-The script decorator also has the ability to inject values into arguments
-based on the result of a function, and call clean up functions for the various
-injected arguments. The following example shows two useful cases:
-
-```python
-def get_data():
-    # do something to populate data iterable
-    return data
-
-@glider.cli(
-    Arg("--load_table", required=False, default="output_table")
-    inject=dict(data=get_data, conn=get_my_db_conn),
-    cleanup=dict(conn=lambda x: x.close()),
-)
-def main(data, node_contexts, **kwargs):
-    glider.consume(data, **node_contexts)
-```
-
-Here we use the `inject` decorator argument and pass a dictionary that maps
-injected argument names to functions that return the values. We inject a `data`
-arg and a `conn` arg and neither are necessary for the command line. This
-automatically blacklists those args from the command line as well. Since we
-added the `load_table` arg and gave it a default as well, we can now simply
-run:
-
-```shell
-$ python my_script.py
-```
-
-> **Note:** Injected args are also passed to the wrapped function as keyword args. 
-
-> **Also Note:** If an injected argument name is mapped to a non-function via
-`inject` the value will be used as is. The main difference is those values are
-interpreted as soon as the module is loaded (when the decorator is init'd). If
-that is not desirable, pass a function as shown above which will only be
-executed once the decorated function is actually called. Injected
-RuntimeContexts and other objects that are not a `types.FunctionType` or
-`functools.partial` are passed through as-is.
-
-The `cleanup` decorator argument takes a dictionary that maps argument names to
-callables that accept the argument value to perform some clean up. In this
-case, it closes the database connection after the wrapped method is complete.
-
-### Boolean Args
-
-Node `run` args whose default is a boolean value will be converted to boolean
-flags on the CLI. If the default is `True`, the flag will invert the logic of
-the flag and prepend 'no_' to the beginning of the arg name for clarity. 
-
-For example, the `SQLLoad` node has a `run` keyword arg with a default of
-`commit=True`. Assuming this node was named `load`, this will produce a CLI
-flag `--load_no_commit` which, when passed in a terminal, will set
-`commit=False` in the node. If the default had been `False` the CLI arg name
-would have simply been `--load_commit` and it would set the value to `True`
-when passed in a terminal.
-
-This leads to more clear CLI behavior as opposed to having a flag with a
-truth-like name getting a false-like result when passed in a terminal. Of
-course another option would have been to define the node keyword arg as
-`no_commit=False` instead of `commit=True`. This would also lead to
-understandable CLI behavior but, in my opinion, would lead to more confusing
-variable naming in your code.
+prefixing the node name. Please see the full documentation
+[here](https://glide-etl.readthedocs.io/en/latest/pipelines.html#cli-generation)
+for more details.
 
 <a name="extensions"></a>
 Extensions
 ----------
-
-### Installing Extensions
 
 To install all extensions and dev dependencies:
 
@@ -798,47 +642,74 @@ $ pip install glide[swifter]
 
 To access installed extensions import from the `glide.extensions` submodules
 as necessary. Review the documentation and tests for current extensions for
-help getting started. Note that the Pandas extension is currently included in
-all Glide installs.
+help getting started.
 
-### Contributing Extensions
+<a name="pandas"></a>
+### Pandas
 
-New extensions are encouraged! To add an extension:
+Note that the Pandas extension is actually support by default with all `glide` installs.
 
-1. Review the examples of other extensions in `glide.extensions`
-2. Add tests for your extensions and don't forget to add support in `setup.py`
-3. Review and follow the steps in [How to Contribute](#howtocontribute)
+See the extension docs
+[here](https://glide-etl.readthedocs.io/en/latest/glide.extensions.pandas.html)
+for node/pipeline reference information.
 
-For inspiration, here are some ideas for extensions:
+See the tests
+[here](https://github.com/kmatarese/glide/tree/master/tests/pandas_ext/test_pandas.py)
+for some additional examples.
 
-- NoSQL databases
-- Google Ads
-- Google Analytics
-- Facebook Ads
-- Bing Ads
-- Salesforce
+<a name="dask-experimental"></a>
+### Dask - Experimental
 
-The idea is make it dead simple to extract data from X and load it to Y, and
-reduce the amount of reinventing of the wheel that happens nowadays when it
-comes to writing integrations with various data sources and destinations.
+See the extension docs
+[here](https://glide-etl.readthedocs.io/en/latest/glide.extensions.dask.html)
+for node/pipeline reference information.
 
-Note that some of the existing nodes/extensions may have the ability to
-read/write data from more locations than you think. For example, some Pandas
-extension nodes use read_csv/read_sql under the hood which can read from a
-variety of source types. The SQL nodes can use SQLAlchemy, which also has its
-own extensions to read from BigQuery, Redshift, or Spark SQL. Please consider
-using the existing functionality and only add an extension if it is necessary
-to overcome limitations.
+See the tests
+[here](https://github.com/kmatarese/glide/tree/master/tests/dask_ext/test_dask.py)
+for some additional examples.
+
+<a name="celery-experimental"></a>
+### Celery - Experimental
+
+See the extension docs
+[here](https://glide-etl.readthedocs.io/en/latest/glide.extensions.celery.html)
+for node/pipeline reference information.
+
+See the tests
+[here](https://github.com/kmatarese/glide/tree/master/tests/celery_ext/test_celery.py)
+for some additional examples.
+
+<a name="redis-queue-experimental"></a>
+### Redis Queue - Experimental
+
+See the extension docs
+[here](https://glide-etl.readthedocs.io/en/latest/glide.extensions.rq.html)
+for node/pipeline reference information.
+
+See the tests
+[here](https://github.com/kmatarese/glide/tree/master/tests/rq_ext/test_rq.py)
+for some additional examples.
+
+<a name="swifter-experimental"></a>
+### Swifter - Experimental
+
+See the extension docs
+[here](https://glide-etl.readthedocs.io/en/latest/glide.extensions.swifter.html)
+for node/pipeline reference information.
+
+See the tests
+[here](https://github.com/kmatarese/glide/tree/master/tests/swifter_ext/test_swifter.py)
+for some additional examples.
 
 <a name="documentation"></a>
 Documentation
 -------------
 
-[Documentation](https://glide-etl.readthedocs.io/en/latest/) is a work in
-progress. Most of the built-in nodes and pipelines are fairly self-explanatory
-so you can supplement your knowledge by perusing the tests directory.
+More thorough documentation can be found [here](https://glide-etl.readthedocs.io/en/latest/).
+You can supplement your knowledge by perusing the [tests](https://github.com/kmatarese/glide/tree/master/tests) directory 
+or the [module reference](https://glide-etl.readthedocs.io/en/latest/glide.html).
 
-<a name="howtocontribute"></a>
+<a name="how-to-contribute"></a>
 How to Contribute
 -----------------
 
@@ -854,3 +725,23 @@ How to Contribute
 
 In order to run tests you will need to set a GLIDE_CONFIG_FILE environment variable
 that points to a .ini file containing information shown in tests/sample_config.ini.
+
+### Contributing Extensions
+
+To add an extension:
+
+1. Review the examples of other extensions in `glide.extensions`
+2. Add tests for your extensions and don't forget to add support in `setup.py`
+3. Review and follow the steps in [How to Contribute](#how-to-contribute)
+
+The idea is make it dead simple to extract data from X and load it to Y, and
+reduce the amount of reinventing of the wheel that happens nowadays when it
+comes to writing integrations with various data sources and destinations.
+
+Note that some of the existing nodes/extensions may have the ability to
+read/write data from more locations than you think. For example, some Pandas
+extension nodes use read_csv/read_sql under the hood which can read from a
+variety of source types. The SQL nodes can use SQLAlchemy, which also has its
+own extensions to read from BigQuery, Redshift, or Spark SQL. Please consider
+using the existing functionality and only add an extension if it is necessary
+to overcome limitations.

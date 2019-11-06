@@ -1,6 +1,3 @@
-glide package
-=============
-
 .. automodule:: glide
    :members:
    :undoc-members:
