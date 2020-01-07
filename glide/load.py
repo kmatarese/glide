@@ -7,7 +7,6 @@ import shutil
 import sqlite3
 import tempfile
 
-from pandas.io.common import get_filepath_or_buffer
 import requests
 from tlbx import st, pp, create_email, send_email, sqlformat, repr, format_msg
 
@@ -22,6 +21,7 @@ from glide.utils import (
     save_excel,
     find_class_in_dict,
     get_class_list_docstring,
+    open_filepath_or_buffer
 )
 
 
@@ -398,11 +398,10 @@ class FileLoad(Node):
             If true, skip actually loading the data
 
         """
-        fo, _, _, should_close = get_filepath_or_buffer(f)
-        close = False or should_close
-        if isinstance(fo, str):
-            fo = open(fo, open_flags)
-            close = True
+        fo, _, close = open_filepath_or_buffer(
+            f,
+            open_flags=open_flags
+        )
 
         try:
             if dry_run:

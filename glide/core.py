@@ -27,6 +27,7 @@ from tlbx import (
     MappingMixin,
     set_missing_key,
     format_msg,
+    shell as shell_cmd
 )
 
 from glide.utils import (
@@ -299,6 +300,30 @@ class PlaceholderNode(PushNode):
     """Used as a placeholder in pipelines. Will pass values through by default"""
 
     pass
+
+
+class Shell(NoInputNode):
+    """Run a local shell command using subprocess.run"""
+
+    def run(self, cmd, shell=False, capture_output=False, **kwargs):
+        """Run a local shell command using subprocess.run and push the return value
+
+        Parameters
+        ----------
+        cmd : list or str
+           Shell command to run. If passing a single string, either shell must
+           be True or else the string must simply name the program to be
+           executed without specifying any arguments.
+        shell : bool, optional
+           Arg passed through to subprocess.run
+        capture_output : bool, optional
+           Arg passed through to subprocess.run
+        **kwargs
+           kwargs passed to subprocess.run
+
+        """
+        val = shell_cmd(cmd, shell=shell, capture_output=capture_output, **kwargs)
+        self.push(val)
 
 
 class Profile(Node):

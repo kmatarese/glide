@@ -14,6 +14,11 @@ import types
 
 import numpy as np
 import pandas as pd
+from pandas.io.common import get_filepath_or_buffer
+try:
+    from pandas.io.common import _get_handle as get_handle
+except ImportError:
+    from pandas.io.common import get_handle
 from pyexcel_xlsx import get_data as get_xlsx, save_data as save_xlsx
 from pyexcel_xls import get_data as get_xls, save_data as save_xls
 from tlbx import (
@@ -503,6 +508,49 @@ def listify(o):
     if isinstance(o, list):
         return o
     return [o]
+
+
+# -------- File utils
+
+def open_filepath_or_buffer(f, open_flags="r", compression=None):
+    """Use pandas IO functions to return a handle from a filepath
+    or buffer.
+
+    Parameters
+    ----------
+    f : str or buffer
+        filepath or buffer to open
+    open_flags : str, optional
+        mode to open file
+    compression : str, optional
+        compression arg passed to pandas functions
+
+    Returns
+    -------
+    f : file-like
+        A file-like object
+    handles : list of file-like
+        A list of file-like objects opened. Seems mostly relevant for zipped archives.
+    close : bool
+        A flag indicating whether the caller should close the file object when done
+
+    """
+    f, _, compression, should_close = get_filepath_or_buffer(
+        f,
+        compression=compression
+    )
+
+    close = False or should_close
+    if isinstance(f, str):
+        close = True
+
+    f, handles = get_handle(
+        f,
+        open_flags,
+        compression=compression
+    )
+
+    return f, handles, close
 
 
 # -------- Excel utils

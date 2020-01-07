@@ -4,7 +4,7 @@ imapclient
 lxml
 m2r
 numpydoc
-openpyxl
+openpyxl==3.0.1
 pandas>=0.25.1
 pyexcel
 pyexcel-xls

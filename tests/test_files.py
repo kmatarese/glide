@@ -24,6 +24,22 @@ def test_csv_chunked_row_extract_and_load(rootdir):
         glider.consume([infile], extract=dict(chunksize=100), load=dict(f=f))
 
 
+def test_csv_compressed_url_row_extract_and_load(rootdir):
+    nodes = CSVExtract("extract", compression="gzip") | CSVLoad("load")
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    infile = "file://" + infile + ".gz"
+    with open(outfile, "w") as f:
+        glider.consume([infile], load=dict(f=f))
+
+
+def test_csv_compressed_row_extract_and_load(rootdir):
+    nodes = CSVExtract("extract", compression="gzip") | CSVLoad("load")
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    infile = infile + ".gz"
+    with open(outfile, "w") as f:
+        glider.consume([infile], load=dict(f=f))
+
+
 def test_excel_row_extract_and_load(rootdir):
     nodes = ExcelExtract("extract") | ExcelLoad("load")
     glider, infile, outfile = file_glider(rootdir, "xlsx", nodes)
@@ -72,3 +88,15 @@ def test_file_extract_and_load(rootdir):
     infile, outfile = get_filenames(rootdir, "csv")
     glider = Glider(FileExtract("extract") | FileLoad("load"))
     glider.consume([infile], load=dict(f=outfile))
+
+
+def test_file_compression_extract(rootdir):
+    files = [
+        "%s/compressed-1.json.gz" % rootdir,
+        "%s/compressed-2.json.gz" % rootdir,
+    ]
+    glider = Glider(
+        FileExtract("extract", compression="gzip")
+        | ReprPrint("load")
+    )
+    glider.consume(files)

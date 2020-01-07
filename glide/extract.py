@@ -8,7 +8,6 @@ from email import parser, policy
 from io import BytesIO
 
 from imapclient import IMAPClient
-from pandas.io.common import get_filepath_or_buffer
 import requests
 from tlbx import st, read_chunks, extract_email_payload
 
@@ -21,6 +20,7 @@ from glide.utils import (
     find_class_in_dict,
     get_class_list_docstring,
     not_none,
+    open_filepath_or_buffer
 )
 
 
@@ -30,6 +30,7 @@ class CSVExtract(Node):
     def run(
         self,
         f,
+        compression=None,
         open_flags="r",
         chunksize=None,
         nrows=None,
@@ -42,6 +43,8 @@ class CSVExtract(Node):
         ----------
         f : file path or buffer
             file path or buffer to read CSV
+        compression : str, optional
+            param passed to pandas get_filepath_or_buffer
         open_flags : str, optional
             Flags to pass to open() if f is not already an opened buffer
         chunksize : int, optional
@@ -54,26 +57,14 @@ class CSVExtract(Node):
             keyword arguments passed to the reader
 
         """
-
-        # Re-use pandas functionality utilized by read_csv
-        # TODO: this uses urlopen under the hood. It may be more efficient to use
-        # requests.get() with stream=True.
-        # https://stackoverflow.com/a/42979967/10682164
-        f, encoding, _, should_close = get_filepath_or_buffer(f)
-
-        close = False or should_close
-        decode = False
-        if isinstance(f, str):
-            f = open(f, open_flags)
-            close = True
-        elif isinstance(f, BytesIO) or encoding:
-            decode = True
+        f, _, close = open_filepath_or_buffer(
+            f,
+            open_flags=open_flags,
+            compression=compression
+        )
 
         try:
-            if decode:
-                reader = reader(codecs.iterdecode(f, encoding or "utf-8"), **kwargs)
-            else:
-                reader = reader(f, **kwargs)
+            reader = reader(f, **kwargs)
 
             if chunksize:
                 for chunk in read_chunks(reader, chunksize, limit=nrows):
@@ -247,13 +238,23 @@ class SQLTableExtract(SQLNode):
 class FileExtract(Node):
     """Extract raw data from a file"""
 
-    def run(self, f, open_flags="r", chunksize=None, push_lines=False, limit=None):
+    def run(
+        self,
+        f,
+        compression=None,
+        open_flags="r",
+        chunksize=None,
+        push_lines=False,
+        limit=None
+    ):
         """Extract raw data from a file or buffer and push contents
 
         Parameters
         ----------
         f : file path or buffer
             File path or buffer to read
+        compression : str, optional
+            param passed to pandas get_filepath_or_buffer
         open_flags : str, optional
             Flags to pass to open() if f is not already an opened buffer
         chunksize : int, optional
@@ -267,12 +268,11 @@ class FileExtract(Node):
             chunksize and push_lines
         ), "Only one of chunksize and push_lines may be specified"
 
-        f, _, _, should_close = get_filepath_or_buffer(f)
-
-        close = False or should_close
-        if isinstance(f, str):
-            f = open(f, open_flags)
-            close = True
+        f, _, close = open_filepath_or_buffer(
+            f,
+            open_flags=open_flags,
+            compression=compression
+        )
 
         try:
             data = []
