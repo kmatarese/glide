@@ -431,7 +431,7 @@ def is_function(f):
 
 def is_pandas(o):
     """Test if an object is a Pandas object"""
-    return isinstance(o, (pd.DataFrame, pd.Series, pd.Panel))
+    return isinstance(o, (pd.DataFrame, pd.Series))
 
 
 def is_file_obj(o):
