@@ -213,6 +213,10 @@ change the type/requirements::
     def main(data, node_contexts):
         glider.consume(data, **node_contexts)
 
+.. note:: Due to a known issue in argparse, even if you define an arg as required
+   it will still show up in the optional arguments section of the help output if
+   it has a dash or double-dash at the start of the arg name.
+
 Parent CLIs
 -----------
 

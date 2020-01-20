@@ -1077,6 +1077,8 @@ class GliderScript(Script):
             arg_type = type(default)
 
         if arg_type == bool:
+            assert not required, "Required bool args don't make sense"
+
             base_arg_name = arg_name
             if default:
                 action = "store_false"
@@ -1097,6 +1099,10 @@ class GliderScript(Script):
             )
         else:
             arg_name = self._get_script_arg_name(node.name, arg_name)
+            # TODO: argparse puts required args with "--" in the "optional"
+            # section. There are workarounds, but it's unclear how to use them
+            # with tlbx.Arg which is based on the climax library.
+            # https://stackoverflow.com/q/24180527/10682164
             script_arg = Arg(
                 "--" + arg_name,
                 required=required,
