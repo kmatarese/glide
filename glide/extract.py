@@ -20,7 +20,7 @@ from glide.utils import (
     find_class_in_dict,
     get_class_list_docstring,
     not_none,
-    open_filepath_or_buffer
+    open_filepath_or_buffer,
 )
 
 
@@ -58,9 +58,7 @@ class CSVExtract(Node):
 
         """
         f, _, close = open_filepath_or_buffer(
-            f,
-            open_flags=open_flags,
-            compression=compression
+            f, open_flags=open_flags, compression=compression
         )
 
         try:
@@ -245,7 +243,7 @@ class FileExtract(Node):
         open_flags="r",
         chunksize=None,
         push_lines=False,
-        limit=None
+        limit=None,
     ):
         """Extract raw data from a file or buffer and push contents
 
@@ -269,9 +267,7 @@ class FileExtract(Node):
         ), "Only one of chunksize and push_lines may be specified"
 
         f, _, close = open_filepath_or_buffer(
-            f,
-            open_flags=open_flags,
-            compression=compression
+            f, open_flags=open_flags, compression=compression
         )
 
         try:

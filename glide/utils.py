@@ -15,6 +15,7 @@ import types
 import numpy as np
 import pandas as pd
 from pandas.io.common import get_filepath_or_buffer
+
 try:
     from pandas.io.common import _get_handle as get_handle
 except ImportError:
@@ -512,6 +513,7 @@ def listify(o):
 
 # -------- File utils
 
+
 def open_filepath_or_buffer(f, open_flags="r", compression=None):
     """Use pandas IO functions to return a handle from a filepath
     or buffer.
@@ -535,20 +537,13 @@ def open_filepath_or_buffer(f, open_flags="r", compression=None):
         A flag indicating whether the caller should close the file object when done
 
     """
-    f, _, compression, should_close = get_filepath_or_buffer(
-        f,
-        compression=compression
-    )
+    f, _, compression, should_close = get_filepath_or_buffer(f, compression=compression)
 
     close = False or should_close
     if isinstance(f, str):
         close = True
 
-    f, handles = get_handle(
-        f,
-        open_flags,
-        compression=compression
-    )
+    f, handles = get_handle(f, open_flags, compression=compression)
 
     return f, handles, close
 

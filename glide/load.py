@@ -21,7 +21,7 @@ from glide.utils import (
     save_excel,
     find_class_in_dict,
     get_class_list_docstring,
-    open_filepath_or_buffer
+    open_filepath_or_buffer,
 )
 
 
@@ -398,10 +398,7 @@ class FileLoad(Node):
             If true, skip actually loading the data
 
         """
-        fo, _, close = open_filepath_or_buffer(
-            f,
-            open_flags=open_flags
-        )
+        fo, _, close = open_filepath_or_buffer(f, open_flags=open_flags)
 
         try:
             if dry_run:

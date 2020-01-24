@@ -14,3 +14,4 @@ dask-worker-space
 docs/_build
 docs/_static
 docs/_templates
+.pre-commit-config.yaml
