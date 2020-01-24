@@ -1,6 +1,6 @@
 """Core classes used to power pipelines"""
 
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import copy
 
@@ -45,7 +45,11 @@ from glide.utils import (
     load_yaml_config,
 )
 
-SCRIPT_DATA_ARG = "data"
+SCRIPT_DATA_ARG = "glide_data"
+RESERVED_ARG_NAMES = [SCRIPT_DATA_ARG]
+# These are reserved because they are arg names used by consume(). Since node
+# context can be passed to consume() as node_name->arg_dict pairs in consume's
+# kwargs, we prevent nodes from using these names to avoid conflicts.
 RESERVED_NODE_NAMES = set(["cleanup", "split_count", "synchronous", "timeout"])
 
 
@@ -173,6 +177,8 @@ class Node(ConsecutionNode):
                 # The first param is the data to process which is passed
                 # directly in process()
                 continue
+
+            assert param.name not in RESERVED_ARG_NAMES, "Reserved arg name '%s' used in run()" % param.name
 
             if param.kind == param.POSITIONAL_ONLY:
                 positionals[param.name] = None
@@ -655,6 +661,11 @@ def clean_up_nodes(cleanup, contexts):
         if not ctx_value:
             dbg("Skipping clean up for %s->%s, value is blank" % (node_name, arg_name))
             continue
+
+        if isinstance(ctx_value, RuntimeContext):
+            dbg("Skipping clean up for %s->%s, value is RuntimeContext object" % (node_name, arg_name))
+            continue
+
         dbg("Executing clean up for %s->%s" % (node_name, arg_name))
         try:
             func(ctx_value)
@@ -978,6 +989,7 @@ class GliderScript(Script):
     ):
         """Generate the script args for the given Glider and return a decorator"""
         self.glider = glider
+        self.custom_args = script_args or []
         self.blacklist = set(blacklist or [])
 
         self.parents = parents or []
@@ -999,12 +1011,17 @@ class GliderScript(Script):
                 self.cleanup, dict
             ), "cleanup must be a dict of argname->func mappings"
 
-        script_args = self._get_script_args(script_args)
-        return super().__init__(*script_args)
+        self._check_arg_conflicts()
+        all_script_args = self._get_script_args()
+        return super().__init__(*all_script_args)
 
     def __call__(self, func, *args, **kwargs):
         func = self._node_arg_converter(func, *args, **kwargs)
         return super().__call__(func, *args, **kwargs)
+
+    def _check_arg_conflicts(self):
+        for dest in self._get_custom_arg_dests():
+            assert dest not in self.inject, "Arg dest '%s' conflicts with injected arg" % dest
 
     def get_injected_kwargs(self):
         """Override Script method to return populated kwargs from inject arg"""
@@ -1051,6 +1068,45 @@ class GliderScript(Script):
         if self._get_script_arg_name(node_name, arg_name) in self.blacklist:
             return True
         return False
+
+    def _get_custom_arg_dests(self):
+        return [a.dest for a in self.custom_args]
+
+    def _get_node_name_arg_map(self):
+        node_map = defaultdict(set)
+        node_lookup = self.glider.get_node_lookup()
+        for node in node_lookup.values():
+            for arg_name, _ in node.run_args.items():
+                node_map[node.name].add(arg_name)
+            for kwarg_name, kwarg_default in node.run_kwargs.items():
+                node_map[node.name].add(kwarg_name)
+        return node_map
+
+    def _get_arg_name_node_map(self):
+        arg_map = defaultdict(set)
+        node_lookup = self.glider.get_node_lookup()
+        for node in node_lookup.values():
+            for arg_name, _ in node.run_args.items():
+                arg_map[arg_name].add(node.name)
+            for kwarg_name, kwarg_default in node.run_kwargs.items():
+                arg_map[kwarg_name].add(node.name)
+        return arg_map
+
+    def _get_arg_node_name(self, arg):
+        names = []
+        node_lookup = self.glider.get_node_lookup()
+        for node in node_lookup.values():
+            if not arg.startswith(node.name + "_"):
+                continue
+
+            arg_base_name = arg[len(node.name)+1:]
+            if arg_base_name in node.run_args or arg_base_name in node.run_kwargs:
+                names.append(node.name)
+
+        assert len(names) <= 1, "More than one node found for arg name %s: %s" % (arg, names)
+        if not names:
+            return None
+        return names[0]
 
     def _get_script_arg_name(self, node_name, arg_name):
         return "%s_%s" % (node_name, arg_name)
@@ -1112,15 +1168,25 @@ class GliderScript(Script):
             )
         return script_arg
 
-    def _get_script_args(self, custom_script_args=None):
+    def _get_script_args(self):
         """Generate all tlbx Args for this Glider"""
         node_lookup = self.glider.get_node_lookup()
-        custom_script_args = custom_script_args or []
-        script_args = OrderedDict()
+        script_args = OrderedDict() # Map of arg names to Args
+        arg_dests = {} # Map of arg dests back to names
+        node_arg_names = defaultdict(set)
 
         requires_data = not isinstance(self.glider.top_node, NoInputNode)
         if requires_data and not self.blacklisted("", SCRIPT_DATA_ARG):
             script_args[SCRIPT_DATA_ARG] = Arg(SCRIPT_DATA_ARG, nargs="+")
+
+        def add_script_arg(node, arg_name, **kwargs):
+            script_arg = self._get_script_arg(node, arg_name, **kwargs)
+            if not script_arg:
+                return
+
+            script_args[script_arg.name] = script_arg
+            arg_dests[script_arg.dest] = script_arg.name
+            node_arg_names[arg_name].add(script_arg.name)
 
         for node in node_lookup.values():
             try:
@@ -1132,32 +1198,49 @@ class GliderScript(Script):
                 node_help = {}
 
             for arg_name, _ in node.run_args.items():
-                arg_help = node_help.get(arg_name, None)
-                script_arg = self._get_script_arg(
-                    node, arg_name, required=True, arg_help=arg_help
+                add_script_arg(
+                    node,
+                    arg_name,
+                    required=True,
+                    arg_help=node_help.get(arg_name, None)
                 )
-                if not script_arg:
-                    continue
-                script_args[script_arg.name] = script_arg
 
             for kwarg_name, kwarg_default in node.run_kwargs.items():
-                arg_help = node_help.get(kwarg_name, None)
-                script_arg = self._get_script_arg(
+                add_script_arg(
                     node,
                     kwarg_name,
                     required=False,
                     default=kwarg_default,
-                    arg_help=arg_help,
+                    arg_help=node_help.get(kwarg_name, None)
                 )
-                if not script_arg:
-                    continue
-                script_args[script_arg.name] = script_arg
 
-        for custom_arg in custom_script_args:
+        def assert_arg_present(custom_arg, arg_name):
+            assert arg_name in script_args, (
+                "Custom arg %s with dest=%s maps to node arg=%s "
+                "which is not in the script arg list. Check for "
+                "conflicting args that cover the same node arg." %
+                (custom_arg.name, custom_arg.dest, arg_name)
+            )
+
+        for custom_arg in self.custom_args:
             assert not self.blacklisted("", custom_arg.name), (
                 "Blacklisted arg '%s' passed as a custom arg" % custom_arg.name
             )
+
+            if custom_arg.dest in node_arg_names:
+                # Find and delete all node-based args this will cover
+                for arg_name in node_arg_names[custom_arg.dest]:
+                    assert_arg_present(custom_arg, arg_name)
+                    del script_args[arg_name]
+
+            if custom_arg.dest in arg_dests:
+                # Remove the original arg that this custom arg will satisfy
+                arg_name = arg_dests[custom_arg.dest]
+                assert_arg_present(custom_arg, arg_name)
+                del script_args[arg_name]
+
             script_args[custom_arg.name] = custom_arg
+            arg_dests[custom_arg.dest] = custom_arg.name
 
         return script_args.values()
 
@@ -1197,20 +1280,16 @@ class GliderScript(Script):
         add_to_final = set()
 
         for key, value in kwargs.items():
-            key_parts = key.split("_")
-            node_name = key_parts[0]
+            assert (
+                key not in nodes
+            ), "Invalid keyword arg '%s', can not be a node name" % (key)
 
+            node_name = self._get_arg_node_name(key)
             if node_name not in nodes:
                 add_to_final.add(key)
                 continue
 
-            if key in self.inject:
-                add_to_final.add(key)
-
-            assert (
-                len(key_parts) > 1
-            ), "Invalid keyword arg %s, can not be a node name" % (key)
-            arg_name = "_".join(key_parts[1:])
+            arg_name = key[len(node_name)+1:]
             node_contexts.setdefault(node_name, {})[arg_name] = value
 
         injected_node_contexts = self._get_injected_node_contexts(kwargs)
@@ -1219,6 +1298,18 @@ class GliderScript(Script):
                 node_contexts[node_name].update(injected_args)
             else:
                 node_contexts[node_name] = injected_args
+
+        arg_node_map = self._get_arg_name_node_map()
+        for custom_arg_dest in self._get_custom_arg_dests():
+            if custom_arg_dest not in kwargs:
+                continue
+
+            for node_name in arg_node_map.get(custom_arg_dest, []):
+                custom_arg_dict = {custom_arg_dest:kwargs[custom_arg_dest]}
+                if node_name in node_contexts:
+                    node_contexts[node_name].update(custom_arg_dict)
+                else:
+                    node_contexts[node_name] = custom_arg_dict
 
         final_kwargs = dict(node_contexts=node_contexts)
         for key in add_to_final:

@@ -611,8 +611,8 @@ glider = Glider(
 )
 
 @glider.cli()
-def main(data, node_contexts):
-    glider.consume(data, **node_contexts)
+def main(glide_data, node_contexts):
+    glider.consume(glide_data, **node_contexts)
 
 if __name__ == "__main__":
     main()

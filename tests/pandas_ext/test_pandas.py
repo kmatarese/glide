@@ -138,12 +138,14 @@ def test_dataframe_thread_pool_lowercase(rootdir):
 
 def test_dataframe_sqlite_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     nodes = DataFrameSQLExtract("extract") | DataFrameSQLLoad("load")
-    glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
+    glider, table = sqlite_glider(rootdir, nodes)
+    sqlite_out_conn.execute("delete from %s" % table)
+    sqlite_out_conn.commit()
     sql = "select * from %s where Zip_Code < :zip" % table
     glider.consume(
         [sql],
         extract=dict(conn=sqlite_in_conn, params=dict(zip="01000")),
-        load=dict(table=table, conn=sqlite_out_conn),
+        load=dict(table=table, conn=sqlite_out_conn, if_exists="replace"),
     )
 
 

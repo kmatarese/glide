@@ -105,8 +105,8 @@ with a simple decorator::
     )
 
     @glider.cli()
-    def main(data, node_contexts):
-        glider.consume(data, **node_contexts)
+    def main(glide_data, node_contexts):
+        glider.consume(glide_data, **node_contexts)
 
     if __name__ == "__main__":
         main()
@@ -121,9 +121,10 @@ extracted from the run() method documentation if you use numpy docstring
 format.
 
 By default, the first positional argument(s) expected on the CLI are used to
-populate the ``data`` argument. If the top node of your pipeline is a subclass
-of ``NoInputNode`` then the CLI will automatically skip the ``data`` CLI arg and not
-try to pass any data as the first positional argument to the wrapped function.
+populate the ``glide_data`` argument. If the top node of your pipeline is a
+subclass of ``NoInputNode`` then the CLI will automatically skip the
+``glide_data`` CLI arg and not try to pass any data as the first positional
+argument to the wrapped function.
 
 Let's ignore the fact that you can't pass a real
 database connection object on the command line for a second and see how you
@@ -136,7 +137,7 @@ would run this script:
     --load_conn bar \
     --load_table output_table 
 
-To pass multiple inputs to ``data`` you would simply use space-separated
+To pass multiple inputs to ``glide_data`` you would simply use space-separated
 positional arguments:
 
 .. code-block:: console
@@ -171,8 +172,8 @@ node-specific connection arguments show up on the command line (such as in
 as follows::
 
     @glider.cli(blacklist=["conn"])
-    def main(data, node_contexts):
-        glider.consume(data, **node_contexts)
+    def main(glide_data, node_contexts):
+        glider.consume(glide_data, **node_contexts)
 
 Or, if you just wanted to blacklist an argument that appears in multiple nodes
 from a single node (such as the ``conn`` argument required in both the extract
@@ -180,8 +181,8 @@ and load nodes in this example), you could be more explicit and prefix the
 node name::
 
     @glider.cli(blacklist=["load_conn"])
-    def main(data, node_contexts):
-        glider.consume(data, **node_contexts)
+    def main(glide_data, node_contexts):
+        glider.consume(glide_data, **node_contexts)
 
 That would remove ``load_conn`` from the CLI but not ``extract_conn``.
 
@@ -196,49 +197,53 @@ takes the standard ``argparse`` arguments::
     glider = ...
     
     @glider.cli(Arg("--load_table", required=False, default="output_table"))
-    def main(data, node_contexts):
-        glider.consume(data, **node_contexts)
+    def main(glide_data, node_contexts):
+        glider.consume(glide_data, **node_contexts)
 
 And now, assuming you had used the ``Glider`` with ``conn`` passed in the
-``global_state``, you could simple do:
+``global_state``, you could simply do:
 
 .. code-block:: console
 
     $ python my_script.py "select * from input_table limit 10"
 
-You can override the ``data`` positional argument in this way too if you want to
+You can override the ``glide_data`` positional argument in this way too if you want to
 change the type/requirements::
 
-    @glider.cli(Arg("data", type=str, default="some default sql query"))
-    def main(data, node_contexts):
-        glider.consume(data, **node_contexts)
+    @glider.cli(Arg("glide_data", type=str, default="some default sql query"))
+    def main(glide_data, node_contexts):
+        glider.consume(glide_data, **node_contexts)
+
+You can also override some of the naming of specific node arguments to potentially
+simplify your CLI. You can use the argparse ``dest`` param to have an arg point
+at a specific context element. Here we name the custom arg ``table`` and have it
+fill in the value of ``load_table`` which ends up being a ``run`` argument of the
+"load" node::
+
+    @glider.cli(Arg("--table", dest="load_table", default="output_table"))
+    def main(glide_data, node_contexts):
+        glider.consume(glide_data, **node_contexts)
+
+If your custom args match a node's ``run`` args exactly, they can be used to
+fill in that value in the node context, potentially across multiple nodes if
+many have the same arg name. We saw similar behavior with the ``conn`` argument
+on the ``global_state`` above, but here is a more specific example sticking
+with the ``table`` custom arg::
+
+    @glider.cli(Arg("--table", default="output_table"))
+    def main(glide_data, node_contexts, table=None):
+        glider.consume(glide_data, **node_contexts)
+
+Notice that ``load_table`` is not targeted specifically, but its context will
+be filled in by the value of ``table`` on the CLI because the name of the CLI
+arg exactly matches the name of an arg in that node's ``run`` method. Also
+notice that ``table`` is now passed as a keyword argument to ``main``. Any
+custom or injected args that do not exactly match a node name qualified CLI
+arg (such as "load_table") will be included as keyword arguments to ``main``.
 
 .. note:: Due to a known issue in argparse, even if you define an arg as required
    it will still show up in the optional arguments section of the help output if
    it has a dash or double-dash at the start of the arg name.
-
-Parent CLIs
------------
-
-If you want to inherit or share arguments you can accomplish that using the
-``Parent`` and ``Arg`` decorators together. These are using
-`climax <https://github.com/miguelgrinberg/climax/>`_.  under the hood, which
-is utilizing ``argparse``. For example, the following script inherits a
-``--dry_run`` boolean CLI flag::
-
-    from glide.core import Parent, Arg
-    
-    @Parent()
-    @Arg("--dry_run", action="store_true")
-    def parent_cli():
-        pass
-    
-    @glider.cli(parents=[parent_cli])
-    def main(data, dry_run=False, node_contexts):
-        if dry_run:
-            something_else()
-        else:
-            glider.consume(data, **node_contexts)
 
 Argument Injection and Clean Up
 -------------------------------
@@ -253,24 +258,25 @@ injected arguments. The following example shows two useful cases::
     
     @glider.cli(
         Arg("--load_table", required=False, default="output_table")
-        inject=dict(data=get_data, conn=get_my_db_conn),
+        inject=dict(glide_data=get_data, conn=get_my_db_conn),
         cleanup=dict(conn=lambda x: x.close()),
     )
-    def main(data, node_contexts, **kwargs):
-        glider.consume(data, **node_contexts)
+    def main(glide_data, node_contexts, **kwargs):
+        glider.consume(glide_data, **node_contexts)
 
 Here we use the ``inject`` decorator argument and pass a dictionary that maps
-injected argument names to functions that return the values. We inject a ``data``
-arg and a ``conn`` arg and neither are necessary for the command line. This
-automatically blacklists those args from the command line as well. Since we
-added the ``load_table`` arg and gave it a default as well, we can now simply
-run:
+injected argument names to functions that return the values. We inject a
+``glide_data`` arg and a ``conn`` arg and neither are necessary for the
+command line. This automatically blacklists those args from the command line
+as well. Since we added the ``load_table`` arg and gave it a default as well,
+we can now simply run:
 
 .. code-block:: console
 
     $ python my_script.py
 
-.. note:: Injected args are also passed to the wrapped function as keyword args. 
+.. note:: Injected args are also passed to the wrapped function as keyword args if
+   they do not exactly match a node name qualified CLI arg.
 
 .. note:: If an injected argument name is mapped to a non-function via
    ``inject`` the value will be used as is. The main difference is those values are
@@ -305,6 +311,28 @@ course another option would have been to define the node keyword arg as
 understandable CLI behavior but, in my opinion, would lead to more confusing
 variable naming in your code.
 
+Parent CLIs
+-----------
+
+If you want to inherit or share arguments you can accomplish that using the
+``Parent`` and ``Arg`` decorators together. These are using
+`climax <https://github.com/miguelgrinberg/climax/>`_.  under the hood, which
+is utilizing ``argparse``. For example, the following script inherits a
+``--dry_run`` boolean CLI flag::
+
+    from glide.core import Parent, Arg
+    
+    @Parent()
+    @Arg("--dry_run", action="store_true")
+    def parent_cli():
+        pass
+    
+    @glider.cli(parents=[parent_cli])
+    def main(glide_data, dry_run=False, node_contexts):
+        if dry_run:
+            something_else()
+        else:
+            glider.consume(glide_data, **node_contexts)
 
 Parallel Processing
 ===================

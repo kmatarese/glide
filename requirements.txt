@@ -14,5 +14,5 @@ python-dateutil
 pyyaml
 requests
 sqlalchemy
-tlbx
+tlbx>=0.1.10
 xlrd

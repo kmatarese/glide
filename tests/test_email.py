@@ -10,16 +10,16 @@ imapclient_logger = logging.getLogger("imapclient")
 imapclient_logger.setLevel(logging.INFO)
 
 DEFAULT_EXTRACT_ARGS = dict(
-    host=test_config["IMAPHost"],
-    username=test_config["IMAPUsername"],
-    password=test_config["IMAPPassword"],
+    host=test_config.get("IMAPHost", None),
+    username=test_config.get("IMAPUsername", None),
+    password=test_config.get("IMAPPassword", None),
 )
 
 DEFAULT_LOAD_ARGS = dict(
-    host=test_config["SMTPHost"],
-    port=test_config["SMTPPort"],
-    username=test_config["SMTPUsername"],
-    password=test_config["SMTPPassword"],
+    host=test_config.get("SMTPHost", None),
+    port=test_config.get("SMTPPort", None),
+    username=test_config.get("SMTPUsername", None),
+    password=test_config.get("SMTPPassword", None),
 )
 
 

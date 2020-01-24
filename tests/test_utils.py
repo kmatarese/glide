@@ -8,7 +8,7 @@ try:
 except ImportError:
     pymysql = None
 import sqlalchemy as sa
-from tlbx import rmfile
+from tlbx import st, rmfile
 
 from glide import *
 
@@ -64,11 +64,13 @@ def get_sqlalchemy_mysql_engine():
     host = test_config["MySQLHost"]
     port = int(test_config["MySQLPort"])
     user = test_config["MySQLUser"]
-    password = test_config["MySQLPassword"]
+    password = test_config.get("MySQLPassword", None)
     schema = test_config["MySQLTestSchema"]
-    engine = sa.create_engine(
-        "mysql+pymysql://%(user)s:%(password)s@%(host)s:%(port)s/%(schema)s" % locals()
-    )
+    if host in ["localhost", "127.0.0.1"] and not password:
+        conn_str = "mysql+pymysql://%(user)s@%(host)s/%(schema)s" % locals()
+    else:
+        conn_str = "mysql+pymysql://%(user)s:%(password)s@%(host)s:%(port)s/%(schema)s" % locals()
+    engine = sa.create_engine(conn_str)
     return engine
 
 
@@ -82,7 +84,7 @@ def get_pymysql_conn():
     host = test_config["MySQLHost"]
     port = int(test_config["MySQLPort"])
     user = test_config["MySQLUser"]
-    password = test_config["MySQLPassword"]
+    password = test_config.get("MySQLPassword", None)
     schema = test_config["MySQLTestSchema"]
     conn = pymysql.connect(
         host=host,
@@ -96,6 +98,8 @@ def get_pymysql_conn():
 
 
 def sqlite_glider(rootdir, nodes, reset_output=False):
+    """Note: this should not be called once you have already connected to
+    the sqlite output DB"""
     table, in_db_file, out_db_file = get_db_filenames(rootdir)
     if reset_output:
         rmfile(out_db_file, ignore_missing=True)

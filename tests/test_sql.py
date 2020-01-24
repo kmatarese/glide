@@ -6,7 +6,7 @@ from glide import *
 
 def test_sql_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     nodes = SQLExtract("extract") | SQLLoad("load")
-    glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
+    glider, table = sqlite_glider(rootdir, nodes)
     sql = "select * from %s limit 10" % table
     sqlite_out_conn.execute("delete from %s" % table)
     sqlite_out_conn.commit()
@@ -20,7 +20,7 @@ def test_sql_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
 
 def test_sql_execute_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     nodes = SQLExecute("extract") | SQLFetch("fetch") | SQLLoad("load")
-    glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
+    glider, table = sqlite_glider(rootdir, nodes)
     sql = "select * from %s limit 10" % table
     sqlite_out_conn.execute("delete from %s" % table)
     sqlite_out_conn.commit()
@@ -34,7 +34,7 @@ def test_sql_execute_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
 
 def test_sqlite_swap_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     nodes = SQLExtract("extract") | SQLLoad("load")
-    glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
+    glider, table = sqlite_glider(rootdir, nodes)
     sql = "select * from %s where Zip_Code < :zip" % table
     sqlite_out_conn.execute("delete from %s" % table)
     sqlite_out_conn.commit()
@@ -77,7 +77,7 @@ def test_sqlalchemy_swap_load(rootdir, sqlalchemy_conn):
 
 def test_sqlite_tx_rollback(rootdir, sqlite_in_conn, sqlite_out_conn):
     nodes = SQLExtract("extract") | SQLTransaction("tx") | SQLLoad("load")
-    glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
+    glider, table = sqlite_glider(rootdir, nodes)
     sql = "select * from %s where Zip_Code < :zip" % table
     sqlite_out_conn.execute("delete from %s" % table)
     sqlite_out_conn.commit()
@@ -131,7 +131,7 @@ def test_sqlalchemy_tx_rollback(rootdir, sqlalchemy_conn):
 
 def test_sql_assert_node(rootdir, sqlite_in_conn, sqlite_out_conn):
     nodes = SQLExtract("extract") | SQLLoad("load") | AssertSQL("check")
-    glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
+    glider, table = sqlite_glider(rootdir, nodes)
     sql = "select * from %s limit 10" % table
     assert_sql = "select (select count(*) as x from %s) == 10 as assert" % table
     sqlite_out_conn.execute("delete from %s" % table)
@@ -148,7 +148,7 @@ def test_sql_assert_node(rootdir, sqlite_in_conn, sqlite_out_conn):
 
 def test_sql_assert_data_check(rootdir, sqlite_in_conn, sqlite_out_conn):
     nodes = SQLExtract("extract") | SQLLoad("load") | AssertSQL("check")
-    glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
+    glider, table = sqlite_glider(rootdir, nodes)
     sql = "select * from %s limit 10" % table
     assert_sql = "select count(*) as assert from %s" % table
     sqlite_out_conn.execute("delete from %s" % table)
@@ -171,7 +171,7 @@ def test_sql_assert_data_check(rootdir, sqlite_in_conn, sqlite_out_conn):
 
 def test_sql_param_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     nodes = SQLParamExtract("extract", _log=True) | SQLLoad("load")
-    glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
+    glider, table = sqlite_glider(rootdir, nodes)
     sql = "select * from %s where Zip_Code = :zip" % table
     sqlite_out_conn.execute("delete from %s" % table)
     sqlite_out_conn.commit()
@@ -187,7 +187,7 @@ def test_sql_param_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
 
 def test_sqlite_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     nodes = SQLExtract("extract") | SQLLoad("load")
-    glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
+    glider, table = sqlite_glider(rootdir, nodes)
     sql = "select * from %s where Zip_Code < :zip" % table
     sqlite_out_conn.execute("delete from %s" % table)
     sqlite_out_conn.commit()
@@ -233,7 +233,7 @@ def test_sqlalchemy_query_object(rootdir, sqlalchemy_conn):
     )
     select = sa.select([c for c in in_table.c])
     select = select.select_from(in_table)
-    select = select.where(in_table.c.zip_code < "01000")
+    select = select.where(in_table.c.Zip_Code < "01000")
     glider = Glider(SQLExtract("extract") | SQLLoad("load"))
     glider.consume(
         [select],
@@ -279,7 +279,7 @@ def test_sql_temp_load(rootdir, sqlite_in_conn):
 
 def test_sql_chunked_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     nodes = SQLExtract("extract") | SQLLoad("load")
-    glider, table = sqlite_glider(rootdir, nodes, reset_output=True)
+    glider, table = sqlite_glider(rootdir, nodes)
     sql = "select * from %s limit 100" % table
     sqlite_out_conn.execute("delete from %s" % table)
     sqlite_out_conn.commit()

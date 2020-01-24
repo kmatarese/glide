@@ -9,7 +9,12 @@ from glide.utils import date_window_cli, datetime_window_cli
 BASE_ARGV = ["test_script_decorator.py"]
 LOAD_TABLE = "scratch.dma_zip_tmp"
 
+class NoDataNode(NoInputNode):
+    def run(self):
+        self.push("Test!")
+
 global_conn = get_pymysql_conn()
+
 gs_glider = Glider(
     SQLExtract("extract") | SQLLoad("load"), global_state=dict(conn=global_conn)
 )
@@ -20,12 +25,6 @@ rc_glider = Glider(
 )
 
 glider = Glider(SQLExtract("extract") | SQLLoad("load"))
-
-
-class NoDataNode(NoInputNode):
-    def run(self):
-        self.push("Test!")
-
 
 no_data_glider = Glider(NoDataNode("extract") | Print("load"))
 
@@ -56,8 +55,8 @@ def get_conn():
 
 
 @gs_glider.cli()
-def _test_base_cli(data, node_contexts):
-    gs_glider.consume(data, **node_contexts)
+def _test_base_cli(glide_data, node_contexts):
+    gs_glider.consume(glide_data, **node_contexts)
 
 
 def test_base_cli():
@@ -72,9 +71,9 @@ def parent_cli():
 
 
 @gs_glider.cli(parents=[parent_cli])
-def _test_parent_cli(data, dry_run, node_contexts):
+def _test_parent_cli(glide_data, dry_run, node_contexts):
     assert dry_run
-    gs_glider.consume(data, **node_contexts)
+    gs_glider.consume(glide_data, **node_contexts)
 
 
 def test_parent_cli():
@@ -83,7 +82,7 @@ def test_parent_cli():
 
 
 @gs_glider.cli(parents=[date_window_cli])
-def _test_date_window_cli(data, date_windows, node_contexts, **kwargs):
+def _test_date_window_cli(glide_data, date_windows, node_contexts, **kwargs):
     dbg(date_windows)
 
 
@@ -93,7 +92,7 @@ def test_date_window_cli():
 
 
 @gs_glider.cli(parents=[datetime_window_cli])
-def _test_datetime_window_cli(data, date_windows, node_contexts, **kwargs):
+def _test_datetime_window_cli(glide_data, date_windows, node_contexts, **kwargs):
     dbg(date_windows)
 
 
@@ -106,8 +105,8 @@ def test_datetime_window_cli():
 
 
 @rc_glider.cli(Arg("--load_table", required=False, default=LOAD_TABLE))
-def _test_arg_override(data, node_contexts):
-    rc_glider.consume(data, **node_contexts)
+def _test_arg_override(glide_data, node_contexts):
+    rc_glider.consume(glide_data, **node_contexts)
 
 
 def test_arg_override():
@@ -115,10 +114,20 @@ def test_arg_override():
         _test_arg_override()
 
 
+@rc_glider.cli(Arg("--table", dest="load_table", required=True))
+def _test_arg_dest(glide_data, node_contexts):
+    rc_glider.consume(glide_data, **node_contexts)
+
+
+def test_arg_dest():
+    with patch("argparse._sys.argv", get_argv(["--table", LOAD_TABLE])):
+        _test_arg_dest()
+
+
 @gs_glider.cli(
     Arg("--load_table", required=False, default=LOAD_TABLE, help="custom help")
 )
-def _test_help(data, node_contexts):
+def _test_help(glide_data, node_contexts):
     assert False
 
 
@@ -131,8 +140,8 @@ def test_help():
 @gs_glider.cli(
     Arg("--load_table", required=False, default=LOAD_TABLE, help="custom help")
 )
-def _test_no_commit(data, node_contexts):
-    gs_glider.consume(data, **node_contexts)
+def _test_no_commit(glide_data, node_contexts):
+    gs_glider.consume(glide_data, **node_contexts)
 
 
 def test_no_commit():
@@ -143,9 +152,9 @@ def test_no_commit():
     global_conn.commit()
 
 
-@glider.cli(inject=dict(data=get_data, conn=RuntimeContext(get_pymysql_conn)))
-def _test_injected_args(data, conn, node_contexts):
-    glider.consume(data, cleanup=dict(conn=lambda x: x.close()), **node_contexts)
+@glider.cli(inject=dict(glide_data=get_data, conn=RuntimeContext(get_pymysql_conn)))
+def _test_injected_args(glide_data, conn, node_contexts):
+    glider.consume(glide_data, cleanup=dict(conn=lambda x: x.close()), **node_contexts)
 
 
 def test_injected_args():
@@ -155,15 +164,15 @@ def test_injected_args():
 
 @glider.cli(
     inject=dict(
-        data=get_data,
+        glide_data=get_data,
         extract_conn=get_pymysql_conn,
         load_conn=get_pymysql_conn,
         cursor_type=pymysql.cursors.DictCursor,
     ),
     cleanup=dict(extract_conn=lambda x: x.close(), load_conn=lambda x: x.close()),
 )
-def _test_injected_args_with_node_prefix(data, node_contexts, **kwargs):
-    glider.consume(data, **node_contexts)
+def _test_injected_args_with_node_prefix(glide_data, node_contexts, **kwargs):
+    glider.consume(glide_data, **node_contexts)
 
 
 def test_injected_args_with_node_prefix():
@@ -179,3 +188,34 @@ def _test_no_data_cli(node_contexts):
 def test_no_data_cli():
     with patch("argparse._sys.argv"):
         _test_no_data_cli()
+
+
+@gs_glider.cli(Arg("--extract", type=str, default=None))
+def _test_node_name_arg_name(glide_data, node_contexts):
+    gs_glider.consume(glide_data, **node_contexts)
+
+
+def test_node_name_arg_name():
+    with patch("argparse._sys.argv", get_argv(get_load_table())):
+        with pytest.raises(AssertionError):
+            _test_node_name_arg_name()
+
+
+def test_conflicting_dest_settings():
+    with pytest.raises(AssertionError):
+        @gs_glider.cli(
+            Arg("--chunksize", type=int, default=10),
+            Arg("--extract_chunksize", type=int, default=15)
+        )
+        def _test(glide_data, node_contexts):
+            gs_glider.consume(glide_data, **node_contexts)
+
+
+def test_conflicting_inject_args():
+    with pytest.raises(AssertionError):
+        @gs_glider.cli(
+            Arg("--chunksize", type=int, default=5),
+            inject=dict(chunksize=10)
+        )
+        def _test(glide_data, node_contexts, chunksize=None):
+            gs_glider.consume(glide_data, **node_contexts)
