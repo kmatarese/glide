@@ -10,7 +10,6 @@ except ImportError:
     import profile
 from inspect import signature, Parameter
 import os
-from pprint import pformat
 
 from consecution import (
     Pipeline,
@@ -21,6 +20,7 @@ from numpydoc.docscrape import FunctionDoc
 from tlbx import (
     st,
     repr,
+    pf,
     Script,
     Arg,
     Parent,
@@ -706,7 +706,7 @@ def consume(pipeline, data, cleanup=None, **node_contexts):
     update_node_contexts(pipeline, node_contexts)
     try:
         contexts = get_node_contexts(pipeline)
-        dbg("size=%s\n%s" % (size(data, "n/a"), pformat(contexts)), indent="label")
+        dbg("size=%s\n%s" % (size(data, "n/a"), pf(contexts)), indent="label")
         try:
             if data is None:
                 return consume_none(pipeline)

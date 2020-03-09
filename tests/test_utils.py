@@ -54,9 +54,10 @@ def get_filenames(rootdir, extension):
 
 
 def get_db_filenames(rootdir):
-    table = "%s.db" % TEST_DATA_NAME
-    in_db_file = rootdir + "/" + table
-    out_db_file = "%s/%s" % (test_config["OutputDirectory"], table)
+    table = TEST_DATA_NAME
+    db_name = "%s.db" % table
+    in_db_file = rootdir + "/" + db_name
+    out_db_file = "%s/%s" % (test_config["OutputDirectory"], db_name)
     return table, in_db_file, out_db_file
 
 
@@ -69,7 +70,10 @@ def get_sqlalchemy_mysql_engine():
     if host in ["localhost", "127.0.0.1"] and not password:
         conn_str = "mysql+pymysql://%(user)s@%(host)s/%(schema)s" % locals()
     else:
-        conn_str = "mysql+pymysql://%(user)s:%(password)s@%(host)s:%(port)s/%(schema)s" % locals()
+        conn_str = (
+            "mysql+pymysql://%(user)s:%(password)s@%(host)s:%(port)s/%(schema)s"
+            % locals()
+        )
     engine = sa.create_engine(conn_str)
     return engine
 
@@ -105,7 +109,7 @@ def sqlite_glider(rootdir, nodes, reset_output=False):
         rmfile(out_db_file, ignore_missing=True)
         copyfile(in_db_file, out_db_file)
     glider = Glider(nodes)
-    return glider, "`%s`" % table.strip("`")
+    return glider, table
 
 
 def sqlalchemy_setup(rootdir, conn, truncate=False, sa_objects=False):
