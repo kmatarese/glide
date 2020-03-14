@@ -1,3 +1,4 @@
+import asyncio
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 
 import numpy as np
@@ -12,6 +13,7 @@ from glide.utils import (
     split_count_helper,
     get_date_windows,
     get_datetime_windows,
+    cancel_asyncio_tasks,
 )
 
 
@@ -192,7 +194,17 @@ class ThreadPoolPush(FuturesPush):
 
 class Reduce(Node):
     """Waits until end() to call push(), effectively waiting for all nodes before
-    it to finish before continuing the pipeline"""
+    it to finish before continuing the pipeline.
+
+    The following are parameters that get pulled from the node context and
+    used in end().
+
+    Parameters
+    ----------
+    flatten : bool, optional
+        Flatten the results into a single list before pushing
+
+    """
 
     def begin(self):
         """Setup a place for results to be collected"""
@@ -246,7 +258,19 @@ class ThreadReduce(Reduce):
 
 
 class FuturesReduce(Reduce):
-    """Collect results from futures before pushing"""
+    """Collect results from futures before pushing
+
+    The following are parameters that get pulled from the node context and
+    used in end().
+
+    Parameters
+    ----------
+    flatten : bool, optional
+        Flatten the results into a single list before pushing
+    timeout : int or float, optional
+        Timeout to pass to futures.as_completed()
+
+    """
 
     def end(self):
         """Do the push once all Futures results are in"""
@@ -255,6 +279,52 @@ class FuturesReduce(Reduce):
         results = []
         for future in as_completed(self.results, timeout=timeout):
             results.append(future.result())
+        if results and self.context.get("flatten", False):
+            results = flatten(results)
+        self.push(results)
+
+
+class AsyncIOFuturesReduce(Reduce):
+    """Collect results from asyncio futures before pushing
+
+    The following are parameters that get pulled from the node context and
+    used in end().
+
+    Parameters
+    ----------
+    flatten : bool, optional
+        Flatten the results into a single list before pushing
+    timeout : int or float, optional
+        Timeout to pass to asyncio.wait
+    close : bool, optional
+        Whether to call loop.close() after processing is done
+
+    """
+
+    def end(self):
+        """Do the push once all Futures results are in"""
+        dbg("Waiting for %d async futures..." % len(self.results))
+        timeout = self.context.get("timeout", None)
+        close = self.context.get("close", None)
+
+        loop = asyncio.get_event_loop()
+
+        try:
+            done, pending = loop.run_until_complete(
+                asyncio.wait(self.results, timeout=timeout)
+            )
+            if timeout and pending:
+                cancel_asyncio_tasks(
+                    pending, loop, cancel_timeout=ASYNCIO_CANCEL_TIMEOUT
+                )
+                raise asyncio.TimeoutError(
+                    "%d/%d tasks pending" % (len(pending), len(self.results))
+                )
+            results = [task.result() for task in done]
+        finally:
+            if close:
+                loop.close()
+
         if results and self.context.get("flatten", False):
             results = flatten(results)
         self.push(results)

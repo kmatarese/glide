@@ -1,7 +1,9 @@
+import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures._base import TimeoutError
 import datetime
 import shutil
+import sys
 import time
 
 import pytest
@@ -273,7 +275,59 @@ def test_pool_submit_executor_param(rootdir):
         glider.consume([infile], transform=dict(func=lower_rows, executor=executor))
 
 
-def sleep2(x):
+if sys.version_info.major == 3 and sys.version_info.minor >= 7:
+
+    async def async_sleep(x):
+        # Simulate some async functionality, then pass data through
+        await asyncio.sleep(0.5)
+        return x
+
+    def test_asyncio_submit_push_results(rootdir):
+        nodes = (
+            CSVExtract("extract", nrows=5)
+            | AsyncIOSubmit("transform", push_type=PushTypes.Result)
+            | Print("load")
+        )
+        glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+        glider.consume([infile], transform=dict(func=async_sleep))
+
+    def test_asyncio_submit_manage_loop(rootdir):
+        loop = asyncio.get_event_loop()
+        try:
+            nodes = (
+                CSVExtract("extract", nrows=5)
+                | AsyncIOSubmit("transform", push_type=PushTypes.Result)
+                | Print("load")
+            )
+            glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+            glider.consume([infile], transform=dict(func=async_sleep))
+        finally:
+            loop.close()
+
+    def test_asyncio_submit_push_futures(rootdir):
+        nodes = (
+            CSVExtract("extract", nrows=5)
+            | AsyncIOSubmit("transform", push_type=PushTypes.Async)
+            | AsyncIOFuturesReduce("reduce", flatten=True, close=True)
+            | Print("load")
+        )
+        glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+        start = time.time()
+        glider.consume([infile], transform=dict(func=async_sleep))
+        print("Took %.2fs" % (time.time() - start))
+
+    def test_asyncio_timeout(rootdir):
+        nodes = (
+            CSVExtract("extract", nrows=5)
+            | AsyncIOSubmit("transform", push_type=PushTypes.Result, timeout=0.1)
+            | Print("load")
+        )
+        glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+        with pytest.raises(asyncio.TimeoutError):
+            glider.consume([infile], transform=dict(func=async_sleep))
+
+
+def sleep1(x):
     time.sleep(1)
 
 
@@ -290,7 +344,7 @@ def test_pool_timeout(rootdir):
     )
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     with pytest.raises(TimeoutError), open(outfile, "w") as f:
-        glider.consume([infile], transform=dict(func=sleep2))
+        glider.consume([infile], transform=dict(func=sleep1))
 
 
 def test_flatten(rootdir):

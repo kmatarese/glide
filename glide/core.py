@@ -1,5 +1,6 @@
 """Core classes used to power pipelines"""
 
+import asyncio
 from collections import defaultdict, OrderedDict
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import copy
@@ -43,6 +44,8 @@ from glide.utils import (
     load_json_config,
     load_ini_config,
     load_yaml_config,
+    get_or_create_event_loop,
+    cancel_asyncio_tasks,
 )
 
 SCRIPT_DATA_ARG = "glide_data"
@@ -51,6 +54,8 @@ RESERVED_ARG_NAMES = [SCRIPT_DATA_ARG]
 # context can be passed to consume() as node_name->arg_dict pairs in consume's
 # kwargs, we prevent nodes from using these names to avoid conflicts.
 RESERVED_NODE_NAMES = set(["cleanup", "split_count", "synchronous", "timeout"])
+# A backup timeout when trying to cancel unfinished async tasks
+ASYNCIO_CANCEL_TIMEOUT = 0.1
 
 
 class PushTypes:
@@ -431,7 +436,7 @@ class PoolSubmit(Node):
         timeout : int or float, optional
             Time to wait for jobs to complete before raising an error. Ignored
             unless using a push_type that waits for results.
-        push_type : type, optional
+        push_type : str, optional
             If "async", push the Futures immediately.
             If "input", push the input data immediately after task submission.
             If "result", collect the result synchronously and push it.
@@ -508,6 +513,71 @@ class ThreadPoolSubmit(ProcessPoolSubmit):
 
     def get_executor(self, **executor_kwargs):
         return ThreadPoolExecutor(**executor_kwargs)
+
+
+class AsyncIOSubmit(Node):
+    """A node that splits input data over an async function"""
+
+    def get_results(self, futures, timeout=None):
+        loop = asyncio.get_event_loop()
+        done, pending = loop.run_until_complete(asyncio.wait(futures, timeout=timeout))
+        if timeout and pending:
+            cancel_asyncio_tasks(pending, loop, cancel_timeout=ASYNCIO_CANCEL_TIMEOUT)
+            raise asyncio.TimeoutError(
+                "%d/%d tasks unfinished" % (len(pending), len(futures))
+            )
+        results = [task.result() for task in done]
+        return flatten(results)
+
+    def run(
+        self, data, func, split_count=None, timeout=None, push_type=PushTypes.Async
+    ):
+        """Use a asyncio to apply func to data
+
+        Parameters
+        ----------
+        data
+            An iterable to process
+        func : callable
+            A async callable that will be passed data to operate on using asyncio.
+        split_count : int, optional
+            How many slices to split the data into for concurrent processing. Default
+            is to set split_count = len(data).
+        timeout : int or float, optional
+            Time to wait for jobs to complete before raising an error. Ignored
+            unless using a push_type that waits for results.
+        push_type : str, optional
+            If "async", push the Futures immediately.
+            If "input", push the input data immediately after task submission.
+            If "result", collect the result synchronously and push it.
+
+        """
+        split_count = split_count or len(data)
+        splits = divide_data(data, split_count)
+        info(
+            "%s: data len: %s, splits: %s"
+            % (self.__class__.__name__, size(data, "n/a"), split_count)
+        )
+
+        loop, close = get_or_create_event_loop()
+
+        try:
+            futures = [loop.create_task(func(split)) for split in splits]
+
+            if push_type == PushTypes.Async:
+                for future in futures:
+                    self.push(future)
+            elif push_type == PushTypes.Input:
+                self.push(data)
+            elif push_type == PushTypes.Result:
+                self.push(self.get_results(futures, timeout=timeout))
+            else:
+                assert False, "Invalid push_type: %s" % push_type
+        finally:
+            if close and push_type == PushTypes.Result:
+                # We can only be sure its safe to close the event loop if it
+                # was created and all processing took place in here.
+                loop.close()
 
 
 class AssertFunc(Node):

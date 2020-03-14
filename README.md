@@ -10,8 +10,8 @@ Glide: Easy ETL
 Introduction
 ------------
 
-Glide is an easy-to-use data pipelining tool inspired by [Consecution](https://github.com/robdmc/consecution) and 
-[Apache Storm Topologies](http://storm.apache.org/releases/current/Tutorial.html). 
+Glide is an easy-to-use data pipelining tool inspired by [Consecution](https://github.com/robdmc/consecution) and
+[Apache Storm Topologies](http://storm.apache.org/releases/current/Tutorial.html).
 
 Like those libraries, **Glide is:**
 
@@ -27,7 +27,7 @@ Like those libraries, **Glide is:**
   - HTML Tables
   - Emails
 - Extensions for [Pandas](https://pandas.pydata.org/), [Dask](https://dask.org/), [Celery](http://www.celeryproject.org/), [Redis Queue](http://python-rq.org/) and more
-- A variety of node and DAG parallel/distributed processing strategies
+- A variety of node and DAG parallel/concurrent/distributed processing strategies
 - A simple decorator to generate a command line interface from a pipeline in ~one line of code
 - Flexible pipeline templating
 
@@ -40,7 +40,7 @@ Table of Contents
 -----------------
 
 * [Installation](#installation)
-* [Primer](#primer) 
+* [Primer](#primer)
 * [Examples](#examples)
   * [CSV Extract, Transform, and Load](#example-csv-extract-transform-and-load)
   * [SQL Extract and Load](#example-sql-extract-and-load)
@@ -58,6 +58,7 @@ Table of Contents
   * [Parallel Pipelines via ParaGlider](#example-parallel-pipelines-via-paraglider)
   * [Parallel Branching](#example-parallel-branching)
   * [Thread Reducers](#example-thread-reducers)
+  * [Asyncio](#example-asyncio)
   * [Templated Nodes and Pipelines](#example-templated-nodes-and-pipelines)
   * [Data Integrity Checks](#example-data-integrity-checks)
   * [Debugging](#example-debugging)
@@ -112,7 +113,7 @@ glider.consume(data)
 ```
 
 If a node's `run` method has additional parameters, they are populated from
-the node's `context`. More info on creating nodes and populating runtime context 
+the node's `context`. More info on creating nodes and populating runtime context
 can be found [here](https://glide-etl.readthedocs.io/en/latest/nodes.html).
 
 <a name="examples"></a>
@@ -318,7 +319,9 @@ glider = Glider(DateTimeWindowPush("windows") | PrettyPrint("print"))
 glider.consume(
     None,
     windows=dict(
-        start_date=today - datetime.timedelta(days=3), end_date=today, num_windows=2
+        start_date=today - datetime.timedelta(days=3),
+        end_date=today,
+        num_windows=2
     )
 )
 ```
@@ -402,7 +405,7 @@ glider.consume(["/path/to/infile.csv"])
 The above example will extract 60 rows from a CSV and then push equal slices
 to the logging nodes in parallel processes. Using `split=False` (default)
 would have passed the entire 60 rows to each logging node in parallel
-processes. 
+processes.
 
 Once you branch off into processes with a parallel push node there is no way
 to reduce/join the pipeline back into the original process and resume
@@ -429,10 +432,55 @@ multiple threads. The `ThreadReduce` node won't push until all of the previous
 nodes have finished, and then the final logging node will print all of the
 results.
 
+<a name="example-asyncio"></a>
+### Example: Asyncio
+
+Limited, experimental support is also available for concurrency via `asyncio`
+in Python >= 3.7:
+
+```python
+import asyncio
+
+async def async_sleep(data):
+    # Dummy example. Await some real async work in here.
+    await asyncio.sleep(0.5)
+    return data
+
+glider = Glider(
+    CSVExtract("extract", nrows=5)
+    | AsyncIOSubmit("transform", push_type=PushTypes.Result)
+    | Print("load")
+)
+glider.consume(
+    ["/path/to/infile.csv"],
+    transform=dict(func=async_sleep)
+)
+```
+
+The above example will split the input data into items to be processed on an
+`asyncio` event loop and synchronously wait for the results before pushing.
+`AsyncIOSubmit` supports specifying a `split_count` as well as a `timeout`
+when waiting for results. Alternatively, one can push `asyncio` futures and
+later reduce their results as follows:
+
+```python
+glider = Glider(
+      CSVExtract("extract", nrows=5)
+      | AsyncIOSubmit("transform", push_type=PushTypes.Async)
+      | AsyncIOFuturesReduce("reduce", flatten=True)
+      | Print("load")
+)
+```
+
+Note that the `asyncio` nodes will create and start an event loop for you if
+necessary. It's also perfectly fine to manage the event loop on your own, in
+which case `glide` will run tasks on the current thread's event loop.
+
 <a name="example-templated-nodes-and-pipelines"></a>
 ### Example: Templated Nodes and Pipelines
 
-Drop replacement nodes into an existing pipeline. Any node can be replaced by name:
+Drop replacement nodes into an existing pipeline. Any node can be replaced by
+name:
 
 ```python
 glider = Glider(
@@ -473,13 +521,13 @@ met:
 glider = Glider(
     CSVExtract("extract", chunksize=10, nrows=20)
     | AssertFunc("length_check", func=lambda node, data: len(data) == 10)
-    | CSVLoad("load") 
+    | CSVLoad("load")
 )
 ```
 
 The `func` callable must accept two parameters, a reference to the node object
 and the data passed into that node. Any truthy value returned will pass the
-assertion test. 
+assertion test.
 
 Similarly, you can do a sql-based check with `AssertSQL`, in this case simply
 verifying the number of rows inserted:
@@ -538,7 +586,7 @@ logging.getLogger("glide").setLevel(logging.DEBUG)
 ```
 
 Glide will then print debug information about data passed through your
-pipeline. 
+pipeline.
 
 You can also pass `_log=True` to the init method of any node to enable logging
 of processed data:
@@ -589,8 +637,8 @@ graphs. More info can be found
 <a name="example-plotting-pipeline-dags"></a>
 ### Example: Plotting Pipeline DAGs
 
-If you have the [Graphviz](http://www.graphviz.org/) package installed, you can generate
-a plot of your pipelines by simply doing the following:
+If you have the [Graphviz](http://www.graphviz.org/) package installed, you
+can generate a plot of your pipelines by simply doing the following:
 
 ```python
 glider = Glider(...)
@@ -700,7 +748,7 @@ Documentation
 -------------
 
 More thorough documentation can be found [here](https://glide-etl.readthedocs.io/en/latest/).
-You can supplement your knowledge by perusing the [tests](https://github.com/kmatarese/glide/tree/master/tests) directory 
+You can supplement your knowledge by perusing the [tests](https://github.com/kmatarese/glide/tree/master/tests) directory
 or the [module reference](https://glide-etl.readthedocs.io/en/latest/glide.html).
 
 <a name="how-to-contribute"></a>

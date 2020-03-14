@@ -1,6 +1,7 @@
 """Common utilities"""
 
 import argparse
+import asyncio
 import configparser
 import datetime
 from dateutil import parser as dateparser
@@ -609,6 +610,42 @@ def save_excel(f, data, **kwargs):
         save_xls(f, data, **kwargs)
     else:
         save_xlsx(f, data, **kwargs)
+
+
+# -------- Asyncio utils
+
+
+def get_or_create_event_loop():
+    """Get an existing asyncio Event Loop or create one if necessary"""
+    created = False
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            created = True
+    return loop, created
+
+
+def cancel_asyncio_tasks(tasks, loop, cancel_timeout=None):
+    """Cancel a set of asyncio tasks
+
+    Parameters
+    ----------
+    tasks : iterable
+        An iterable of asyncio tasks to cancel
+    loop
+        asyncio Event Loop
+    cancel_timeout : int or float, optional
+        A timeout to use when waiting for tasks to finish cancelling
+
+    """
+    [task.cancel() for task in tasks]
+    _, not_done = loop.run_until_complete(asyncio.wait(tasks, timeout=cancel_timeout))
+    if not_done:
+        warn("%d tasks did not cancel immediately" % len(not_done))
 
 
 # -------- Logging utils
