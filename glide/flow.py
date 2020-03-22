@@ -1,18 +1,23 @@
 import asyncio
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+import shutil
 
 import numpy as np
-from tlbx import st, dbg, info, poll_call
+from tlbx import st, poll_call
 
 from glide.core import Node, PushNode, NoInputNode
 from glide.utils import (
+    dbg,
+    info,
     is_pandas,
     divide_data,
     flatten,
+    join,
     window,
     split_count_helper,
     get_date_windows,
     get_datetime_windows,
+    get_file_handle,
     cancel_asyncio_tasks,
 )
 
@@ -122,6 +127,62 @@ class ArraySplitByNode(SplitByNode):
     def get_splits(self, data, split_count):
         """Split the data into split_count slices"""
         return np.array_split(data, split_count)
+
+
+class Flatten(Node):
+    """Flatten the input before pushing"""
+
+    def run(self, data):
+        """Flatten the input before pushing. Assumes data is in ~list of ~lists format"""
+        self.push(flatten(data))
+
+
+class Join(Node):
+    """Join iterables before pushing"""
+
+    def run(self, data, on=None, how="left", rsuffixes=None):
+        """Join items before pushing. This converts each dataset to a
+        DataFrame and reuses pandas join method under the hood.
+
+        Parameters
+        ----------
+        data
+            The datasets to join (i.e. a list of datasets or DataFrames)
+        on : optional
+            Passed to the underlying pandas join method
+        how : str, optional
+            Passed to the underlying pandas join method
+        rsuffixes : list, optional
+            A list of suffixes to append to duplicate column names in the right
+            datasets. The length of this should be len(data) - 1.
+
+        """
+        self.push(join(data, on=on, how=how, rsuffixes=rsuffixes))
+
+
+class Sort(Node):
+    """Sort data before pushing"""
+
+    def run(self, data, key=None, reverse=False, inplace=False):
+        """Sort data before pushing
+
+        Parameters
+        ----------
+        data
+            The data to sort
+        key : callable, optional
+            Passed to the underlying sort methods
+        reverse : bool, optional
+            Passed to the underlying sort methods
+        inplace : bool, optional
+            If True, try to use list.sort(), otherwise use sorted()
+
+        """
+        if inplace:
+            data.sort(key=key, reverse=reverse)
+        else:
+            data = sorted(data, key=key, reverse=reverse)
+        self.push(data)
 
 
 class FuturesPush(PushNode):
@@ -330,6 +391,81 @@ class AsyncIOFuturesReduce(Reduce):
         self.push(results)
 
 
+class FileCopy(Node):
+    """Copy one file to another"""
+
+    def run(self, f_in, f_out, in_flags="rb", out_flags="wb", push_input=False):
+        """Copy f_in to f_out and push file reference
+
+        Parameters
+        ----------
+        f_in : file path or buffer
+            File path or buffer to read
+        f_out : file path or buffer
+            File path or buffer to write
+        in_flags : str, optional
+            Flags to use when opening the input file
+        out_flags : str, optional
+            Flags to use when opening the output file
+        push_input : bool, optional
+            If true, push f_in instead of f_out
+
+        """
+        in_is_text = True
+        out_is_text = True
+        if "b" in in_flags:
+            in_is_text = False
+        if "b" in out_flags:
+            out_is_text = False
+
+        with get_file_handle(
+            f_in, in_flags, is_text=in_is_text
+        ) as src, get_file_handle(f_out, out_flags, is_text=out_is_text) as dst:
+            shutil.copyfileobj(src, dst)
+        if push_input:
+            self.push(f_in)
+        else:
+            self.push(f_out)
+
+
+class FileConcat(Node):
+    """Concat a set of input files into one output file"""
+
+    def run(self, files, f_out, in_flags="rb", out_flags="wb", push_input=False):
+        """Concat a set of input files into one output file
+
+        Parameters
+        ----------
+        f_in : file path or buffer
+            File path or buffer to read
+        f_out : file path or buffer
+            File path or buffer to write
+        in_flags : str, optional
+            Flags to use when opening the input file
+        out_flags : str, optional
+            Flags to use when opening the output file
+        push_input : bool, optional
+            If true, push f_in instead of f_out
+
+        """
+        in_is_text = True
+        out_is_text = True
+        if "b" in in_flags:
+            in_is_text = False
+        if "b" in out_flags:
+            out_is_text = False
+
+        with get_file_handle(f_out, out_flags, is_text=out_is_text) as dst:
+            for f_in in files:
+                with get_file_handle(f_in, in_flags, is_text=in_is_text) as src:
+                    shutil.copyfileobj(src, dst)
+
+        if push_input:
+            self.push(files)
+        else:
+            self.push(f_out)
+
+
 class PollFunc(Node):
     def run(
         self,
@@ -375,14 +511,6 @@ class PollFunc(Node):
             self.push(result[data_param])
         else:
             self.push(result)
-
-
-class Flatten(Node):
-    """Flatten the input before pushing"""
-
-    def run(self, data):
-        """Flatten the input before pushing. Assumes data is in ~list of ~lists format"""
-        self.push(flatten(data))
 
 
 class DateTimeWindowPush(NoInputNode):

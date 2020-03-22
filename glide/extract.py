@@ -57,6 +57,9 @@ class CSVExtract(Node):
             keyword arguments passed to the reader
 
         """
+        if "b" in open_flags:
+            raise Exception("Can not use binary open mode with CSVExtract")
+
         f, _, close = open_filepath_or_buffer(
             f, open_flags=open_flags, compression=compression
         )
@@ -266,8 +269,12 @@ class FileExtract(Node):
             chunksize and push_lines
         ), "Only one of chunksize and push_lines may be specified"
 
+        is_text = True
+        if "b" in open_flags:
+            is_text = False
+
         f, _, close = open_filepath_or_buffer(
-            f, open_flags=open_flags, compression=compression
+            f, open_flags=open_flags, compression=compression, is_text=is_text
         )
 
         try:
@@ -281,14 +288,20 @@ class FileExtract(Node):
                 else:
                     data.append(line)
                     if chunksize and (count % chunksize == 0):
-                        self.push("".join(data))
+                        if is_text:
+                            self.push("".join(data))
+                        else:
+                            self.push(b"".join(data))
                         data = []
 
                 if limit and count >= limit:
                     break
 
             if ((not push_lines) and data) or count == 0:
-                self.push("".join(data))
+                if is_text:
+                    self.push("".join(data))
+                else:
+                    self.push(b"".join(data))
 
         finally:
             if close:

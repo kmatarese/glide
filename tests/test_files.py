@@ -1,3 +1,5 @@
+import pytest
+
 from .test_utils import *
 from glide import *
 
@@ -77,6 +79,20 @@ def test_file_str_extract(rootdir):
     glider.consume([infile], extract=dict(limit=5, push_lines=True))
 
 
+def test_binary_file_extract(rootdir):
+    infile, _ = get_filenames(rootdir, "csv")
+    glider = Glider(FileExtract("extract") | Print("load"))
+    glider.consume([infile], extract=dict(limit=5, open_flags="rb"))
+
+
+def test_binary_csv_extract(rootdir):
+    infile, _ = get_filenames(rootdir, "csv")
+    glider = Glider(CSVExtract("extract") | Print("load"))
+    # TODO: more specific exception type
+    with pytest.raises(Exception):
+        glider.consume([infile], extract=dict(open_flags="rb"))
+
+
 def test_file_buffer_extract(rootdir):
     infile, _ = get_filenames(rootdir, "csv")
     with open(infile, "r") as f:
@@ -91,12 +107,6 @@ def test_file_extract_and_load(rootdir):
 
 
 def test_file_compression_extract(rootdir):
-    files = [
-        "%s/compressed-1.json.gz" % rootdir,
-        "%s/compressed-2.json.gz" % rootdir,
-    ]
-    glider = Glider(
-        FileExtract("extract", compression="gzip")
-        | ReprPrint("load")
-    )
+    files = ["%s/compressed-1.json.gz" % rootdir, "%s/compressed-2.json.gz" % rootdir]
+    glider = Glider(FileExtract("extract", compression="gzip") | ReprPrint("load"))
     glider.consume(files)

@@ -2,7 +2,9 @@
 
 import argparse
 import asyncio
+from collections import defaultdict
 import configparser
+from contextlib import contextmanager
 import datetime
 from dateutil import parser as dateparser
 from dateutil.relativedelta import relativedelta
@@ -459,7 +461,7 @@ def divide_data(data, n):
 
 
 def flatten(l):
-    """Flatten a list of lists"""
+    """Flatten a list of iterables"""
     assert (
         l and len(l) > 0
     ), "flatten requires a list of lists or list of pandas objects"
@@ -512,10 +514,53 @@ def listify(o):
     return [o]
 
 
+def join(tables, on=None, how="left", rsuffixes=None):
+    """Join a list of iterables or DataFrames"""
+
+    if rsuffixes:
+        assert len(rsuffixes) == (
+            len(tables) - 1
+        ), "Must have one rsuffix per right table"
+
+    convert_df = True
+    if isinstance(tables[0], pd.DataFrame):
+        assert all(
+            [isinstance(t, pd.DataFrame) for t in tables]
+        ), "Expected all items to be DataFrames"
+        convert_df = False
+
+    df = None
+    for i, table in enumerate(tables):
+        if convert_df:
+            table = pd.DataFrame.from_records(table, index=on, coerce_float=True)
+            # https://pandas.pydata.org/pandas-docs/stable/user_guide/missing_data.html
+            # Force new dtypes to avoid int->float coersion when null values are present
+            table = table.convert_dtypes()
+
+        if i == 0:
+            df = table
+            continue
+
+        rsuffix = ""
+        if rsuffixes:
+            rsuffix = rsuffixes[i - 1]
+
+        df = df.join(table, on=on, how=how, rsuffix=rsuffix)
+
+    if not convert_df:
+        return df
+
+    if how != "outer":
+        df = df.reset_index()
+    df.replace({np.nan: None}, inplace=True)
+    rows = df.to_dict(orient="records")
+    return rows
+
+
 # -------- File utils
 
 
-def open_filepath_or_buffer(f, open_flags="r", compression=None):
+def open_filepath_or_buffer(f, open_flags="r", compression=None, is_text=True):
     """Use pandas IO functions to return a handle from a filepath
     or buffer.
 
@@ -527,6 +572,8 @@ def open_filepath_or_buffer(f, open_flags="r", compression=None):
         mode to open file
     compression : str, optional
         compression arg passed to pandas functions
+    is_text : bool
+        Whether file/buffer is in text format, Passed through to pandas helpers.
 
     Returns
     -------
@@ -544,9 +591,23 @@ def open_filepath_or_buffer(f, open_flags="r", compression=None):
     if isinstance(f, str):
         close = True
 
-    f, handles = get_handle(f, open_flags, compression=compression)
+    f, handles = get_handle(f, open_flags, compression=compression, is_text=is_text)
 
+    # TODO: review behavior when handles has multiple files
     return f, handles, close
+
+
+@contextmanager
+def get_file_handle(*args, **kwargs):
+    """Context manager pass through to open_filepath_or_buffer. This will
+    automatically close the file if and only if it was opened here. If file
+    handles are passed in it is assumed the caller will manage them."""
+    f, _, close = open_filepath_or_buffer(*args, **kwargs)
+    try:
+        yield f
+    finally:
+        if close:
+            f.close()
 
 
 # -------- Excel utils

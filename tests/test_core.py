@@ -2,15 +2,18 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures._base import TimeoutError
 import datetime
+import os
 import shutil
 import sys
 import time
 
+import pandas as pd
 import pytest
 import requests
 
 from .test_utils import *
 from glide import *
+from glide.utils import join
 
 
 def test_placeholder_node(rootdir):
@@ -52,6 +55,116 @@ def test_filter_node(rootdir):
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     with open(outfile, "w") as f:
         glider.consume([infile], extract=dict(chunksize=10, nrows=15), load=dict(f=f))
+
+
+def test_file_copy(rootdir):
+    nodes = FileCopy("copy") | Print("print")
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+    if os.path.isfile(outfile):
+        os.remove(outfile)
+    glider.consume([infile], copy=dict(f_out=outfile))
+    assert os.path.isfile(outfile)
+
+
+def test_file_concat(rootdir):
+    nodes = FileConcat("concat") | Print("print")
+    glider, infile, outfile = file_glider(rootdir, "csv", nodes)
+
+    infile1 = "%s/%s.1.csv" % (test_config["OutputDirectory"], TEST_DATA_NAME)
+    infile2 = "%s/%s.2.csv" % (test_config["OutputDirectory"], TEST_DATA_NAME)
+    copyfile(infile, infile1)
+    copyfile(infile, infile2)
+    infiles = [infile1, infile2]
+
+    try:
+        if os.path.isfile(outfile):
+            os.remove(outfile)
+        glider.consume([infiles], concat=dict(f_out=outfile))
+        assert os.path.isfile(outfile)
+    finally:
+        for infile in infiles:
+            rmfile(infile)
+
+
+def test_join():
+    l1 = [
+        dict(a=1, b=2, c="test1"),
+        dict(a=2, b=4, c="test2"),
+        dict(a=3, b=6, c="test3"),
+    ]
+    l2 = [
+        dict(a=1, b=2, c="test1", d=5.1),
+        dict(a=2, b=5, c="test2"),
+        dict(a=3, b=7, c="test3"),
+        dict(a=4, b=9, c="test4"),
+    ]
+    l3 = [dict(a=1, b=2, d=6), dict(a=2, b=11, d=7)]
+
+    data = [l1, l2, l3]
+    on = "a"
+    dfs = [pd.DataFrame.from_records(l, index=on) for l in data]
+
+    for items in (data, dfs):
+        result = join(items, on=on, how="left", rsuffixes=["_2", "_3"])
+        assert len(result) == 3
+        info(result)
+
+        result = join(items, on=on, how="inner", rsuffixes=["_2", "_3"])
+        assert len(result) == 2
+        info(result)
+
+        result = join(items, on=on, how="outer", rsuffixes=["_2", "_3"])
+        assert len(result) == 4
+        info(result)
+
+    on = ["a", "b"]
+    result = join(data, on=on, how="inner", rsuffixes=["_2", "_3"])
+    assert len(result) == 1 and len(result[0]) == 6
+    info(result)
+
+    dfs = [pd.DataFrame.from_records(l, index=on) for l in data]
+    result = join(dfs, on=on, how="inner", rsuffixes=["_2", "_3"])
+    assert len(result) == 1
+    info(result)
+
+
+def test_join_node():
+    glider = Glider(
+        Reduce("reduce")
+        | Join("join")
+        | PrettyPrint("print")
+        | AssertFunc("length_check", func=lambda n, d: len(d) == 3)
+    )
+
+    l1 = [
+        dict(a=1, b=2, c="test1"),
+        dict(a=2, b=4, c="test2"),
+        dict(a=3, b=6, c="test3"),
+    ]
+    l2 = [
+        dict(a=1, b=2, c="test1", d=5.1),
+        dict(a=2, b=5, c="test2"),
+        dict(a=3, b=7, c="test3"),
+        dict(a=4, b=9, c="test4"),
+    ]
+    l3 = [dict(a=1, b=2, d=6), dict(a=2, b=11, d=7)]
+
+    data = [l1, l2, l3]
+    glider.consume(data, join=dict(on="a", how="left", rsuffixes=["_1", "_2"]))
+
+
+def test_sort():
+    glider = Glider(
+        Sort("sort", key=lambda x: x["b"], reverse=True, inplace=True)
+        | PrettyPrint("print")
+    )
+    l = [
+        dict(a=1, b=2, c="test1"),
+        dict(a=2, b=4, c="test2"),
+        dict(a=3, b=6, c="test3"),
+    ]
+    glider.consume([l])
+    assert l[0]["b"] == 6
 
 
 def test_assert_node(rootdir):

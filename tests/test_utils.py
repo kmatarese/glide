@@ -2,6 +2,7 @@ import configparser
 import logging
 import os
 from shutil import copyfile
+import sqlite3
 
 try:
     import pymysql
@@ -11,8 +12,9 @@ import sqlalchemy as sa
 from tlbx import st, rmfile
 
 from glide import *
+from glide.utils import dbg, info, warn, error
 
-logging.getLogger("glide").setLevel(logging.DEBUG)
+logging.getLogger("glide").setLevel(logging.INFO)
 
 TEST_DATA_NAME = "dma_zip"
 
@@ -59,6 +61,14 @@ def get_db_filenames(rootdir):
     in_db_file = rootdir + "/" + db_name
     out_db_file = "%s/%s" % (test_config["OutputDirectory"], db_name)
     return table, in_db_file, out_db_file
+
+
+def clear_sqlite_table_if_exists(conn, table):
+    try:
+        conn.execute("delete from %s" % table)
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass
 
 
 def get_sqlalchemy_mysql_engine():

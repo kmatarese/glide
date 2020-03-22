@@ -398,7 +398,13 @@ class FileLoad(Node):
             If true, skip actually loading the data
 
         """
-        fo, _, close = open_filepath_or_buffer(f, open_flags=open_flags)
+        is_text = True
+        if "b" in open_flags:
+            is_text = False
+
+        fo, _, close = open_filepath_or_buffer(
+            f, open_flags=open_flags, is_text=is_text
+        )
 
         try:
             if dry_run:
