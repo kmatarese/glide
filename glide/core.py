@@ -34,6 +34,8 @@ from tlbx import (
 from glide.utils import (
     dbg,
     info,
+    raiseif,
+    raiseifnot,
     is_function,
     closer,
     iterize,
@@ -134,8 +136,9 @@ class Node(ConsecutionNode):
 
     def update_context(self, context):
         """Update the context dict for this Node"""
-        assert isinstance(context, dict), "Context must be dict-like, got %s" % type(
-            context
+        raiseifnot(
+            isinstance(context, dict),
+            "Context must be dict-like, got %s" % type(context),
         )
         self.context.update(context)
 
@@ -183,8 +186,9 @@ class Node(ConsecutionNode):
                 # directly in process()
                 continue
 
-            assert param.name not in RESERVED_ARG_NAMES, (
-                "Reserved arg name '%s' used in run()" % param.name
+            raiseif(
+                param.name in RESERVED_ARG_NAMES,
+                "Reserved arg name '%s' used in run()" % param.name,
             )
 
             if param.kind == param.POSITIONAL_ONLY:
@@ -199,7 +203,7 @@ class Node(ConsecutionNode):
             elif param.kind == param.VAR_KEYWORD:
                 pass
             else:
-                assert False, "%s params are not allowed in run()" % param.kind
+                raise AssertionError("%s params are not allowed in run()" % param.kind)
 
         return positionals, keywords
 
@@ -476,7 +480,7 @@ class PoolSubmit(Node):
             elif push_type == PushTypes.Result:
                 self.push(self.get_results(futures, timeout=timeout))
             else:
-                assert False, "Invalid push_type: %s" % push_type
+                raise AssertionError("Invalid push_type: %s" % push_type)
 
         finally:
             if shutdown:
@@ -572,7 +576,7 @@ class AsyncIOSubmit(Node):
             elif push_type == PushTypes.Result:
                 self.push(self.get_results(futures, timeout=timeout))
             else:
-                assert False, "Invalid push_type: %s" % push_type
+                raise AssertionError("Invalid push_type: %s" % push_type)
         finally:
             if close and push_type == PushTypes.Result:
                 # We can only be sure its safe to close the event loop if it
@@ -593,9 +597,9 @@ class AssertFunc(Node):
             the assertion should pass.
 
         """
-        assert func(self, data), "Data assertion failed\nnode: %s\nfunc: %s" % (
-            self.name,
-            func,
+        raiseifnot(
+            func(self, data),
+            "Data assertion failed\nnode: %s\nfunc: %s" % (self.name, func),
         )
         self.push(data)
 
@@ -645,15 +649,15 @@ class ConfigContext(RuntimeContext):
             config and returns an extracted value
 
         """
-        assert filename or var, "Either filename or var must be specified"
-        assert not (filename and var), "Only one of filename or var should be specified"
+        raiseifnot(filename or var, "Either filename or var must be specified")
+        raiseif(filename and var, "Only one of filename or var should be specified")
 
         if var:
             filename = os.environ[var]
 
         ext = filename.split(".")[-1]
         supported = ["json", "yaml", "ini"]
-        assert ext in supported, "Invalid extension, only %s supported" % supported
+        raiseifnot(ext in supported, "Invalid extension, only %s supported" % supported)
 
         if ext == "json":
             func = load_json_config
@@ -674,14 +678,14 @@ def get_node_contexts(pipeline):
 def update_node_contexts(pipeline, node_contexts):
     """Helper function for updating node contexts in a pipeline"""
     for k, v in node_contexts.items():
-        assert k in pipeline._node_lookup, "Invalid node: %s" % k
+        raiseifnot(k in pipeline._node_lookup, "Invalid node: %s" % k)
         pipeline[k].update_context(v)
 
 
 def reset_node_contexts(pipeline, node_contexts):
     """Helper function for resetting node contexts in a pipeline"""
     for k in node_contexts:
-        assert k in pipeline._node_lookup, "Invalid node: %s" % k
+        raiseifnot(k in pipeline._node_lookup, "Invalid node: %s" % k)
         pipeline[k].reset_context()
 
 
@@ -815,8 +819,8 @@ class Glider:
         self.pipeline = Pipeline(*args, **kwargs)
         node_lookup = self.get_node_lookup()
         for key in node_lookup:
-            assert key not in RESERVED_NODE_NAMES, (
-                "Can not use reserved node name: %s" % key
+            raiseif(
+                key in RESERVED_NODE_NAMES, "Can not use reserved node name: %s" % key
             )
 
     def __getitem__(self, name):
@@ -1068,23 +1072,26 @@ class GliderScript(Script):
         self.blacklist = set(blacklist or [])
 
         self.parents = parents or []
-        assert isinstance(self.parents, list), (
-            "parents must be a *list* of climax.parents: %s" % parents
+        raiseifnot(
+            isinstance(self.parents, list),
+            "parents must be a *list* of climax.parents: %s" % parents,
         )
 
         self.inject = inject or {}
         if inject:
-            assert isinstance(
-                self.inject, dict
-            ), "inject must be a dict of argname->func mappings"
+            raiseifnot(
+                isinstance(self.inject, dict),
+                "inject must be a dict of argname->func mappings",
+            )
             for injected_arg in inject:
                 self.blacklist.add(injected_arg)
 
         self.cleanup = cleanup or {}
         if self.cleanup:
-            assert isinstance(
-                self.cleanup, dict
-            ), "cleanup must be a dict of argname->func mappings"
+            raiseifnot(
+                isinstance(self.cleanup, dict),
+                "cleanup must be a dict of argname->func mappings",
+            )
 
         self._check_arg_conflicts()
         all_script_args = self._get_script_args()
@@ -1096,8 +1103,8 @@ class GliderScript(Script):
 
     def _check_arg_conflicts(self):
         for dest in self._get_custom_arg_dests():
-            assert dest not in self.inject, (
-                "Arg dest '%s' conflicts with injected arg" % dest
+            raiseif(
+                dest in self.inject, "Arg dest '%s' conflicts with injected arg" % dest
             )
 
     def get_injected_kwargs(self):
@@ -1180,9 +1187,9 @@ class GliderScript(Script):
             if arg_base_name in node.run_args or arg_base_name in node.run_kwargs:
                 names.append(node.name)
 
-        assert len(names) <= 1, "More than one node found for arg name %s: %s" % (
-            arg,
-            names,
+        raiseifnot(
+            len(names) <= 1,
+            "More than one node found for arg name %s: %s" % (arg, names),
         )
         if not names:
             return None
@@ -1213,7 +1220,7 @@ class GliderScript(Script):
             arg_type = type(default)
 
         if arg_type == bool:
-            assert not required, "Required bool args don't make sense"
+            raiseif(required, "Required bool args don't make sense")
 
             base_arg_name = arg_name
             if default:
@@ -1295,16 +1302,20 @@ class GliderScript(Script):
                 )
 
         def assert_arg_present(custom_arg, arg_name):
-            assert arg_name in script_args, (
-                "Custom arg %s with dest=%s maps to node arg=%s "
-                "which is not in the script arg list. Check for "
-                "conflicting args that cover the same node arg."
-                % (custom_arg.name, custom_arg.dest, arg_name)
+            raiseifnot(
+                arg_name in script_args,
+                (
+                    "Custom arg %s with dest=%s maps to node arg=%s "
+                    "which is not in the script arg list. Check for "
+                    "conflicting args that cover the same node arg."
+                    % (custom_arg.name, custom_arg.dest, arg_name)
+                ),
             )
 
         for custom_arg in self.custom_args:
-            assert not self.blacklisted("", custom_arg.name), (
-                "Blacklisted arg '%s' passed as a custom arg" % custom_arg.name
+            raiseif(
+                self.blacklisted("", custom_arg.name),
+                "Blacklisted arg '%s' passed as a custom arg" % custom_arg.name,
             )
 
             if custom_arg.dest in node_arg_names:
@@ -1360,9 +1371,9 @@ class GliderScript(Script):
         add_to_final = set()
 
         for key, value in kwargs.items():
-            assert (
-                key not in nodes
-            ), "Invalid keyword arg '%s', can not be a node name" % (key)
+            raiseif(
+                key in nodes, "Invalid keyword arg '%s', can not be a node name" % (key)
+            )
 
             node_name = self._get_arg_node_name(key)
             if node_name not in nodes:

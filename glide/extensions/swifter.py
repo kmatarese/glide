@@ -6,6 +6,7 @@ except ImportError:
     swifter = None
 
 from glide.core import Node
+from glide.utils import raiseifnot
 
 
 class SwifterApply(Node):
@@ -26,7 +27,7 @@ class SwifterApply(Node):
             Keyword arguments passed to Dask df.swifter.apply
 
         """
-        assert swifter, "The swifter package is not installed"
+        raiseifnot(swifter, "The swifter package is not installed")
 
         if threads:
             df.swifter.set_dask_scheduler(scheduler="threads")

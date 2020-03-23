@@ -27,6 +27,8 @@ from pyexcel_xlsx import get_data as get_xlsx, save_data as save_xlsx
 from pyexcel_xls import get_data as get_xls, save_data as save_xls
 from tlbx import (
     st,
+    raiseif,
+    raiseifnot,
     json,
     dbg as _dbg,
     dbgsql as _dbgsql,
@@ -121,7 +123,7 @@ def to_datetime(d):
         return datetime.datetime.combine(d, datetime.time()).replace(microsecond=0)
     if type(d) == str:
         return to_datetime(date_from_str(d))
-    assert False, "Unsupported type: %s" % type(d)
+    raise AssertionError("Unsupported type: %s" % type(d))
 
 
 def to_date(d):
@@ -131,7 +133,7 @@ def to_date(d):
         return d.date()
     if type(d) == str:
         return to_date(date_from_str(d))
-    assert False, "Unsupported type: %s" % type(d)
+    raise AssertionError("Unsupported type: %s" % type(d))
 
 
 def datetime_cmp(d1, d2):
@@ -202,12 +204,14 @@ def get_datetime_windows(
         A list of tuples of start / end datetime pairs
 
     """
-    assert (
-        window_size_hours or num_windows
-    ), "One of window_size_hours or num_windows must be specified"
-    assert not (
-        window_size_hours and num_windows
-    ), "Only one of window_size_hours or num_windows can be specified"
+    raiseifnot(
+        window_size_hours or num_windows,
+        "One of window_size_hours or num_windows must be specified",
+    )
+    raiseif(
+        window_size_hours and num_windows,
+        "Only one of window_size_hours or num_windows can be specified",
+    )
 
     start_date = to_datetime(start_date)
     end_date = to_datetime(end_date)
@@ -258,9 +262,9 @@ def _process_date_action_dest(dest, values, end_date):
             start_date = date_from_str(values[0])
             end_date = date_from_str(values[1])
         else:
-            assert False, "date_range only accepts one or two arguments"
+            raise AssertionError("date_range only accepts one or two arguments")
     else:
-        assert False, "Unrecognized date action %s" % dest
+        raise AssertionError("Unrecognized date action %s" % dest)
     return start_date, end_date
 
 
@@ -317,12 +321,14 @@ class DateWindowAction(argparse.Action):
         end_date = today + datetime.timedelta(days=1)
         start_date, end_date = _process_date_action_dest(self.dest, values, end_date)
 
-        assert isinstance(
-            start_date, datetime.date
-        ), "start date must be a datetime.date object"
-        assert isinstance(
-            end_date, datetime.date
-        ), "end date must be a datetime.date object"
+        raiseifnot(
+            isinstance(start_date, datetime.date),
+            "start date must be a datetime.date object",
+        )
+        raiseifnot(
+            isinstance(end_date, datetime.date),
+            "end date must be a datetime.date object",
+        )
 
         date_windows = get_date_windows(
             start_date, end_date, reverse=getattr(namespace, "reverse_windows", False)
@@ -462,9 +468,9 @@ def divide_data(data, n):
 
 def flatten(l):
     """Flatten a list of iterables"""
-    assert (
-        l and len(l) > 0
-    ), "flatten requires a list of lists or list of pandas objects"
+    raiseifnot(
+        l and len(l) > 0, "flatten requires a list of lists or list of pandas objects"
+    )
     if is_pandas(l[0]):
         return pd.concat(l)
     else:
@@ -518,15 +524,16 @@ def join(tables, on=None, how="left", rsuffixes=None):
     """Join a list of iterables or DataFrames"""
 
     if rsuffixes:
-        assert len(rsuffixes) == (
-            len(tables) - 1
-        ), "Must have one rsuffix per right table"
+        raiseifnot(
+            len(rsuffixes) == (len(tables) - 1), "Must have one rsuffix per right table"
+        )
 
     convert_df = True
     if isinstance(tables[0], pd.DataFrame):
-        assert all(
-            [isinstance(t, pd.DataFrame) for t in tables]
-        ), "Expected all items to be DataFrames"
+        raiseifnot(
+            all([isinstance(t, pd.DataFrame) for t in tables]),
+            "Expected all items to be DataFrames",
+        )
         convert_df = False
 
     df = None
@@ -620,7 +627,7 @@ def excel_file_type(f):
             return XLS
         if f.endswith(XLSX):
             return XLSX
-        assert False, "Unsupported Excel file: %s" % f
+        raise AssertionError("Unsupported Excel file: %s" % f)
     else:
         if hasattr(f, "name") and f.name.endswith(XLS):
             return XLS

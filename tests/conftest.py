@@ -46,5 +46,7 @@ def sqlite_out_conn():
 
 
 redis_server = factories.redis_proc(
-    host=test_config["RedisHost"], port=test_config["RedisPort"]
+    executable=test_config.get("RedisExecutable", "/usr/bin/redis-server"),
+    host=test_config["RedisHost"],
+    port=test_config["RedisPort"],
 )

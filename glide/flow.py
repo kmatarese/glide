@@ -9,6 +9,7 @@ from glide.core import Node, PushNode, NoInputNode
 from glide.utils import (
     dbg,
     info,
+    raiseifnot,
     is_pandas,
     divide_data,
     flatten,
@@ -43,7 +44,7 @@ class SkipFalseNode(Node):
                 self.push(data)
                 return
         else:
-            assert False, (
+            raise AssertionError(
                 "Could not figure out how to do bool check of object: %s" % data
             )
 
@@ -299,7 +300,9 @@ class WindowReduce(Node):
             Size of window to collect
 
         """
-        assert size and int(size) and size > 1, "Window size must be an integer > 1"
+        raiseifnot(
+            size and int(size) and size > 1, "Window size must be an integer > 1"
+        )
 
         self.window.append(data)
 

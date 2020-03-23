@@ -17,6 +17,8 @@ from glide.sql_utils import get_temp_table, add_table_suffix, escape_string
 from glide.utils import (
     dbg,
     warn,
+    raiseif,
+    raiseifnot,
     size,
     save_excel,
     find_class_in_dict,
@@ -469,21 +471,25 @@ class URLLoad(Node):
             warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
         else:
             if isinstance(url, str):
-                assert not (
-                    "data" in kwargs or "json" in kwargs
-                ), "Overriding data/json params is not allowed"
+                raiseif(
+                    "data" in kwargs or "json" in kwargs,
+                    "Overriding data/json params is not allowed",
+                )
                 kwargs[data_param] = data
                 resp = requestor.post(url, **kwargs)
             elif isinstance(url, dict):
                 kwargs_copy = deepcopy(kwargs)
                 kwargs_copy.update(url)
-                assert not (
-                    "data" in kwargs_copy or "json" in kwargs_copy
-                ), "Overriding data/json params is not allowed"
+                raiseif(
+                    "data" in kwargs_copy or "json" in kwargs_copy,
+                    "Overriding data/json params is not allowed",
+                )
                 kwargs_copy[data_param] = data
                 resp = requestor.request(**kwargs_copy)
             else:
-                assert False, "Input url must be a str or dict type, got %s" % type(url)
+                raise AssertionError(
+                    "Input url must be a str or dict type, got %s" % type(url)
+                )
 
             if not skip_raise:
                 resp.raise_for_status()
@@ -559,20 +565,23 @@ class EmailLoad(Node):
             msg = data
         else:
             # Assume its data that needs to be converted to attachments and sent
-            assert (
-                frm and to and subject
-            ), "Node context must have frm/to/subject set to create an email msg"
-            assert isinstance(
-                data, str
-            ), "data must be passed as raw str content, got %s" % type(data)
+            raiseifnot(
+                frm and to and subject,
+                "Node context must have frm/to/subject set to create an email msg",
+            )
+            raiseifnot(
+                isinstance(data, str),
+                "data must be passed as raw str content, got %s" % type(data),
+            )
 
             attachments = None
             tmpdir = None
 
             if attach_as == "attachment":
-                assert (
-                    attachment_name
-                ), "Must specify an attachment_name when attach_as = attachment"
+                raiseifnot(
+                    attachment_name,
+                    "Must specify an attachment_name when attach_as = attachment",
+                )
                 tmpdir = tempfile.TemporaryDirectory()
                 filename = tmpdir.name + "/" + attachment_name
                 with open(filename, "w") as f:
@@ -585,7 +594,7 @@ class EmailLoad(Node):
                 elif attach_as == "html":
                     html = (html or "") + fmt_data
                 else:
-                    assert False, (
+                    raise AssertionError(
                         "Invalid attach_as value: %s, options: attachment, body, html"
                         % attach_as
                     )

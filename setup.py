@@ -50,6 +50,7 @@ extras_require = {
     ],
     "dev": [
         "black",
+        "fake-useragent",
         "pre-commit",
         "pylint",
         "pytest",

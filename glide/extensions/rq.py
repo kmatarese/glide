@@ -12,7 +12,7 @@ from tlbx import st
 
 from glide import ParaGlider, Node, PushTypes, consume
 from glide.flow import Reduce, split_count_helper
-from glide.utils import dbg, divide_data, flatten, size
+from glide.utils import dbg, divide_data, flatten, size, raiseifnot
 
 
 POLL_SLEEP = 1
@@ -93,10 +93,11 @@ class RQParaGlider(ParaGlider):
     """
 
     def __init__(self, queue, *args, **kwargs):
-        assert Queue, "Please install 'rq' to use RQParaGlider"
-        assert isinstance(
-            queue, Queue
-        ), "The first argument to RQParaGlider must be a Queue"
+        raiseifnot(Queue, "Please install 'rq' to use RQParaGlider")
+        raiseifnot(
+            isinstance(queue, Queue),
+            "The first argument to RQParaGlider must be a Queue",
+        )
         self.queue = queue
         super().__init__(*args, **kwargs)
 
@@ -204,7 +205,9 @@ class RQJob(Node):
             Keyword arguments to pass to enqueue()
 
         """
-        assert queue or redis_conn, "One of 'queue' or 'redis_conn' must be specified"
+        raiseifnot(
+            queue or redis_conn, "One of 'queue' or 'redis_conn' must be specified"
+        )
         if not queue:
             queue = Queue(queue_name, connection=redis_conn)
 
@@ -217,7 +220,7 @@ class RQJob(Node):
         elif push_type == PushTypes.Result:
             self.push(get_async_result(job))
         else:
-            assert False, "Invalid push_type: %s" % push_type
+            raise AssertionError("Invalid push_type: %s" % push_type)
 
 
 class RQReduce(Reduce):

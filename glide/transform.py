@@ -6,7 +6,7 @@ import hashlib
 from tlbx import st, json, set_missing_key, update_email
 
 from glide.core import Node
-from glide.utils import find_class_in_dict, get_class_list_docstring
+from glide.utils import find_class_in_dict, get_class_list_docstring, raiseifnot
 
 
 class Func(Node):
@@ -64,12 +64,13 @@ class DictKeyTransform(Node):
 
         """
         drop = drop or []
-        assert isinstance(
-            drop, (list, tuple)
-        ), "drop argument must be a list/tuple of keys to drop"
+        raiseifnot(
+            isinstance(drop, (list, tuple)),
+            "drop argument must be a list/tuple of keys to drop",
+        )
 
         for row in data:
-            assert isinstance(row, dict), "Dict rows expected, got %s" % type(row)
+            raiseifnot(isinstance(row, dict), "Dict rows expected, got %s" % type(row))
             for key, value in transforms.items():
                 if callable(value):
                     row[key] = value(row)

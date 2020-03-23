@@ -16,6 +16,8 @@ from glide.sql_utils import build_table_select
 from glide.sql import SQLNode
 from glide.utils import (
     dbg,
+    raiseif,
+    raiseifnot,
     read_excel,
     find_class_in_dict,
     get_class_list_docstring,
@@ -265,7 +267,7 @@ class FileExtract(Node):
         limit : int, optional
             Limit to first N lines
         """
-        assert not (
+        raiseif(
             chunksize and push_lines
         ), "Only one of chunksize and push_lines may be specified"
 
@@ -383,19 +385,23 @@ class URLExtract(Node):
         paging = False
         if page_size or push_pages:
             paging = True
-            assert not_none(
-                page_request_param,
-                page_size,
-                push_pages,
-                page_size_param,
-                page_offset_param,
-            ), "Not all paging params specified"
-            assert page_request_param in ["data", "params"], (
-                "Invalid page_request_param: %s" % page_request_param
+            raiseifnot(
+                not_none(
+                    page_request_param,
+                    page_size,
+                    push_pages,
+                    page_size_param,
+                    page_offset_param,
+                ),
+                "Not all paging params specified",
             )
-            assert (
-                data_type == "json"
-            ), "Paging is only supported with JSON-based results"
+            raiseifnot(
+                page_request_param in ["data", "params"],
+                "Invalid page_request_param: %s" % page_request_param,
+            )
+            raiseifnot(
+                data_type == "json", "Paging is only supported with JSON-based results"
+            )
             kwargs[page_request_param] = kwargs.get(page_request_param, {})
 
         offset = 0
@@ -404,19 +410,21 @@ class URLExtract(Node):
         if isinstance(request, str):
             request = dict(method="GET", url=request)
         else:
-            assert isinstance(
-                request, dict
-            ), "Request must be a str or dict type, got %s" % type(request)
+            raiseifnot(
+                isinstance(request, dict),
+                "Request must be a str or dict type, got %s" % type(request),
+            )
 
         count = 0
         while True:
             kwargs_copy = deepcopy(kwargs)
             kwargs_copy.update(request)
             if paging:
-                assert not (
+                raiseif(
                     page_size_param in kwargs_copy[page_request_param]
-                    or page_offset_param in kwargs_copy[page_request_param]
-                ), ("Params conflict with paging params: %s" % url)
+                    or page_offset_param in kwargs_copy[page_request_param],
+                    ("Params conflict with paging params: %s" % kwargs_copy),
+                )
                 kwargs_copy[page_request_param].update(
                     {page_size_param: page_size, page_offset_param: offset}
                 )
@@ -434,7 +442,7 @@ class URLExtract(Node):
             elif data_type == "json":
                 data = resp.json()
             else:
-                assert False, (
+                raise AssertionError(
                     "Unrecognized data_type: %s, must be one of content, text, or json"
                     % data_type
                 )
@@ -528,9 +536,10 @@ class EmailExtract(Node):
         push_types = ["message_id", "message", "all", "body", "attachment"]
 
         if not client:
-            assert (
-                host and username and password
-            ), "Host/Username/Password required to create IMAPClient"
+            raiseifnot(
+                host and username and password,
+                "Host/Username/Password required to create IMAPClient",
+            )
             dbg("Logging into IMAPClient %s/%s" % (host, username))
             logout = True
             client = IMAPClient(host, **kwargs)
@@ -550,9 +559,10 @@ class EmailExtract(Node):
                 else:
                     data = messages
             else:
-                assert (
-                    push_type in push_types
-                ), "Unrecognized push_type: %s, options: %s" % (push_type, push_types)
+                raiseifnot(
+                    push_type in push_types,
+                    "Unrecognized push_type: %s, options: %s" % (push_type, push_types),
+                )
                 count = 0
                 for msg_id, msg_data in client.fetch(messages, ["RFC822"]).items():
                     raw = msg_data[b"RFC822"].decode("utf8")

@@ -15,7 +15,7 @@ from tlbx import st, set_missing_key
 
 from glide.core import Node, PushNode, ParaGlider, PoolSubmit
 from glide.flow import FuturesPush, Reduce
-from glide.utils import dbg, is_pandas
+from glide.utils import dbg, is_pandas, raiseif, raiseifnot
 
 
 class DaskClientPush(FuturesPush):
@@ -25,7 +25,7 @@ class DaskClientPush(FuturesPush):
     as_completed_func = dask_as_completed
 
     def run(self, *args, **kwargs):
-        assert Client, "Please install dask (Client) to use DaskClientPush"
+        raiseifnot(Client, "Please install dask (Client) to use DaskClientPush")
         super().run(*args, **kwargs)
 
 
@@ -33,13 +33,14 @@ class DaskDelayedPush(PushNode):
     """Use dask delayed to do a parallel push"""
 
     def _push(self, data):
-        assert delayed, "Please install dask (delayed) to use DaskDelayedPush"
+        raiseifnot(delayed, "Please install dask (delayed) to use DaskDelayedPush")
 
         if self._logging == "output":
             self._write_log(data)
 
-        assert "executor_kwargs" not in self.context, (
-            "%s does not currently support executor_kwargs" % self.__class__
+        raiseif(
+            "executor_kwargs" in self.context,
+            "%s does not currently support executor_kwargs" % self.__class__,
         )
 
         lazy = []
@@ -59,14 +60,14 @@ class DaskParaGlider(ParaGlider):
     consume()"""
 
     def get_executor(self):
-        assert Client, "Please install dask (Client) to use DaskParaGlider"
+        raiseifnot(Client, "Please install dask (Client) to use DaskParaGlider")
         return Client(**self.executor_kwargs)
 
     def get_worker_count(self, executor):
         return len(executor.ncores())
 
     def get_results(self, futures, timeout=None):
-        assert not timeout, "timeout argument is not supported for Dask Client"
+        raiseif(timeout, "timeout argument is not supported for Dask Client")
         dfs = []
         for _, result in dask_as_completed(futures, with_results=True):
             dfs.append(result)
@@ -77,12 +78,13 @@ class DaskClientMap(PoolSubmit):
     """Apply a transform to a Pandas DataFrame using dask Client"""
 
     def check_data(self, data):
-        assert is_pandas(data), "DaskClientMap expects a Pandas object, got %s" % type(
-            data
+        raiseifnot(
+            is_pandas(data),
+            "DaskClientMap expects a Pandas object, got %s" % type(data),
         )
 
     def get_executor(self, **executor_kwargs):
-        assert Client, "The dask (Client) package is not installed"
+        raiseifnot(Client, "The dask (Client) package is not installed")
         return Client(**executor_kwargs)
 
     def get_worker_count(self, executor):
@@ -93,7 +95,7 @@ class DaskClientMap(PoolSubmit):
         return futures
 
     def get_results(self, futures, timeout=None):
-        assert not timeout, "timeout argument is not supported for Dask Client"
+        raiseif(timeout, "timeout argument is not supported for Dask Client")
         dfs = []
         for _, result in dask_as_completed(futures, with_results=True):
             dfs.append(result)
@@ -144,7 +146,7 @@ class DaskDataFrameApply(Node):
             Keyword arguments passed to Dask DataFrame.apply
 
         """
-        assert from_pandas, "The dask (dataframe) package is not installed"
+        raiseifnot(from_pandas, "The dask (dataframe) package is not installed")
         from_pandas_kwargs = from_pandas_kwargs or {}
         set_missing_key(from_pandas_kwargs, "chunksize", 500)
         set_missing_key(from_pandas_kwargs, "sort", False)

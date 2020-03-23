@@ -10,7 +10,7 @@ from tlbx import st
 from glide.core import Node
 from glide.sql import BaseSQLNode
 from glide.sql_utils import build_table_select, get_temp_table, SQLALCHEMY_CONN_TYPES
-from glide.utils import warn, listify
+from glide.utils import warn, listify, raiseif, raiseifnot
 
 
 class ToDataFrame(Node):
@@ -96,7 +96,7 @@ class DataFrameCSVExtract(DataFramePush):
             kwargs to be passed to pandas.read_csv
 
         """
-        assert pd, "Please install Pandas to use this class"
+        raiseifnot(pd, "Please install Pandas to use this class")
         df = pd.read_csv(f, **kwargs)
         self.do_push(df, chunksize=kwargs.get("chunksize", None))
 
@@ -117,7 +117,7 @@ class DataFrameExcelExtract(DataFramePush):
             kwargs to be passed to pandas.read_excel
 
         """
-        assert pd, "Please install Pandas to use this class"
+        raiseifnot(pd, "Please install Pandas to use this class")
         df_or_dict = pd.read_excel(f, **kwargs)
         self.do_push(df_or_dict)
 
@@ -138,7 +138,7 @@ class DataFrameSQLExtract(PandasSQLNode):
             kwargs to be passed to pandas.read_sql
 
         """
-        assert pd, "Please install Pandas to use this class"
+        raiseifnot(pd, "Please install Pandas to use this class")
         df = pd.read_sql(sql, conn, **kwargs)
         self.do_push(df, kwargs.get("chunksize", None))
 
@@ -163,7 +163,7 @@ class DataFrameSQLTableExtract(PandasSQLNode):
             kwargs to be passed to pandas.read_sql
 
         """
-        assert pd, "Please install Pandas to use this class"
+        raiseifnot(pd, "Please install Pandas to use this class")
         sql = build_table_select(table, where=where, limit=limit)
         df = pd.read_sql(sql, conn, **kwargs)
         self.do_push(df, kwargs.get("chunksize", None))
@@ -183,7 +183,7 @@ class DataFrameHTMLExtract(Node):
             kwargs to be passed to pandas.read_html
 
         """
-        assert pd, "Please install Pandas to use this class"
+        raiseifnot(pd, "Please install Pandas to use this class")
         df_list = pd.read_html(f, **kwargs)
         self.push(df_list)
 
@@ -212,7 +212,7 @@ class DataFrameCSVLoad(Node):
             Keyword arguments passed to DataFrame.to_csv
 
         """
-        assert pd, "Please install Pandas to use this class"
+        raiseifnot(pd, "Please install Pandas to use this class")
 
         if "header" not in kwargs:
             kwargs["header"] = not self.wrote_header
@@ -255,7 +255,7 @@ class DataFrameExcelLoad(Node):
             Keyword arguments passed to DataFrame.to_excel
 
         """
-        assert pd, "Please install Pandas to use this class"
+        raiseifnot(pd, "Please install Pandas to use this class")
 
         if dry_run:
             warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
@@ -295,7 +295,7 @@ class DataFrameSQLLoad(PandasSQLNode):
             Keyword arguments passed to DataFrame.to_sql
 
         """
-        assert pd, "Please install Pandas to use this class"
+        raiseifnot(pd, "Please install Pandas to use this class")
 
         if dry_run:
             warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
@@ -329,11 +329,12 @@ class DataFrameSQLTempLoad(PandasSQLNode):
             Keyword arguments passed to DataFrame.to_sql
 
         """
-        assert pd, "Please install Pandas to use this class"
+        raiseifnot(pd, "Please install Pandas to use this class")
 
-        assert not isinstance(
-            conn, sqlite3.Connection
-        ), "sqlite3 connections not supported due to bug in Pandas' has_table()?"
+        raiseif(
+            isinstance(conn, sqlite3.Connection),
+            "sqlite3 connections not supported due to bug in Pandas' has_table()",
+        )
 
         table = get_temp_table(conn, df, schema=schema, create=True)
         if dry_run:
@@ -362,7 +363,7 @@ class DataFrameHTMLLoad(Node):
             Keyword arguments passed to DataFrame.to_html
 
         """
-        assert pd, "Please install Pandas to use this class"
+        raiseifnot(pd, "Please install Pandas to use this class")
 
         if dry_run:
             warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
@@ -391,7 +392,7 @@ class DataFrameApplyMap(Node):
             Keyword arguments passed to applymap
 
         """
-        assert pd, "Please install Pandas to use this class"
+        raiseifnot(pd, "Please install Pandas to use this class")
         df = df.applymap(func, **kwargs)
         self.push(df)
 

@@ -1,3 +1,5 @@
+from fake_useragent import UserAgent
+
 from .test_utils import *
 from glide import *
 
@@ -5,7 +7,9 @@ from glide import *
 def test_url_str_extract_text():
     glider = Glider(URLExtract("extract") | JSONLoads("json") | PrettyPrint("load"))
     reqs = ["https://jsonplaceholder.typicode.com/todos/1"]
-    glider.consume(reqs, extract=dict(data_type="text"))
+    glider.consume(
+        reqs, extract=dict(data_type="text", headers={"User-Agent": UserAgent().random})
+    )
 
 
 def test_url_str_extract_and_load():
@@ -16,7 +20,7 @@ def test_url_str_extract_and_load():
     ]
     glider.consume(
         reqs,
-        extract=dict(data_type="json"),
+        extract=dict(data_type="json", headers={"User-Agent": UserAgent().random}),
         load=dict(
             url="https://jsonplaceholder.typicode.com/todos",
             data_param="json",
@@ -33,7 +37,7 @@ def test_url_dict_extract_and_load():
     ]
     glider.consume(
         reqs,
-        extract=dict(data_type="json"),
+        extract=dict(data_type="json", headers={"User-Agent": UserAgent().random}),
         load=dict(
             url="https://jsonplaceholder.typicode.com/todos",
             data_param="json",
@@ -58,5 +62,6 @@ def test_url_paging():
             page_len=len,
             page_limit=3,
             push_pages=True,
+            headers={"User-Agent": UserAgent().random},
         ),
     )

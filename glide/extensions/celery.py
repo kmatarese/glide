@@ -18,7 +18,7 @@ from tlbx import st, import_object
 # We need to import * in this case because CeleryBuildGliderTask could
 # reference arbitrary Glide objects
 from glide import *
-from glide.utils import dbg, divide_data, flatten, size
+from glide.utils import dbg, divide_data, flatten, size, raiseifnot
 
 if Task:
 
@@ -131,9 +131,9 @@ if Task:
                 node_layer = []
                 for node_info in node_init_layer:
                     # TODO: this only supports a single level of node tree evaluation
-                    assert isinstance(
-                        node_info, dict
-                    ), "Node info must be in dict format"
+                    raiseifnot(
+                        isinstance(node_info, dict), "Node info must be in dict format"
+                    )
                     node_args = node_info["args"]
                     node_kwargs = node_info.get("kwargs", {})
                     cls = import_object(node_info["class_name"])
@@ -173,10 +173,13 @@ class CeleryParaGlider(ParaGlider):
     """
 
     def __init__(self, consume_task, *args, **kwargs):
-        assert Celery, "Please install Celery to use CeleryParaGlider"
-        assert isinstance(consume_task, Task), (
-            "The first argument to CeleryParaGlider must be a registered "
-            "celery task that mirrors consume()"
+        raiseifnot(Celery, "Please install Celery to use CeleryParaGlider")
+        raiseifnot(
+            isinstance(consume_task, Task),
+            (
+                "The first argument to CeleryParaGlider must be a registered "
+                "celery task that mirrors consume()"
+            ),
         )
         self.consume_task = consume_task
         super().__init__(*args, **kwargs)
@@ -276,7 +279,7 @@ class CeleryApplyAsync(Node):
             async_result.forget()
             self.push(result)
         else:
-            assert False, "Invalid push_type: %s" % push_type
+            raise AssertionError("Invalid push_type: %s" % push_type)
 
 
 class CelerySendTask(Node):
@@ -316,7 +319,7 @@ class CelerySendTask(Node):
             async_result.forget()
             self.push(result)
         else:
-            assert False, "Invalid push_type: %s" % push_type
+            raise AssertionError("Invalid push_type: %s" % push_type)
 
 
 class CeleryReduce(Reduce):

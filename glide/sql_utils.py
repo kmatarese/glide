@@ -71,7 +71,9 @@ def get_temp_table(conn, data, create=False, **kwargs):
     elif is_sqlalchemy_conn(conn):
         cls = TemporaryTable
     else:
-        assert False, "Only sqlite3 and SQLAlchemy conns are currently supported"
+        raise AssertionError(
+            "Only sqlite3 and SQLAlchemy conns are currently supported"
+        )
 
     df = data
     if not isinstance(data, pd.DataFrame):
@@ -117,9 +119,8 @@ def get_bulk_statement(
         The sql query string to use with bulk execute functions
 
     """
-    assert stmt_type.lower() in ("replace", "insert", "insert ignore"), (
-        "Invalid statement type: %s" % stmt_type
-    )
+    if not stmt_type.lower() in ("replace", "insert", "insert ignore"):
+        raise AssertionError("Invalid statement type: %s" % stmt_type)
     columns_clause = ", ".join(["`%s`" % c for c in column_names])
     if dicts:
         values_clause = ", ".join(["%%(%s)s" % c for c in column_names])

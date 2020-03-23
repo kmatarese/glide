@@ -10,7 +10,7 @@ from glide.sql_utils import (
     get_bulk_statement,
     escape_string,
 )
-from glide.utils import dbg
+from glide.utils import dbg, raiseif, raiseifnot
 
 
 class SQLCursorPushMixin:
@@ -49,19 +49,22 @@ class BaseSQLNode(SkipFalseNode):
     allowed_conn_types = None
 
     def __init__(self, *args, **kwargs):
-        assert self.allowed_conn_types and isinstance(
-            self.allowed_conn_types, (list, tuple)
-        ), (
-            "%s.allowed_conn_types must be a list or tuple of connection types"
-            % self.__class__.__name__
+        raiseifnot(
+            self.allowed_conn_types
+            and isinstance(self.allowed_conn_types, (list, tuple)),
+            (
+                "%s.allowed_conn_types must be a list or tuple of connection types"
+                % self.__class__.__name__
+            ),
         )
         super().__init__(*args, **kwargs)
 
     def begin(self):
         conn = self.context.get("conn", None) or self.global_state.get("conn", None)
-        assert conn, (
+        raiseifnot(
+            conn,
             "%s requires a conn argument in context or global state"
-            % self.__class__.__name__
+            % self.__class__.__name__,
         )
         self.check_conn(conn)
 
@@ -70,9 +73,10 @@ class BaseSQLNode(SkipFalseNode):
 
     def check_conn(self, conn):
         """Check the database connection"""
-        assert self._is_allowed_conn(conn), (
+        raiseifnot(
+            self._is_allowed_conn(conn),
             "Connection type %s is not in allowed types: %s"
-            % (type(conn), self.allowed_conn_types)
+            % (type(conn), self.allowed_conn_types),
         )
 
     def get_sql_executor(self, conn, cursor_type=None):
@@ -108,8 +112,9 @@ class BaseSQLNode(SkipFalseNode):
             # SQLAlchemy, and SQLAlchemy doesn't seem to provide a standard
             # way of obtaining the current transaction, so this approach is
             # lifted from the SQLAlchemy internals.
-            assert hasattr(obj, "_Connection__transaction"), (
-                "Could not find transaction attribute on SQLAlchemy object: %s" % obj
+            raiseifnot(
+                hasattr(obj, "_Connection__transaction"),
+                "Could not find transaction attribute on SQLAlchemy object: %s" % obj,
             )
             if getattr(obj, "_Connection__transaction", None):
                 obj._Connection__transaction.commit()
@@ -118,7 +123,9 @@ class BaseSQLNode(SkipFalseNode):
                 # that happened.
                 pass
         else:
-            assert False, "Could not determine how to commit with object: %s" % obj
+            raise AssertionError(
+                "Could not determine how to commit with object: %s" % obj
+            )
 
     def rollback(self, obj):
         """Rollback any currently active transactions"""
@@ -128,19 +135,22 @@ class BaseSQLNode(SkipFalseNode):
             obj.rollback()
         elif is_sqlalchemy_conn(obj):
             # See note above about this hack
-            assert hasattr(obj, "_Connection__transaction"), (
-                "Could not find transaction attribute on SQLAlchemy object: %s" % obj
+            raiseifnot(
+                hasattr(obj, "_Connection__transaction"),
+                "Could not find transaction attribute on SQLAlchemy object: %s" % obj,
             )
             if getattr(obj, "_Connection__transaction", None):
                 obj._Connection__transaction.rollback()
             else:
-                assert False, (
+                raise AssertionError(
                     "Trying to rollback a transaction but the SQLAlchemy "
                     "conn was not in a transaction. It may have "
                     "autocommitted."
                 )
         else:
-            assert False, "Could not determine how to rollback with object: %s" % obj
+            raise AssertionError(
+                "Could not determine how to rollback with object: %s" % obj
+            )
 
     def create_like(self, conn, cursor, table, like_table, drop=False):
         """Create a table like another table, optionally trying to drop
@@ -159,7 +169,9 @@ class BaseSQLNode(SkipFalseNode):
             )
             qr = self.execute(conn, cursor, get_create_sql, params=(like_table,))
             row = qr.fetchone()
-            assert isinstance(row, sqlite3.Row), "Only sqlite3.Row rows are supported"
+            raiseifnot(
+                isinstance(row, sqlite3.Row), "Only sqlite3.Row rows are supported"
+            )
             create_sql = row["sql"].replace(like_table, table)
         else:
             # Assume this syntax works with most other SQL databases
@@ -264,9 +276,9 @@ class BaseSQLNode(SkipFalseNode):
             )
 
         if isinstance(conn, sqlite3.Connection):
-            assert isinstance(
-                rows[0], sqlite3.Row
-            ), "Only sqlite3.Row rows are supported"
+            raiseifnot(
+                isinstance(rows[0], sqlite3.Row), "Only sqlite3.Row rows are supported"
+            )
             return get_bulk_statement(
                 stmt_type,
                 table,
@@ -276,9 +288,10 @@ class BaseSQLNode(SkipFalseNode):
                 odku=odku,
             )
 
-        assert not isinstance(
-            rows[0], tuple
-        ), "Dict rows expected, got tuple. Please use a dict cursor."
+        raiseif(
+            isinstance(rows[0], tuple),
+            "Dict rows expected, got tuple. Please use a dict cursor.",
+        )
         return get_bulk_statement(stmt_type, table, rows[0].keys(), odku=odku)
 
 
@@ -289,9 +302,10 @@ class SQLNode(BaseSQLNode, SQLCursorPushMixin):
 
     def check_conn(self, conn):
         """Make sure the object is a valid SQL connection"""
-        assert hasattr(conn, "cursor") or is_sqlalchemy_conn(conn), (
+        raiseifnot(
+            hasattr(conn, "cursor") or is_sqlalchemy_conn(conn),
             "Connection must have a cursor() method or be a SQLAlchemy connection: %s"
-            % conn
+            % conn,
         )
 
 
@@ -438,28 +452,35 @@ class AssertSQL(SQLNode):
         result = fetcher.fetchone()
 
         if isinstance(conn, sqlite3.Connection):
-            assert isinstance(
-                result, sqlite3.Row
-            ), "Only sqlite3.Row rows are supported for sqlite3 connections"
+            raiseifnot(
+                isinstance(result, sqlite3.Row),
+                "Only sqlite3.Row rows are supported for sqlite3 connections",
+            )
 
-        assert not isinstance(
-            result, tuple
-        ), "Dict rows expected, got tuple. Please use a dict cursor."
+        raiseif(
+            isinstance(result, tuple),
+            "Dict rows expected, got tuple. Please use a dict cursor.",
+        )
 
-        assert "assert" in result.keys(), "Result is missing 'assert' column"
+        raiseifnot("assert" in result.keys(), "Result is missing 'assert' column")
         result = result["assert"]
 
         if data_check:
             check = data_check(self, data)
-            assert result == check, (
-                "SQL assertion failed\nnode: %s\nsql: %s\nvalue: %s\ndata_check: %s"
-                % (self.name, sql, result, check)
+            raiseifnot(
+                result == check,
+                (
+                    "SQL assertion failed\nnode: %s\nsql: %s\nvalue: %s\ndata_check: %s"
+                    % (self.name, sql, result, check)
+                ),
             )
         else:
-            assert result, "SQL assertion failed\nnode: %s\nsql: %s\nvalue: %s" % (
-                self.name,
-                sql,
+            raiseifnot(
                 result,
+                (
+                    "SQL assertion failed\nnode: %s\nsql: %s\nvalue: %s"
+                    % (self.name, sql, result)
+                ),
             )
 
         self.push(data)
