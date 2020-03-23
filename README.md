@@ -41,24 +41,28 @@ Table of Contents
 
 * [Installation](#installation)
 * [Primer](#primer)
-* [Examples](#examples)
+* [Basic Examples](#basic-examples)
   * [CSV Extract, Transform, and Load](#example-csv-extract-transform-and-load)
   * [SQL Extract and Load](#example-sql-extract-and-load)
   * [SQL Transactions](#example-sql-transactions)
-  * [DataFrames](#example-dataframes)
   * [URL Extraction](#example-url-extraction)
-  * [JSON Converters](#example-json-converters)
+* [Flow Control Examples](#flow-examples)
   * [Filters](#example-filters)
   * [IterPush](#example-iterpush)
   * [SplitPush](#example-splitpush)
   * [SplitByNode](#example-splitbynode)
+  * [Reduce](#example-reduce)
+  * [Join](#example-join)
+  * [Routers](#example-routers)
   * [Window Processing](#example-window-processing)
   * [Date Windows](#example-date-windows)
+* [Parallelization & Concurrency](#parallel-examples)
   * [Parallel Transformation](#example-parallel-transformation)
   * [Parallel Pipelines via ParaGlider](#example-parallel-pipelines-via-paraglider)
   * [Parallel Branching](#example-parallel-branching)
   * [Thread Reducers](#example-thread-reducers)
   * [Asyncio](#example-asyncio)
+* [Utility Examples](#utility-examples)
   * [Templated Nodes and Pipelines](#example-templated-nodes-and-pipelines)
   * [Data Integrity Checks](#example-data-integrity-checks)
   * [Debugging](#example-debugging)
@@ -116,9 +120,9 @@ If a node's `run` method has additional parameters, they are populated from
 the node's `context`. More info on creating nodes and populating runtime context
 can be found [here](https://glide-etl.readthedocs.io/en/latest/nodes.html).
 
-<a name="examples"></a>
-Examples
---------
+<a name="basic-examples"></a>
+Basic Examples
+--------------
 
 The following examples serve to quickly illustrate some core features and
 built-in nodes. There is much more `Glide` can do that is not shown
@@ -189,25 +193,6 @@ glider = Glider(
 glider.consume(...)
 ```
 
-<a name="example-dataframes"></a>
-### Example: DataFrames
-
-The Pandas extension allows you to operate with DataFrames:
-
-```python
-def lower(s):
-    return s.lower() if type(s) == str else s
-
-glider = Glider(
-    DataFrameCSVExtract("extract")
-    | DataFrameApplyMap("transform", func=lower)
-    | DataFrameCSVLoad("load", index=False, mode="a")
-)
-glider.consume(...)
-```
-
-See the extension tests and code for more examples and documentation.
-
 <a name="example-url-extraction"></a>
 ### Example: URL Extraction
 
@@ -230,18 +215,9 @@ glider.consume(
 )
 ```
 
-<a name="example-json-converters"></a>
-### Example: JSON Converters
-
-Load JSON from a string:
-
-```python
-glider = Glider(URLExtract("extract") | JSONLoads("json"))
-reqs = ["https://jsonplaceholder.typicode.com/todos/1"]
-glider.consume(reqs, extract=dict(data_type="text"))
-```
-
-Or dump it to a string with the `JSONDumps` node.
+<a name="flow-examples"></a>
+Flow Control Examples
+---------------------
 
 <a name="example-filters"></a>
 ### Example: Filters
@@ -293,6 +269,63 @@ glider = Glider(SplitByNode("push") | [Print("print1"), Print("print2")])
 glider.consume([range(4)])
 ```
 
+<a name="example-reduce"></a>
+### Example: Reduce
+
+Collect all upstream node data before pushing:
+
+```python
+glider = Glider(
+    CSVExtract("extract")
+    | Reduce("reduce")
+    | Print("load")
+)
+glider.consume(["/path/to/infile1.csv", "/path/to/infile2.csv"])
+```
+
+This will read both input CSVs and push them in a single iterable to the
+downstream nodes. You can also use the `flatten` option of `Reduce` to
+flatten the depth of the iterable before pushing (effectively a concat
+operation).
+
+<a name="example-join"></a>
+### Example: Join
+
+Join data on one or more columns before pushing:
+
+```python
+glider = Glider(
+    Reduce("reduce")
+    | Join("join")
+    | Print("load")
+)
+d1 = <list of dicts or DataFrame>
+d2 = <list of dicts or DataFrame>
+glider.consume([d1, d2], join=dict(on="common_key", how="inner"))
+```
+
+<a name="example-routers"></a>
+### Example: Routers
+
+Route data to a particular downstream node using a router function:
+
+```python
+def parity_router(row):
+    if int(row["mycolumn"]) % 2 == 0:
+        return "even"
+    return "odd"
+
+glider = Glider(
+    CSVExtract("extract", nrows=20)
+    | IterPush("iter")
+    | [parity_zip_router, Print("even"), Print("odd")]
+)
+glider.consume(...)
+```
+
+This will push rows with even `mycolumn` values to the "even" `Print` node,
+and rows with odd `mycolumn` values to the "odd" `Print` node.
+
 <a name="example-window-processing"></a>
 ### Example: Window Processing
 
@@ -330,6 +363,10 @@ Or use `DateWindowPush` for date objects. Note that `None` is passed as the
 first arg to `consume` because the top node (`DateTimeWindowPush`) is a
 subclass of `NoInputNode` which takes no input data and generates data to push
 on its own.
+
+<a name="parallel-examples"></a>
+Parallelization & Concurrency
+-----------------------------
 
 <a name="example-parallel-transformation"></a>
 ### Example: Parallel Transformation
@@ -475,6 +512,10 @@ glider = Glider(
 Note that the `asyncio` nodes will create and start an event loop for you if
 necessary. It's also perfectly fine to manage the event loop on your own, in
 which case `glide` will run tasks on the current thread's event loop.
+
+<a name="utility-examples"></a>
+Utility Examples
+----------------
 
 <a name="example-templated-nodes-and-pipelines"></a>
 ### Example: Templated Nodes and Pipelines
@@ -698,8 +739,25 @@ help getting started.
 <a name="pandas"></a>
 ### Pandas
 
-Note that the Pandas extension is actually supported by default with all
-`glide` installs.
+The Pandas extension is actually supported by default with all `glide` installs.
+Below is a simple example that extracts from a CSV, lowercases all strings,
+and then loads to another CSV using Pandas under the hood:
+
+```python
+def lower(s):
+    return s.lower() if type(s) == str else s
+
+glider = Glider(
+    DataFrameCSVExtract("extract")
+    | DataFrameApplyMap("transform", func=lower)
+    | DataFrameCSVLoad("load", index=False, mode="a")
+)
+glider.consume(...)
+```
+
+There are a variety of other helpful nodes built in, including `ToDataFrame`,
+`FromDataFrame`, nodes to read/write other datasources, and nodes to deal with
+`rolling` calculations.
 
 See the extension docs
 [here](https://glide-etl.readthedocs.io/en/latest/glide.extensions.pandas.html)
