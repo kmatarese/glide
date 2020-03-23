@@ -24,6 +24,11 @@ def test_placeholder_node(rootdir):
         glider.consume([infile], extract=dict(chunksize=10, nrows=20), load=dict(f=f))
 
 
+def test_invalid_node_name():
+    with pytest.raises(AssertionError):
+        glider = Glider(PlaceholderNode("data") | Print("load"))
+
+
 def test_shell_node(rootdir):
     nodes = CSVExtract("extract") | CSVLoad("load") | Shell("shell") | Print("print")
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
@@ -540,22 +545,18 @@ def test_datetime_window_push():
     glider = Glider(nodes)
     today = datetime.date.today()
     glider.consume(
-        None,
         windows=dict(
             start_date=today - datetime.timedelta(days=3), end_date=today, num_windows=2
-        ),
+        )
     )
 
 
 def test_date_window_push():
     nodes = DateWindowPush("windows") | PrettyPrint("print")
     glider = Glider(nodes)
-    today = datetime.date.today()
-    now = datetime.datetime.now()
     glider.consume(
-        None,
         windows=dict(
             start_date=datetime.datetime(2019, 10, 25, 3, 2, 1),
             end_date=datetime.datetime(2019, 10, 28, 3, 2, 1),
-        ),
+        )
     )

@@ -350,7 +350,6 @@ import datetime
 today = datetime.date.today()
 glider = Glider(DateTimeWindowPush("windows") | PrettyPrint("print"))
 glider.consume(
-    None,
     windows=dict(
         start_date=today - datetime.timedelta(days=3),
         end_date=today,
@@ -359,9 +358,9 @@ glider.consume(
 )
 ```
 
-Or use `DateWindowPush` for date objects. Note that `None` is passed as the
-first arg to `consume` because the top node (`DateTimeWindowPush`) is a
-subclass of `NoInputNode` which takes no input data and generates data to push
+Or use `DateWindowPush` for date objects. Note that the data arg to `consume`
+can be ignored because the top node (`DateTimeWindowPush`) is a subclass of
+`NoInputNode` which takes no input data and generates data to push
 on its own.
 
 <a name="parallel-examples"></a>

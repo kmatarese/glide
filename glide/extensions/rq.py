@@ -103,7 +103,7 @@ class RQParaGlider(ParaGlider):
 
     def consume(
         self,
-        data,
+        data=None,
         cleanup=None,
         split_count=None,
         synchronous=False,
@@ -114,7 +114,7 @@ class RQParaGlider(ParaGlider):
 
         Parameters
         ----------
-        data
+        data : iterable, optional
             Iterable of data to consume
         cleanup : dict, optional
             A mapping of arg names to clean up functions to be run after
@@ -138,7 +138,11 @@ class RQParaGlider(ParaGlider):
             split_count = len(workers)
 
         split_count = split_count_helper(data, split_count)
-        splits = divide_data(data, split_count)
+        if data is None:
+            splits = [None for s in range(split_count)]
+        else:
+            splits = divide_data(data, split_count)
+
         dbg(
             "%s: data len: %s, splits: %d"
             % (self.__class__.__name__, size(data, "n/a"), split_count)

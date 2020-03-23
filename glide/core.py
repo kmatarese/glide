@@ -55,7 +55,7 @@ RESERVED_ARG_NAMES = [SCRIPT_DATA_ARG]
 # These are reserved because they are arg names used by consume(). Since node
 # context can be passed to consume() as node_name->arg_dict pairs in consume's
 # kwargs, we prevent nodes from using these names to avoid conflicts.
-RESERVED_NODE_NAMES = set(["cleanup", "split_count", "synchronous", "timeout"])
+RESERVED_NODE_NAMES = set(["data", "cleanup", "split_count", "synchronous", "timeout"])
 # A backup timeout when trying to cancel unfinished async tasks
 ASYNCIO_CANCEL_TIMEOUT = 0.1
 
@@ -850,12 +850,12 @@ class Glider:
         """Set the pipeline global_state attribute"""
         self.pipeline.global_state = value
 
-    def consume(self, data, cleanup=None, **node_contexts):
+    def consume(self, data=None, cleanup=None, **node_contexts):
         """Setup node contexts and consume data with the pipeline
 
         Parameters
         ----------
-        data
+        data : iterable, optional
             Iterable of data to consume
         cleanup : dict, optional
             A mapping of arg names to clean up functions to be run after
@@ -950,7 +950,7 @@ class ParaGlider(Glider):
 
     def consume(
         self,
-        data,
+        data=None,
         cleanup=None,
         split_count=None,
         synchronous=False,
@@ -961,7 +961,7 @@ class ParaGlider(Glider):
 
         Parameters
         ----------
-        data
+        data : iterable, optional
             Iterable of data to consume
         cleanup : dict, optional
             A mapping of arg names to clean up functions to be run after
@@ -983,7 +983,10 @@ class ParaGlider(Glider):
         with self.get_executor() as executor:
             worker_count = self.get_worker_count(executor)
             split_count = split_count_helper(data, split_count or worker_count)
-            splits = divide_data(data, split_count)
+            if data is None:
+                splits = [None for s in range(split_count)]
+            else:
+                splits = divide_data(data, split_count)
             futures = []
 
             info(

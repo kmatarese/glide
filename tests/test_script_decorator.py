@@ -9,9 +9,11 @@ from glide.utils import date_window_cli, datetime_window_cli
 BASE_ARGV = ["test_script_decorator.py"]
 LOAD_TABLE = "scratch.dma_zip_tmp"
 
+
 class NoDataNode(NoInputNode):
     def run(self):
         self.push("Test!")
+
 
 global_conn = get_pymysql_conn()
 
@@ -182,7 +184,7 @@ def test_injected_args_with_node_prefix():
 
 @no_data_glider.cli()
 def _test_no_data_cli(node_contexts):
-    no_data_glider.consume(None, **node_contexts)
+    no_data_glider.consume(**node_contexts)
 
 
 def test_no_data_cli():
@@ -203,9 +205,10 @@ def test_node_name_arg_name():
 
 def test_conflicting_dest_settings():
     with pytest.raises(AssertionError):
+
         @gs_glider.cli(
             Arg("--chunksize", type=int, default=10),
-            Arg("--extract_chunksize", type=int, default=15)
+            Arg("--extract_chunksize", type=int, default=15),
         )
         def _test(glide_data, node_contexts):
             gs_glider.consume(glide_data, **node_contexts)
@@ -213,9 +216,9 @@ def test_conflicting_dest_settings():
 
 def test_conflicting_inject_args():
     with pytest.raises(AssertionError):
+
         @gs_glider.cli(
-            Arg("--chunksize", type=int, default=5),
-            inject=dict(chunksize=10)
+            Arg("--chunksize", type=int, default=5), inject=dict(chunksize=10)
         )
         def _test(glide_data, node_contexts, chunksize=None):
             gs_glider.consume(glide_data, **node_contexts)
