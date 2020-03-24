@@ -5,7 +5,7 @@ lxml
 m2r
 numpydoc
 openpyxl==3.0.1
-pandas>=0.25.1
+pandas>=1.0.0
 pyexcel
 pyexcel-xls
 pyexcel-xlsx
