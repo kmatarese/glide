@@ -48,20 +48,27 @@ def test_url_dict_extract_and_load():
 
 def test_url_paging():
     glider = Glider(URLExtract("extract") | LenPrint("length"))
-    reqs = ["https://jsonplaceholder.typicode.com/posts"]
+    reqs = ["https://reqres.in/api/users"]
+
+    def handle_paging(result, request):
+        page = result["data"]
+        last = False
+        if result["page"] == result["total_pages"]:
+            last = True
+        else:
+            page_params = dict(page=result["page"] + 1)
+            new_params = request.get("params", {})
+            new_params.update(page_params)
+            request["params"] = new_params
+        return page, last
+
     glider.consume(
         reqs,
         extract=dict(
             data_type="json",
-            page_size=2,
-            # https://github.com/typicode/jsonplaceholder/issues/27
-            page_size_param="_limit",
-            page_offset_param="_start",
-            page_request_param="params",
-            page_key=lambda x: x,
-            page_len=len,
-            page_limit=3,
+            handle_paging=handle_paging,
             push_pages=True,
             headers={"User-Agent": UserAgent().random},
+            params=dict(page=0),
         ),
     )

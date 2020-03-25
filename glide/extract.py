@@ -322,12 +322,7 @@ class URLExtract(Node):
         data_type="content",
         session=None,
         skip_raise=False,
-        page_size=None,
-        page_size_param="size",
-        page_offset_param="offset",
-        page_request_param="params",
-        page_key=None,
-        page_len=len,
+        handle_paging=None,
         page_limit=None,
         push_pages=False,
         **kwargs
@@ -352,60 +347,31 @@ class URLExtract(Node):
         session : optional
             A requests Session to use to make the request
         skip_raise : bool, optional
-            if False, raise exceptions for bad response status
-        page_size : int, optional
-            If specified, request in pages of this size. Only supported with
-            data_type="json".
-        page_size_param : str, optional
-            The request parameter to put the page size in
-        page_offset_param : str, optional
-            The request parameter to put the page offset in
-        page_request_param : str, optional
-            Where to put the paging params when calling requests. Can either be
-            "params" or "data".
-        page_key : str or callable, optional
-            Where to pull the page data from the results. If None, assume the
-            entire json response is the page data.
-        page_len : callable
-            A callable that can determine the length of the page given the
-            json result. The default is just to use len(result).
+            If False, raise exceptions for bad response status
+        handle_paging : callable, optional
+            A callable that accepts the following params and updates the args
+            that will be passed to requests.request in place. The callable
+            should return two values, the page data extracted from the API
+            response and a flag denoting whether the last page has been
+            reached. Arguments:
+
+                * **result**: the API result of the most recent request
+                * **request**: a request args dict to update
         page_limit : int, optional
             If passed, use as a cap of the number of pages pulled
         push_pages : bool, optional
             If true, push each page individually.
         **kwargs
             Keyword arguments to pass to the request method. If a dict is
-            passed for the request parameter it overrides values of kwargs.
+            passed for the request parameter it overrides values of this.
 
         """
         requestor = requests
         if session:
             requestor = session
 
-        paging = False
-        if page_size or push_pages:
-            paging = True
-            raiseifnot(
-                not_none(
-                    page_request_param,
-                    page_size,
-                    push_pages,
-                    page_size_param,
-                    page_offset_param,
-                ),
-                "Not all paging params specified",
-            )
-            raiseifnot(
-                page_request_param in ["data", "params"],
-                "Invalid page_request_param: %s" % page_request_param,
-            )
-            raiseifnot(
-                data_type == "json", "Paging is only supported with JSON-based results"
-            )
-            kwargs[page_request_param] = kwargs.get(page_request_param, {})
-
-        offset = 0
         results = []
+        count = 0
 
         if isinstance(request, str):
             request = dict(method="GET", url=request)
@@ -415,22 +381,11 @@ class URLExtract(Node):
                 "Request must be a str or dict type, got %s" % type(request),
             )
 
-        count = 0
-        while True:
-            kwargs_copy = deepcopy(kwargs)
-            kwargs_copy.update(request)
-            if paging:
-                raiseif(
-                    page_size_param in kwargs_copy[page_request_param]
-                    or page_offset_param in kwargs_copy[page_request_param],
-                    ("Params conflict with paging params: %s" % kwargs_copy),
-                )
-                kwargs_copy[page_request_param].update(
-                    {page_size_param: page_size, page_offset_param: offset}
-                )
+        req_args = deepcopy(kwargs)
+        req_args.update(request)
 
-            resp = requestor.request(**kwargs_copy)
-            count += 1
+        while True:
+            resp = requestor.request(**req_args)
 
             if not skip_raise:
                 resp.raise_for_status()
@@ -447,27 +402,22 @@ class URLExtract(Node):
                     % data_type
                 )
 
-            if paging:
-                page = data
-                if page_key:
-                    if isinstance(page_key, str):
-                        page = data[page_key]
-                    else:
-                        page = page_key(data)
+            if handle_paging:
+                page, last = handle_paging(data, req_args)
+                count += 1
 
-                offset += page_len(page)
                 if push_pages:
                     self.push(page)
                 else:
                     results.extend(page)
 
-                if page_limit and count >= page_limit:
+                if last or (page_limit and count >= page_limit):
                     break
             else:
                 results = data
                 break
 
-        if (not paging) or (not push_pages):
+        if (not handle_paging) or (not push_pages):
             self.push(results)
 
 
