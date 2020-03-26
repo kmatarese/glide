@@ -56,6 +56,7 @@ Table of Contents
   * [Routers](#example-routers)
   * [Window Processing](#example-window-processing)
   * [Date Windows](#example-date-windows)
+  * [Return Values](#example-return-values)
 * [Parallelization & Concurrency](#parallel-examples)
   * [Parallel Transformation](#example-parallel-transformation)
   * [Parallel Pipelines via ParaGlider](#example-parallel-pipelines-via-paraglider)
@@ -362,6 +363,23 @@ Or use `DateWindowPush` for date objects. Note that the data arg to `consume`
 can be ignored because the top node (`DateTimeWindowPush`) is a subclass of
 `NoInputNode` which takes no input data and generates data to push
 on its own.
+
+<a name="example-return-values"></a>
+### Example: Return Values
+
+By default `consume` does not return any values and assumes you will be
+outputting your results to one or more endpoints in your terminating
+nodes (files, databases, etc.). The `Return` node will collect the data
+from its parent node(s) and set it as a return value for `consume`.
+
+```python
+glider = Glider(
+    CSVExtract("extract")
+    | MyTransformer("transform")
+    | Return("return")
+)
+data = glider.consume(...)
+```
 
 <a name="parallel-examples"></a>
 Parallelization & Concurrency
@@ -756,7 +774,8 @@ glider.consume(...)
 
 There are a variety of other helpful nodes built in, including `ToDataFrame`,
 `FromDataFrame`, nodes to read/write other datasources, and nodes to deal with
-`rolling` calculations.
+`rolling` calculations. There is also a generic `DataFrameMethod` node that
+passes through to any DataFrame method.
 
 See the extension docs
 [here](https://glide-etl.readthedocs.io/en/latest/glide.extensions.pandas.html)

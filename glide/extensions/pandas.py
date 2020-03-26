@@ -47,6 +47,27 @@ class FromDataFrame(Node):
         self.push(rows)
 
 
+class DataFrameMethod(Node):
+    """Helper to execute any pandas DataFrame method"""
+
+    def run(self, df, method, **kwargs):
+        """Helper to execute any pandas DataFrame method
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            DataFrame object used to run the method
+        method : str
+            A name of a valid DataFrame method
+        **kwargs
+            Arguments to pass to the DataFrame method
+
+        """
+        m = getattr(df, method, None)
+        raiseifnot(m and callable(m), "Invalid DataFrame method: %s" % m)
+        self.push(m(**kwargs))
+
+
 class DataFramePushMixin:
     """Shared logic for DataFrame-based nodes"""
 
@@ -352,7 +373,7 @@ class DataFrameHTMLLoad(Node):
         Parameters
         ----------
         df : pandas.DataFrame
-            DataFrame to load to a CSV
+            DataFrame to load to an HTML file
         f : file or buffer
             File to write the DataFrame to
         push_file : bool, optional

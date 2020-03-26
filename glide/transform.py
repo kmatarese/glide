@@ -47,6 +47,39 @@ class Map(Node):
         self.push(result)
 
 
+class Sort(Node):
+    """Sort data before pushing"""
+
+    def run(self, data, key=None, reverse=False, inplace=False):
+        """Sort data before pushing
+
+        Parameters
+        ----------
+        data
+            The data to sort
+        key : callable, optional
+            Passed to the underlying sort methods
+        reverse : bool, optional
+            Passed to the underlying sort methods
+        inplace : bool, optional
+            If True, try to use list.sort(), otherwise use sorted()
+
+        """
+        if inplace:
+            data.sort(key=key, reverse=reverse)
+        else:
+            data = sorted(data, key=key, reverse=reverse)
+        self.push(data)
+
+
+class Transpose(Node):
+    """Transpose tabular data using zip"""
+
+    def run(self, data):
+        """Transpose tabular data using zip"""
+        self.push(zip(*data))
+
+
 class DictKeyTransform(Node):
     def run(self, data, drop=None, **transforms):
         """Rename/replace keys in an iterable of dicts

@@ -24,6 +24,12 @@ def test_placeholder_node(rootdir):
         glider.consume([infile], extract=dict(chunksize=10, nrows=20), load=dict(f=f))
 
 
+def test_return_value():
+    glider = Glider(Return("load"))
+    val = glider.consume(range(0, 10))
+    assert val == list(range(0, 10))
+
+
 def test_invalid_node_name():
     with pytest.raises(AssertionError):
         glider = Glider(PlaceholderNode("data") | Print("load"))
@@ -170,6 +176,13 @@ def test_sort():
     ]
     glider.consume([l])
     assert l[0]["b"] == 6
+
+
+def test_transpose():
+    glider = Glider(Transpose("transpose") | Return("return"))
+    x = [list(range(0, 3)), list(range(0, 3)), list(range(0, 3))]
+    val = glider.consume([x])
+    assert list(val[0]) == [(0, 0, 0), (1, 1, 1), (2, 2, 2)]
 
 
 def test_assert_node(rootdir):

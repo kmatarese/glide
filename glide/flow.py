@@ -161,31 +161,6 @@ class Join(Node):
         self.push(join(data, on=on, how=how, rsuffixes=rsuffixes))
 
 
-class Sort(Node):
-    """Sort data before pushing"""
-
-    def run(self, data, key=None, reverse=False, inplace=False):
-        """Sort data before pushing
-
-        Parameters
-        ----------
-        data
-            The data to sort
-        key : callable, optional
-            Passed to the underlying sort methods
-        reverse : bool, optional
-            Passed to the underlying sort methods
-        inplace : bool, optional
-            If True, try to use list.sort(), otherwise use sorted()
-
-        """
-        if inplace:
-            data.sort(key=key, reverse=reverse)
-        else:
-            data = sorted(data, key=key, reverse=reverse)
-        self.push(data)
-
-
 class FuturesPush(PushNode):
     """A node that either splits or duplicates its input to pass to multiple
     downstream nodes in parallel according to the executor_class that supports
@@ -282,6 +257,30 @@ class Reduce(Node):
         if results and self.context.get("flatten", False):
             results = flatten(results)
         self.push(results)
+
+
+class Return(Reduce):
+    """Collects upstream data and sets the result in the global state
+
+    Notes
+    -----
+    Because this relies on the pipeline's global_state under the hood it
+    will not work with pipelines that do process branching mid-pipeline
+    such as ProcessPoolPush.
+
+    Parameters
+    ----------
+    flatten : bool, optional
+        Flatten the results into a single list before returning
+
+    """
+
+    def end(self):
+        """Collects upstream data and sets the result in the global state"""
+        results = self.results
+        if results and self.context.get("flatten", False):
+            results = flatten(results)
+        self.set_global_results(results)
 
 
 class WindowReduce(Node):

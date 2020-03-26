@@ -10,6 +10,12 @@ def test_process_pool_paraglider(rootdir):
     glider.consume([infile], synchronous=True, extract=dict(nrows=10))
 
 
+def test_return_value_paraglider():
+    glider = ProcessPoolParaGlider(Return("return"))
+    val = glider.consume([range(0, 5), range(5, 10)], synchronous=True, split_count=2)
+    assert len(val) == 2
+
+
 def test_noinput_process_pool_paraglider():
     # NOTE: this example doesn't make a lot of sense since it uses the same
     # date windows in each process, but shows the ParaGlider has the ability

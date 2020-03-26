@@ -50,12 +50,15 @@ from glide.utils import (
     cancel_asyncio_tasks,
 )
 
+RESULTS_KEY = "__results__"
 SCRIPT_DATA_ARG = "glide_data"
 RESERVED_ARG_NAMES = [SCRIPT_DATA_ARG]
+
 # These are reserved because they are arg names used by consume(). Since node
 # context can be passed to consume() as node_name->arg_dict pairs in consume's
 # kwargs, we prevent nodes from using these names to avoid conflicts.
 RESERVED_NODE_NAMES = set(["data", "cleanup", "split_count", "synchronous", "timeout"])
+
 # A backup timeout when trying to cancel unfinished async tasks
 ASYNCIO_CANCEL_TIMEOUT = 0.1
 
@@ -133,6 +136,9 @@ class Node(ConsecutionNode):
         for k, v in self.__dict__.items():
             setattr(new, k, copy.deepcopy(v, memo))
         return new
+
+    def set_global_results(self, results):
+        self.global_state[RESULTS_KEY] = results
 
     def update_context(self, context):
         """Update the context dict for this Node"""
@@ -793,6 +799,11 @@ def consume(pipeline, data, cleanup=None, **node_contexts):
         reset_node_contexts(pipeline, node_contexts)
 
 
+class GlidePipeline(Pipeline):
+    def end(self):
+        return self.global_state.get(RESULTS_KEY, None)
+
+
 class Glider:
     """Main class for forming and executing pipelines. It thinly wraps
     Consecution's Pipeline, but does not subclass it due to a bug in pickle
@@ -816,7 +827,7 @@ class Glider:
         set_missing_key(
             kwargs, "global_state", GlobalState()
         )  # Ensure our version is default
-        self.pipeline = Pipeline(*args, **kwargs)
+        self.pipeline = GlidePipeline(*args, **kwargs)
         node_lookup = self.get_node_lookup()
         for key in node_lookup:
             raiseif(
@@ -863,7 +874,7 @@ class Glider:
         **node_contexts
             Keyword arguments that are node_name->param_dict
         """
-        consume(self.pipeline, data, cleanup=cleanup, **node_contexts)
+        return consume(self.pipeline, data, cleanup=cleanup, **node_contexts)
 
     def plot(self, *args, **kwargs):
         """Passthrough to Consecution Pipeline.plot"""
