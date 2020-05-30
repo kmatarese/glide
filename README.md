@@ -6,6 +6,7 @@ Glide: Easy ETL
 [![Documentation Status](https://readthedocs.org/projects/glide-etl/badge/?version=latest)](https://glide-etl.readthedocs.io/en/latest/?badge=latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 ![Python 3.6+](https://img.shields.io/badge/python-3.6+-blue.svg)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/glide)
 
 Introduction
 ------------
