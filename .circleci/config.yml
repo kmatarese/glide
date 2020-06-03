@@ -7,12 +7,10 @@ jobs:
       python_version:
         type: string
         default: "3.6"
-    working_directory: /glide
+    working_directory: ~/glide
     docker:
       - image: "circleci/python:<< parameters.python_version >>"
       - image: "circleci/redis:5.0.8"
-    environment:
-      GLIDE_CONFIG_FILE: /glide/tests/test_config.ini
     steps:
       - checkout
       - run:
@@ -21,7 +19,7 @@ jobs:
       - run: pip install glide[complete]
       - run: pip install -r requirements.txt
       # Some tests are skipped for now to simplify configuration
-      - run: pytest -k "not email and not mysql"
+      - run: GLIDE_CONFIG_FILE=$HOME/glide/tests/test_config.ini; pytest -k "not email and not mysql"
 
 workflows:
   main:
