@@ -41,9 +41,3 @@ def sqlite_out_conn():
     conn = get_sqlite_out_conn()
     yield conn
     conn.close()
-
-
-@pytest.fixture
-def copy_sqlite_test_db(rootdir):
-    table, in_db_file, out_db_file = get_db_filenames(rootdir)
-    copyfile(in_db_file, out_db_file)

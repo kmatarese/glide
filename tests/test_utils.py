@@ -77,6 +77,12 @@ def get_db_filenames(rootdir):
     return table, in_db_file, out_db_file
 
 
+def copy_sqlite_test_db():
+    rootdir = get_current_dir()
+    table, in_db_file, out_db_file = get_db_filenames(rootdir)
+    copyfile(in_db_file, out_db_file)
+
+
 def clear_sqlite_table_if_exists(conn, table):
     try:
         conn.execute("delete from %s" % table)

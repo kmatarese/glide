@@ -15,6 +15,10 @@ class NoDataNode(NoInputNode):
         self.push("Test!")
 
 
+# Make sure this exists
+copy_sqlite_test_db()
+
+
 global_in_conn = get_sqlite_in_conn()
 global_out_conn = get_sqlite_out_conn()
 
