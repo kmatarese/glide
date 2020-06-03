@@ -41,26 +41,26 @@ for repo in git_requires:
     non_git_requires.append(repo.split("egg=")[-1])
 
 extras_require = {
-    "swifter": ["swifter>=0.289"],
-    "rq": ["rq>=1.1.0"],
+    "swifter": ["swifter==0.297"],
+    "rq": ["rq==1.2.0"],
     "celery": [
-        "celery[redis]>=4.3",
+        "celery[redis]==4.4.0",
         # Downgrade kombu due to https://github.com/celery/kombu/issues/1063
         "kombu==4.5.0",
     ],
     "dev": [
         "black",
-        "fake-useragent",
+        "fake-useragent==0.1.11",
         "pre-commit",
         "pylint",
-        "pytest",
-        "pytest-redis",
-        "pytest-xprocess",
-        "sphinx",
-        "twine",
+        "pytest==5.3.2",
+        "pytest-redis==2.0.0",
+        "pytest-xprocess==0.12.1",
+        "sphinx==2.3.1",
+        "twine==3.1.1",
         "wheel",
     ],
-    "dask": ["dask[complete]>=2.1.0"],
+    "dask": ["dask[complete]==2.9.1"],
 }
 extras_require["complete"] = sorted(set(sum(extras_require.values(), [])))
 

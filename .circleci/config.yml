@@ -1,0 +1,40 @@
+# Python CircleCI 2.1 configuration file
+version: 2.1
+jobs:
+  test-3.6: &test
+    working_directory: ~/glide
+    docker:
+      - image: python:3.6
+
+    steps:
+      - checkout
+      - run:
+          name: Install
+          command: pip install glide[complete]
+      - run:
+          name: Install
+          command: pip install -r requirements.txt
+      - run:
+          name: Tests
+          command: pytest -k "not email and not mysql and not rq"
+
+  test-3.7:
+    <<: *test
+    docker:
+      - image: python:3.7
+
+  test-3.8:
+    <<: *test
+    docker:
+      - image: python:3.8
+
+workflows:
+  version: 2.1
+  test:
+    jobs:
+      - test-3.6:
+          filters: { tags: { only: /.*/ } }
+      - test-3.7:
+          filters: { tags: { only: /.*/ } }
+      - test-3.8:
+          filters: { tags: { only: /.*/ } }

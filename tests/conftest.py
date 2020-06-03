@@ -45,6 +45,12 @@ def sqlite_out_conn():
     conn.close()
 
 
+@pytest.fixture
+def copy_sqlite_test_db(rootdir):
+    table, in_db_file, out_db_file = get_db_filenames(rootdir)
+    copyfile(in_db_file, out_db_file)
+
+
 redis_server = factories.redis_proc(
     executable=test_config.get("RedisExecutable", "/usr/bin/redis-server"),
     host=test_config["RedisHost"],

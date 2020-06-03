@@ -4,7 +4,9 @@ from .test_utils import *
 from glide import *
 
 
-def test_sql_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
+def test_sql_extract_and_load(
+    rootdir, copy_sqlite_test_db, sqlite_in_conn, sqlite_out_conn
+):
     nodes = SQLExtract("extract") | SQLLoad("load")
     glider, table = sqlite_glider(rootdir, nodes)
     sql = "select * from %s limit 10" % table
@@ -17,7 +19,9 @@ def test_sql_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     sqlite_out_conn.commit()
 
 
-def test_sql_execute_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
+def test_sql_execute_and_load(
+    rootdir, copy_sqlite_test_db, sqlite_in_conn, sqlite_out_conn
+):
     nodes = SQLExecute("extract") | SQLFetch("fetch") | SQLLoad("load")
     glider, table = sqlite_glider(rootdir, nodes)
     sql = "select * from %s limit 10" % table
@@ -30,7 +34,9 @@ def test_sql_execute_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     sqlite_out_conn.commit()
 
 
-def test_sqlite_swap_load(rootdir, sqlite_in_conn, sqlite_out_conn):
+def test_sqlite_swap_load(
+    rootdir, copy_sqlite_test_db, sqlite_in_conn, sqlite_out_conn
+):
     nodes = SQLExtract("extract") | SQLLoad("load")
     glider, table = sqlite_glider(rootdir, nodes)
     sql = "select * from %s where Zip_Code < :zip" % table

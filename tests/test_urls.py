@@ -6,7 +6,7 @@ from glide import *
 
 def test_url_str_extract_text():
     glider = Glider(URLExtract("extract") | JSONLoads("json") | PrettyPrint("load"))
-    reqs = ["https://jsonplaceholder.typicode.com/todos/1"]
+    reqs = ["https://reqres.in/api/unknown/2"]
     glider.consume(
         reqs, extract=dict(data_type="text", headers={"User-Agent": UserAgent().random})
     )
@@ -14,15 +14,12 @@ def test_url_str_extract_text():
 
 def test_url_str_extract_and_load():
     glider = Glider(URLExtract("extract") | URLLoad("load"))
-    reqs = [
-        "https://jsonplaceholder.typicode.com/todos/1",
-        "https://jsonplaceholder.typicode.com/todos/2",
-    ]
+    reqs = ["https://reqres.in/api/users/2", "https://reqres.in/api/users/3"]
     glider.consume(
         reqs,
         extract=dict(data_type="json", headers={"User-Agent": UserAgent().random}),
         load=dict(
-            url="https://jsonplaceholder.typicode.com/todos",
+            url="https://reqres.in/api/users",
             data_param="json",
             headers={"Content-type": "application/json; charset=UTF-8"},
         ),
@@ -32,14 +29,14 @@ def test_url_str_extract_and_load():
 def test_url_dict_extract_and_load():
     glider = Glider(URLExtract("extract") | URLLoad("load"))
     reqs = [
-        dict(method="GET", url="https://jsonplaceholder.typicode.com/todos/1"),
-        dict(method="GET", url="https://jsonplaceholder.typicode.com/todos/2"),
+        dict(method="GET", url="https://reqres.in/api/users/2"),
+        dict(method="GET", url="https://reqres.in/api/users/3"),
     ]
     glider.consume(
         reqs,
         extract=dict(data_type="json", headers={"User-Agent": UserAgent().random}),
         load=dict(
-            url="https://jsonplaceholder.typicode.com/todos",
+            url="https://reqres.in/api/users",
             data_param="json",
             headers={"Content-type": "application/json; charset=UTF-8"},
         ),
