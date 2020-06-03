@@ -7,12 +7,12 @@ jobs:
       python_version:
         type: string
         default: "3.6"
-    working_directory: ~/glide
+    working_directory: /glide
     docker:
       - image: "circleci/python:<< parameters.python_version >>"
       - image: "circleci/redis:5.0.8"
     environment:
-      GLIDE_CONFIG_FILE: ~/glide/tests/test_config.ini
+      GLIDE_CONFIG_FILE: /glide/tests/test_config.ini
     steps:
       - checkout
       - run:
