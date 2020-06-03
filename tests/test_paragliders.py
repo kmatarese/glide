@@ -44,7 +44,7 @@ def test_async_thread_pool_paraglider(rootdir):
     results = glider.get_results(futures)
 
 
-def test_sql_process_pool_paraglider(rootdir):
+def test_mysql_process_pool_paraglider(rootdir):
     in_table, out_table = db_tables()
     sql = "select * from %s where Zip_Code < %%(zip)s" % in_table
 
@@ -57,7 +57,7 @@ def test_sql_process_pool_paraglider(rootdir):
     )
 
 
-def test_sql_thread_pool_paraglider(rootdir):
+def test_mysql_thread_pool_paraglider(rootdir):
     in_table, out_table = db_tables()
     sql = "select * from %s where Zip_Code < %%(zip)s" % in_table
     glider = ThreadPoolParaGlider(

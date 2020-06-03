@@ -8,6 +8,11 @@ try:
     import pymysql
 except ImportError:
     pymysql = None
+try:
+    from redis import Redis
+    from redis.exceptions import ConnectionError
+except:
+    Redis = None
 import sqlalchemy as sa
 from tlbx import st, rmfile
 
@@ -25,6 +30,15 @@ assert "GLIDE_CONFIG_FILE" in os.environ, (
 config = configparser.ConfigParser()
 config.read(os.environ["GLIDE_CONFIG_FILE"])
 test_config = config["TEST"]
+
+
+def redis_running():
+    conn = Redis(socket_connect_timeout=1)
+    try:
+        conn.ping()
+        return True
+    except ConnectionError:
+        return False
 
 
 def lower(s):
@@ -108,6 +122,22 @@ def get_pymysql_conn():
         passwd=password,
         cursorclass=pymysql.cursors.DictCursor,
     )
+    return conn
+
+
+def get_sqlite_in_conn():
+    rootdir = get_current_dir()
+    _, in_db_file, _ = get_db_filenames(rootdir)
+    conn = sqlite3.connect(in_db_file)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def get_sqlite_out_conn():
+    rootdir = get_current_dir()
+    _, _, out_db_file = get_db_filenames(rootdir)
+    conn = sqlite3.connect(out_db_file)
+    conn.row_factory = sqlite3.Row
     return conn
 
 

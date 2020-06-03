@@ -2,12 +2,12 @@ from unittest.mock import patch
 
 import pytest
 
-from .test_utils import get_pymysql_conn, pymysql
+from .test_utils import *
 from glide import *
 from glide.utils import date_window_cli, datetime_window_cli
 
 BASE_ARGV = ["test_script_decorator.py"]
-LOAD_TABLE = "scratch.dma_zip_tmp"
+LOAD_TABLE = "dma_zip"
 
 
 class NoDataNode(NoInputNode):
@@ -15,15 +15,20 @@ class NoDataNode(NoInputNode):
         self.push("Test!")
 
 
-global_conn = get_pymysql_conn()
+global_in_conn = get_sqlite_in_conn()
+global_out_conn = get_sqlite_out_conn()
 
 gs_glider = Glider(
-    SQLExtract("extract") | SQLLoad("load"), global_state=dict(conn=global_conn)
+    SQLExtract("extract") | SQLLoad("load"),
+    global_state=dict(extract_conn=global_in_conn, load_conn=global_out_conn),
 )
 
 rc_glider = Glider(
     SQLExtract("extract") | SQLLoad("load"),
-    global_state=dict(conn=RuntimeContext(get_pymysql_conn)),
+    global_state=dict(
+        extract_conn=RuntimeContext(get_sqlite_in_conn),
+        load_conn=RuntimeContext(get_sqlite_out_conn),
+    ),
 )
 
 glider = Glider(SQLExtract("extract") | SQLLoad("load"))
@@ -32,7 +37,7 @@ no_data_glider = Glider(NoDataNode("extract") | Print("load"))
 
 
 def get_data():
-    return ["select * from scratch.dma_zip limit 10"]
+    return ["select * from dma_zip limit 10"]
 
 
 def get_data_str():
@@ -50,10 +55,6 @@ def get_argv(*args, data=True):
 
 def get_load_table():
     return ["--load_table", LOAD_TABLE]
-
-
-def get_conn():
-    conn = get_pymysql_conn()
 
 
 @gs_glider.cli()
@@ -151,12 +152,22 @@ def test_no_commit():
         _test_no_commit()
     # This commit is necessary to prevent some other tests that reuse this
     # conn from hanging.
-    global_conn.commit()
+    global_out_conn.commit()
 
 
-@glider.cli(inject=dict(glide_data=get_data, conn=RuntimeContext(get_pymysql_conn)))
-def _test_injected_args(glide_data, conn, node_contexts):
-    glider.consume(glide_data, cleanup=dict(conn=lambda x: x.close()), **node_contexts)
+@glider.cli(
+    inject=dict(
+        glide_data=get_data,
+        extract_conn=RuntimeContext(get_sqlite_in_conn),
+        load_conn=RuntimeContext(get_sqlite_out_conn),
+    )
+)
+def _test_injected_args(glide_data, node_contexts):
+    glider.consume(
+        glide_data,
+        cleanup=dict(extract_conn=lambda x: x.close(), load_conn=lambda x: x.close()),
+        **node_contexts
+    )
 
 
 def test_injected_args():
@@ -167,11 +178,9 @@ def test_injected_args():
 @glider.cli(
     inject=dict(
         glide_data=get_data,
-        extract_conn=get_pymysql_conn,
-        load_conn=get_pymysql_conn,
-        cursor_type=pymysql.cursors.DictCursor,
-    ),
-    cleanup=dict(extract_conn=lambda x: x.close(), load_conn=lambda x: x.close()),
+        extract_conn=get_sqlite_in_conn,
+        load_conn=get_sqlite_out_conn,
+    )
 )
 def _test_injected_args_with_node_prefix(glide_data, node_contexts, **kwargs):
     glider.consume(glide_data, **node_contexts)

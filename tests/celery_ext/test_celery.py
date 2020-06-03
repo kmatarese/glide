@@ -1,5 +1,6 @@
 from celery.contrib.testing import worker
 import pytest
+from pytest_redis import factories
 from tlbx import st
 
 from .app import (
@@ -12,7 +13,20 @@ from .app import (
 )
 from glide import *
 from glide.extensions.celery import *
+from ..conftest import noop_fixture
 from ..test_utils import *
+
+
+# Hack: allows tests to run in CI environment too
+if redis_running():
+    print("External Redis server detected")
+    redis_server = noop_fixture
+else:
+    redis_server = factories.redis_proc(
+        executable=test_config.get("RedisExecutable", "/usr/bin/redis-server"),
+        host=test_config.get("RedisHost", "localhost"),
+        port=test_config.get("RedisPort", 6379),
+    )
 
 
 @pytest.fixture(scope="session")
@@ -143,7 +157,7 @@ def test_celery_paraglider_csv(redis_server, celery_worker, rootdir):
         result = get_async_result(async_result)
 
 
-def test_celery_glider_sql(redis_server, celery_worker, rootdir):
+def test_celery_glider_mysql(redis_server, celery_worker, rootdir):
     in_table, out_table = db_tables()
     sql = "select * from %s where Zip_Code < %%(zip)s" % in_table
 

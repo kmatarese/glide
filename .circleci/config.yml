@@ -9,12 +9,19 @@ jobs:
         default: "3.6"
     working_directory: ~/glide
     docker:
-      - image: "python:<< parameters.python_version >>"
+      - image: "circleci/python:<< parameters.python_version >>"
+      - image: "circleci/redis:5.0.8"
+    environment:
+      GLIDE_CONFIG_FILE: ~/glide/tests/test_config.ini
     steps:
       - checkout
+      - run:
+          name: Wait for Redis
+          command: dockerize -wait tcp://localhost:6379 -timeout 1m
       - run: pip install glide[complete]
       - run: pip install -r requirements.txt
-      - run: pytest -k "not email and not mysql and not rq"
+      # Some tests are skipped for now to simplify configuration
+      - run: pytest -k "not email and not mysql"
 
 workflows:
   main:

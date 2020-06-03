@@ -1219,6 +1219,8 @@ class GliderScript(Script):
         if self.blacklisted(node.name, arg_name):
             return None
 
+        dest_arg_name = self._get_script_arg_name(node.name, arg_name)
+
         if arg_name in self.inject:
             required = False
             default = None
@@ -1228,6 +1230,9 @@ class GliderScript(Script):
         elif arg_name in self.glider.global_state:
             required = False
             default = self.glider.global_state[arg_name]
+        elif dest_arg_name in self.glider.global_state:
+            required = False
+            default = self.glider.global_state[dest_arg_name]
 
         arg_type = str
         if default is not None:

@@ -2,7 +2,7 @@ from .test_utils import *
 from glide import *
 
 
-def test_sql2sql(rootdir, pymysql_conn):
+def test_mysql2mysql(rootdir, pymysql_conn):
     glider = SQL2SQL()
     in_table, out_table, cursor = dbapi_setup(rootdir, pymysql_conn, truncate=True)
     sql = "select * from %s limit 10" % in_table

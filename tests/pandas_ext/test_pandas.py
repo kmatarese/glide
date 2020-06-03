@@ -165,7 +165,7 @@ def test_dataframe_sqlite_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_c
 #     )
 
 
-def test_dataframe_sqlalchemy_temp_load(rootdir, sqlalchemy_conn):
+def test_dataframe_sqlalchemy_mysql_temp_load(rootdir, sqlalchemy_conn):
     in_table, out_table = sqlalchemy_setup(rootdir, sqlalchemy_conn)
     sql = "select * from %s limit 10" % in_table
     glider = Glider(
@@ -178,7 +178,7 @@ def test_dataframe_sqlalchemy_temp_load(rootdir, sqlalchemy_conn):
     )
 
 
-def test_dataframe_sqlalchemy_extract_and_load(rootdir, sqlalchemy_conn):
+def test_dataframe_sqlalchemy_mysql_extract_and_load(rootdir, sqlalchemy_conn):
     in_table, out_table = sqlalchemy_setup(rootdir, sqlalchemy_conn, truncate=True)
     sql = "select * from %s limit 100" % in_table
     glider = Glider(
@@ -192,7 +192,7 @@ def test_dataframe_sqlalchemy_extract_and_load(rootdir, sqlalchemy_conn):
     )
 
 
-def test_dataframe_sqlalchemy_table_extract(rootdir, sqlalchemy_conn):
+def test_dataframe_sqlalchemy_mysql_table_extract(rootdir, sqlalchemy_conn):
     in_table, _ = sqlalchemy_setup(rootdir, sqlalchemy_conn)
     glider = Glider(DataFrameSQLTableExtract("extract", limit=100) | Print("load"))
     glider.consume([in_table], extract=dict(conn=sqlalchemy_conn))

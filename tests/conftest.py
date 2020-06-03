@@ -1,7 +1,11 @@
 import pytest
-from pytest_redis import factories
 
 from .test_utils import *
+
+
+@pytest.fixture
+def noop_fixture():
+    pass
 
 
 @pytest.fixture
@@ -27,20 +31,14 @@ def pymysql_conn():
 
 @pytest.fixture
 def sqlite_in_conn():
-    rootdir = get_current_dir()
-    _, in_db_file, _ = get_db_filenames(rootdir)
-    conn = sqlite3.connect(in_db_file)
-    conn.row_factory = sqlite3.Row
+    conn = get_sqlite_in_conn()
     yield conn
     conn.close()
 
 
 @pytest.fixture
 def sqlite_out_conn():
-    rootdir = get_current_dir()
-    _, _, out_db_file = get_db_filenames(rootdir)
-    conn = sqlite3.connect(out_db_file)
-    conn.row_factory = sqlite3.Row
+    conn = get_sqlite_out_conn()
     yield conn
     conn.close()
 
@@ -49,10 +47,3 @@ def sqlite_out_conn():
 def copy_sqlite_test_db(rootdir):
     table, in_db_file, out_db_file = get_db_filenames(rootdir)
     copyfile(in_db_file, out_db_file)
-
-
-redis_server = factories.redis_proc(
-    executable=test_config.get("RedisExecutable", "/usr/bin/redis-server"),
-    host=test_config["RedisHost"],
-    port=test_config["RedisPort"],
-)

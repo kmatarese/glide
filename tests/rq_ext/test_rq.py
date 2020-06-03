@@ -1,12 +1,27 @@
 import pytest
+from pytest_redis import factories
 from redis import Redis
+from redis.exceptions import ConnectionError
 from rq import Queue
 from tlbx import st
 from xprocess import ProcessStarter
 
 from glide import *
 from glide.extensions.rq import *
+from ..conftest import noop_fixture
 from ..test_utils import *
+
+
+# Hack: allows tests to run in CI environment too
+if redis_running():
+    print("External Redis server detected")
+    redis_server = noop_fixture
+else:
+    redis_server = factories.redis_proc(
+        executable=test_config.get("RedisExecutable", "/usr/bin/redis-server"),
+        host=test_config.get("RedisHost", "localhost"),
+        port=test_config.get("RedisPort", 6379),
+    )
 
 
 @pytest.fixture(scope="session")

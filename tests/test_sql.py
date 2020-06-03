@@ -67,7 +67,7 @@ def test_pymysql_swap_load(rootdir, pymysql_conn):
     )
 
 
-def test_sqlalchemy_swap_load(rootdir, sqlalchemy_conn):
+def test_sqlalchemy_mysql_swap_load(rootdir, sqlalchemy_conn):
     in_table, out_table = sqlalchemy_setup(rootdir, sqlalchemy_conn, truncate=True)
     sql = "select * from %s where Zip_Code < %%(zip)s" % in_table
     glider = Glider(SQLExtract("extract") | SQLLoad("load"))
@@ -113,7 +113,7 @@ def test_sql_pymysql_tx_rollback(rootdir, pymysql_conn):
         )
 
 
-def test_sqlalchemy_tx_rollback(rootdir, sqlalchemy_conn):
+def test_sqlalchemy_mysql_tx_rollback(rootdir, sqlalchemy_conn):
     in_table, out_table = sqlalchemy_setup(rootdir, sqlalchemy_conn, truncate=True)
     sql = "select * from %s where Zip_Code < %%(zip)s" % in_table
     glider = Glider(SQLExtract("extract") | SQLTransaction("tx") | SQLLoad("load"))
@@ -214,7 +214,7 @@ def test_pymysql_extract_and_load(rootdir, pymysql_conn):
     )
 
 
-def test_sqlalchemy_extract_and_load(rootdir, sqlalchemy_conn):
+def test_sqlalchemy_mysql_extract_and_load(rootdir, sqlalchemy_conn):
     in_table, out_table = sqlalchemy_setup(rootdir, sqlalchemy_conn, truncate=True)
     sql = "select * from %s where Zip_Code < %%(zip)s" % in_table
     glider = Glider(SQLExtract("extract") | SQLLoad("load"))
@@ -225,7 +225,7 @@ def test_sqlalchemy_extract_and_load(rootdir, sqlalchemy_conn):
     )
 
 
-def test_sqlalchemy_query_object(rootdir, sqlalchemy_conn):
+def test_sqlalchemy_mysql_query_object(rootdir, sqlalchemy_conn):
     in_table, out_table = sqlalchemy_setup(
         rootdir, sqlalchemy_conn, truncate=True, sa_objects=True
     )
@@ -246,7 +246,7 @@ def test_pymysql_table_extract(rootdir, pymysql_conn):
     glider.consume([in_table], extract=dict(conn=pymysql_conn, cursor=cursor))
 
 
-def test_sqlalchemy_table_extract(rootdir, sqlalchemy_conn):
+def test_sqlalchemy_mysql_table_extract(rootdir, sqlalchemy_conn):
     in_table, _ = sqlalchemy_setup(rootdir, sqlalchemy_conn)
     glider = Glider(
         SQLTableExtract("extract", limit=10)
