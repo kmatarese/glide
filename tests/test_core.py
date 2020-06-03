@@ -528,7 +528,7 @@ def test_context_push_node(rootdir):
 
 def test_config_context_json(rootdir):
     nodes = CSVExtract(
-        "extract", nrows=ConfigContext("config_context.json", key="nrows")
+        "extract", nrows=ConfigContext(rootdir + "/config_context.json", key="nrows")
     ) | LenPrint("print")
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     glider.consume([infile])
@@ -536,7 +536,7 @@ def test_config_context_json(rootdir):
 
 def test_config_context_yaml(rootdir):
     nodes = CSVExtract(
-        "extract", nrows=ConfigContext("config_context.yaml", key="nrows")
+        "extract", nrows=ConfigContext(rootdir + "/config_context.yaml", key="nrows")
     ) | LenPrint("print")
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
     glider.consume([infile])
@@ -546,7 +546,7 @@ def test_config_context_ini(rootdir):
     nodes = CSVExtract(
         "extract",
         nrows=ConfigContext(
-            "config_context.ini", key=lambda x: int(x["TEST"]["nrows"])
+            rootdir + "/config_context.ini", key=lambda x: int(x["TEST"]["nrows"])
         ),
     ) | LenPrint("print")
     glider, infile, outfile = file_glider(rootdir, "csv", nodes)
