@@ -139,8 +139,12 @@ def test_dataframe_thread_pool_lowercase(rootdir):
 def test_dataframe_sqlite_extract_and_load(rootdir, sqlite_in_conn, sqlite_out_conn):
     nodes = DataFrameSQLExtract("extract") | DataFrameSQLLoad("load")
     glider, table = sqlite_glider(rootdir, nodes)
-    sqlite_out_conn.execute("delete from %s" % table)
-    sqlite_out_conn.commit()
+    try:
+        sqlite_out_conn.execute("delete from %s" % table)
+        sqlite_out_conn.commit()
+    except Exception as e:
+        if "no such table" not in str(e):
+            raise
     sql = "select * from %s where Zip_Code < :zip" % table
     glider.consume(
         [sql],
