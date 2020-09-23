@@ -17,6 +17,7 @@ if redis_running():
     print("External Redis server detected")
     redis_server = noop_fixture
 else:
+    print("Starting Redis server")
     redis_server = factories.redis_proc(
         executable=test_config.get("RedisExecutable", "/usr/bin/redis-server"),
         host=test_config.get("RedisHost", "localhost"),
@@ -28,9 +29,10 @@ else:
 def rq_worker(xprocess):
     class Starter(ProcessStarter):
         pattern = "Listening on"
-        args = ["rq", "worker"]
+        args = ["rq", "worker", "--with-scheduler"]
 
     name = "rq_worker"
+    print("Ensuring RQ worker...")
     logfile = xprocess.ensure(name, Starter)
     yield
     print("Stopping RQ worker.")
@@ -39,8 +41,8 @@ def rq_worker(xprocess):
 
 def test_rq_job_node(redis_server, rq_worker, rootdir):
     nodes = (
-        CSVExtract("extract", nrows=20)
-        | RQJob("apply", func=lower_rows, push_type="result")
+        CSVExtract("extract", nrows=20, _log=True)
+        | RQJob("apply", func=lower_rows, push_type="result", timeout=5)
         | Print("load")
     )
     infile, _ = get_filenames(rootdir, "csv")

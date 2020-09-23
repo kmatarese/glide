@@ -59,9 +59,9 @@ def get_async_results(async_results, timeout=None):
     return [job.result for job in async_results]
 
 
-def get_async_result(async_result):
+def get_async_result(async_result, timeout=None):
     """Poll for a result"""
-    results = get_async_results([async_result])
+    results = get_async_results([async_result], timeout=timeout)
     return results[0]
 
 
@@ -183,6 +183,7 @@ class RQJob(Node):
         redis_conn=None,
         push_type=PushTypes.Async,
         poll_sleep=POLL_SLEEP,
+        timeout=None,
         **kwargs
     ):
         """Execute func on data using Redis Queue
@@ -205,6 +206,9 @@ class RQJob(Node):
             If "result", collect the task result synchronously and push it.
         poll_sleep : int or float, optional
             If waiting for the result, sleep this many seconds between polls
+        timeout : int or float, optional
+            If waiting for result, raise an exception if polling for all
+            results takes longer than timeout seconds.
         **kwargs
             Keyword arguments to pass to enqueue()
 
@@ -222,7 +226,7 @@ class RQJob(Node):
         elif push_type == PushTypes.Input:
             self.push(data)
         elif push_type == PushTypes.Result:
-            self.push(get_async_result(job))
+            self.push(get_async_result(job, timeout=timeout))
         else:
             raise AssertionError("Invalid push_type: %s" % push_type)
 

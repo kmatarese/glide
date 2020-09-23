@@ -33,6 +33,7 @@ test_config = config["TEST"]
 
 
 def redis_running():
+    print("Checking for running Redis server")
     conn = Redis(socket_connect_timeout=1)
     try:
         conn.ping()
