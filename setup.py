@@ -51,6 +51,8 @@ extras_require = {
     "dev": [
         "black",
         "fake-useragent~=0.1.11",
+        "m2r~=0.2.1",
+        "numpydoc~=0.9.2",
         "pre-commit",
         "pylint",
         "pytest~=5.3.2",
@@ -60,7 +62,7 @@ extras_require = {
         "twine~=3.1.1",
         "wheel",
     ],
-    "dask": ["dask[complete]~=2.10.0"],
+    "dask": ["dask[complete]~=2020.12.0", "distributed==2020.12.0"],
 }
 extras_require["complete"] = sorted(set(sum(extras_require.values(), [])))
 

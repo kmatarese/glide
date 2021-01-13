@@ -17,7 +17,11 @@ from consecution import (
     GlobalState as ConsecutionGlobalState,
     Node as ConsecutionNode,
 )
-from numpydoc.docscrape import FunctionDoc
+
+try:
+    from numpydoc.docscrape import FunctionDoc
+except ImportError:
+    FunctionDoc = None
 from tlbx import (
     st,
     repr,
@@ -1295,13 +1299,16 @@ class GliderScript(Script):
             node_arg_names[arg_name].add(script_arg.name)
 
         for node in node_lookup.values():
-            try:
-                # Only works if run() has docs in numpydoc format
-                docs = FunctionDoc(node.run)
-                node_help = {v.name: "\n".join(v.desc) for v in docs["Parameters"]}
-            except Exception as e:
-                info("failed to parse node '%s' run() docs: %s" % (node.name, str(e)))
-                node_help = {}
+            node_help = {}
+            if FunctionDoc:
+                try:
+                    # Only works if run() has docs in numpydoc format
+                    docs = FunctionDoc(node.run)
+                    node_help = {v.name: "\n".join(v.desc) for v in docs["Parameters"]}
+                except Exception as e:
+                    info(
+                        "failed to parse node '%s' run() docs: %s" % (node.name, str(e))
+                    )
 
             for arg_name, _ in node.run_args.items():
                 add_script_arg(
