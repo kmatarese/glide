@@ -85,7 +85,7 @@ Table of Contents
 Installation
 ------------
 
-> ⚠️ **Warning**: This project is in an alpha state. Please test carefully for production usage and report any issues.
+> ⚠️ **Warning**: This project is in an alpha state and is maintained on an as-needed basis. Please test carefully for production usage and report any issues.
 
 ```shell
 $ pip install glide
