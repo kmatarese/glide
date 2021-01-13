@@ -71,7 +71,7 @@ def linkcode_resolve(domain, info):
 # -- Project information -----------------------------------------------------
 
 project = "Glide"
-copyright = "2019, Kurt Matarese"
+copyright = "2021 to Present, Kurt Matarese"
 author = "Kurt Matarese"
 
 version = glide.__version__
