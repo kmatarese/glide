@@ -41,7 +41,6 @@ for repo in git_requires:
     non_git_requires.append(repo.split("egg=")[-1])
 
 extras_require = {
-    "swifter": ["swifter~=1.0.6"],
     "rq": ["rq~=1.5.0"],
     "celery": [
         "celery[redis]==4.4.0",

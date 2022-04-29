@@ -17,7 +17,11 @@ import types
 
 import numpy as np
 import pandas as pd
-from pandas.io.common import get_filepath_or_buffer
+
+try:
+    from pandas.io.common import _get_filepath_or_buffer as get_filepath_or_buffer
+except ImportError:
+    from pandas.io.common import get_filepath_or_buffer
 
 try:
     from pandas.io.common import _get_handle as get_handle
@@ -255,6 +259,8 @@ def _process_date_action_dest(dest, values, end_date):
         start_date = today - datetime.timedelta(days=values)
     elif dest == "hours_back":
         start_date = now - datetime.timedelta(hours=values)
+    elif dest == "minutes_back":
+        start_date = now - datetime.timedelta(minutes=values)
     elif dest == "date_range":
         if len(values) == 1:
             start_date = date_from_str(values[0])
@@ -352,9 +358,15 @@ class DateWindowAction(argparse.Action):
 )
 @Arg(
     "--hours-back",
-    type=int,
+    type=float,
     action=DateTimeWindowAction,
     help="Use date range starting N hours back",
+)
+@Arg(
+    "--minutes-back",
+    type=float,
+    action=DateTimeWindowAction,
+    help="Use date range starting N minutes back",
 )
 @Arg(
     "--date-range",
@@ -592,13 +604,26 @@ def open_filepath_or_buffer(f, open_flags="r", compression=None, is_text=True):
         A flag indicating whether the caller should close the file object when done
 
     """
-    f, _, compression, should_close = get_filepath_or_buffer(f, compression=compression)
+    res = get_filepath_or_buffer(f, compression=compression)
+    # HACK: handle multiple pandas versions
+    try:
+        f, _, compression, should_close = res
+    except TypeError:
+        f = res.filepath_or_buffer
+        compression = res.compression
+        should_close = res.should_close
 
     close = False or should_close
     if isinstance(f, str):
         close = True
 
-    f, handles = get_handle(f, open_flags, compression=compression, is_text=is_text)
+    res = get_handle(f, open_flags, compression=compression, is_text=is_text)
+    # HACK: handle multiple pandas versions
+    try:
+        f, handles = res
+    except TypeError:
+        f = res.handle
+        handles = res.created_handles
 
     # TODO: review behavior when handles has multiple files
     return f, handles, close

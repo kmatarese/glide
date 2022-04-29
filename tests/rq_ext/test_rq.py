@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from pytest_redis import factories
 from redis import Redis
@@ -23,6 +25,7 @@ else:
         host=test_config.get("RedisHost", "localhost"),
         port=test_config.get("RedisPort", 6379),
     )
+    time.sleep(0.5)
 
 
 @pytest.fixture(scope="session")
