@@ -8,6 +8,16 @@ Glide: Easy ETL
 ![Python 3.6+](https://img.shields.io/badge/python-3.6+-blue.svg)
 [![Downloads](https://pepy.tech/badge/glide)](https://pepy.tech/project/glide)
 
+
+Update 2022-08-12
+------------
+
+Given my lack of bandwidth for this project and the presence of a number of great alternatives popping up in recent years, I currently recommend against using Glide in long term / production scenarios. 
+
+Check out [pypeln](https://github.com/cgarciae/pypeln/) for an alternative that is more
+focused on flow & parallelization features that are useful in Glide.
+
+
 Introduction
 ------------
 
