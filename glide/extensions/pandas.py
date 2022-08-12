@@ -357,7 +357,7 @@ class DataFrameSQLTempLoad(PandasSQLNode):
             "sqlite3 connections not supported due to bug in Pandas' has_table()",
         )
 
-        table = get_temp_table(conn, df, schema=schema, create=True)
+        table = get_temp_table(conn, df, schema=schema)
         if dry_run:
             warn("dry_run=True, skipping load in %s.run" % self.__class__.__name__)
         else:

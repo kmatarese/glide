@@ -101,12 +101,17 @@ class BaseSQLNode(SkipFalseNode):
         cursor.execute("BEGIN")
         return conn
 
-    def commit(self, obj):
-        """Commit any currently active transactions"""
-
-        if hasattr(obj, "commit"):
-            obj.commit()
-        elif is_sqlalchemy_conn(obj):
+    def _exec_sqlalchemy_if_tx(self, obj, func, raise_no_tx=False):
+        if hasattr(obj, "get_transaction"):
+            tx = obj.get_transaction()
+            if tx:
+                getattr(tx, func)()
+            elif raise_no_tx:
+                raise AssertionError(
+                    "Expected sqlalchemy conn to be in a transaction for %s" % func
+                )
+        else:
+            # SQLAlchemy < 1.4
             # Hack: I don't want to have to pass around the transaction
             # between nodes since that requirement is really specific to
             # SQLAlchemy, and SQLAlchemy doesn't seem to provide a standard
@@ -117,11 +122,19 @@ class BaseSQLNode(SkipFalseNode):
                 "Could not find transaction attribute on SQLAlchemy object: %s" % obj,
             )
             if getattr(obj, "_Connection__transaction", None):
-                obj._Connection__transaction.commit()
-            else:
-                # SQLAlchemy connections autocommit by default, so we assume
-                # that happened.
-                pass
+                getattr(obj._Connection__transaction, func)()
+            elif raise_no_tx:
+                raise AssertionError(
+                    "Expected sqlalchemy conn to be in a transaction for %s" % func
+                )
+
+    def commit(self, obj):
+        """Commit any currently active transactions"""
+
+        if hasattr(obj, "commit"):
+            obj.commit()
+        elif is_sqlalchemy_conn(obj):
+            self._exec_sqlalchemy_if_tx(obj, "commit")
         else:
             raise AssertionError(
                 "Could not determine how to commit with object: %s" % obj
@@ -134,19 +147,7 @@ class BaseSQLNode(SkipFalseNode):
         if hasattr(obj, "rollback"):
             obj.rollback()
         elif is_sqlalchemy_conn(obj):
-            # See note above about this hack
-            raiseifnot(
-                hasattr(obj, "_Connection__transaction"),
-                "Could not find transaction attribute on SQLAlchemy object: %s" % obj,
-            )
-            if getattr(obj, "_Connection__transaction", None):
-                obj._Connection__transaction.rollback()
-            else:
-                raise AssertionError(
-                    "Trying to rollback a transaction but the SQLAlchemy "
-                    "conn was not in a transaction. It may have "
-                    "autocommitted."
-                )
+            self._exec_sqlalchemy_if_tx(obj, "rollback")
         else:
             raise AssertionError(
                 "Could not determine how to rollback with object: %s" % obj
