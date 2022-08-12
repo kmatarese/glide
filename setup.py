@@ -59,6 +59,7 @@ extras_require = {
         "pytest-xprocess~=0.13.1",
         "sphinx~=2.3.1",
         "twine~=3.1.1",
+        "jinja2<3.1",
         "wheel",
     ],
     "dask": ["dask[complete]~=2020.12.0", "distributed==2020.12.0"],
